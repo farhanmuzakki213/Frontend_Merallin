@@ -56,11 +56,11 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const CircleAvatar(
             radius: 25,
-            backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=hera'),
+            backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=56'),
           ),
           const SizedBox(width: 12),
           const Text(
-            'Hello, Hera',
+            'Hello, User',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Spacer(),
