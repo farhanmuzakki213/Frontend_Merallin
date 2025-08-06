@@ -1,13 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
 enum AuthStatus {
-  uninitialized, // Status awal, saat aplikasi baru dibuka
-  authenticated, // Pengguna berhasil login dan punya token
-  authenticating, // Sedang dalam proses login/register
-  unauthenticated, // Pengguna belum login atau token tidak valid
+  uninitialized,
+  authenticated,
+  authenticating,
+  unauthenticated,
 }
 
 class AuthProvider extends ChangeNotifier {
@@ -17,60 +19,53 @@ class AuthProvider extends ChangeNotifier {
   User? _user;
   String? _token;
   String? _errorMessage;
-  // 2. Ganti _isLoading dengan _authStatus
   AuthStatus _authStatus = AuthStatus.uninitialized;
 
-  // Getter untuk UI
   User? get user => _user;
   String? get token => _token;
   String? get errorMessage => _errorMessage;
   AuthStatus get authStatus => _authStatus;
 
   AuthProvider() {
-    // 3. Panggil tryAutoLogin dari konstruktor
     tryAutoLogin();
   }
 
   Future<void> tryAutoLogin() async {
-    // Saat aplikasi mulai, statusnya adalah sedang mengautentikasi
-    _authStatus = AuthStatus.authenticating;
-    notifyListeners();
-
     final storedToken = _authBox.get('token');
+    final storedUser = _authBox.get('user');
 
-    if (storedToken == null) {
+    if (storedToken == null || storedUser == null) {
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
       return;
     }
 
-    // Di sini Anda bisa menambahkan validasi token ke server jika perlu
-    // Untuk saat ini, kita anggap token yang ada sudah valid.
     _token = storedToken;
+    _user = User.fromJson(json.decode(storedUser));
     _authStatus = AuthStatus.authenticated;
     notifyListeners();
   }
 
   Future<String?> login(String email, String password) async {
     _authStatus = AuthStatus.authenticating;
-    _errorMessage = null;
     notifyListeners();
 
     try {
       final result = await _authService.login(email, password);
       _user = result['user'];
       _token = result['token'];
+      
       await _authBox.put('token', _token);
+      await _authBox.put('user', json.encode(_user!.toJson()));
 
       _authStatus = AuthStatus.authenticated;
       notifyListeners();
       return null;
     } catch (e) {
-      final errorMessage = e.toString().replaceFirst('Exception: ', '');
-      _errorMessage = errorMessage;
+      _errorMessage = e.toString();
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
-      return errorMessage;
+      return _errorMessage;
     }
   }
 
@@ -79,11 +74,10 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     required String passwordConfirmation,
-    required String phone, // Tambahkan ini
-    required String address, // Tambahkan ini
+    required String phone,
+    required String address,
   }) async {
     _authStatus = AuthStatus.authenticating;
-    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -92,16 +86,42 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
         passwordConfirmation: passwordConfirmation,
-        phone: phone, // Tambahkan ini
-        address: address, // Tambahkan ini
+        phone: phone,
+        address: address,
       );
-      // Setelah register, arahkan ke unauthenticated (halaman login)
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = e.toString();
       _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> registerFace(File image) async {
+    if (_token == null) {
+      _errorMessage = "Sesi tidak valid.";
+      return false;
+    }
+    
+    _authStatus = AuthStatus.authenticating;
+    notifyListeners();
+
+    try {
+      await _authService.registerFace(image, _token!);
+      // Setelah berhasil, kita perlu login ulang untuk mendapatkan data user terbaru
+      await login(_user!.email, _authBox.get('temp_password_for_relogin')); 
+      // Anda perlu menyimpan password sementara saat login pertama kali, 
+      // atau membuat endpoint baru di backend untuk get user profile.
+      // Untuk simplisitas, kita anggap login ulang adalah solusinya.
+      // Namun, cara terbaik adalah membuat endpoint GET /api/user
+      
+      // Asumsi login ulang berhasil dan user object terupdate
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
       notifyListeners();
       return false;
     }
@@ -110,7 +130,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     _user = null;
     _token = null;
-    await _authBox.delete('token');
+    await _authBox.clear();
     _authStatus = AuthStatus.unauthenticated;
     notifyListeners();
   }

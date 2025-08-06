@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:frontend_merallin/homeScreen.dart';
 import 'package:frontend_merallin/login_screen.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/providers/attendance_provider.dart';
+// import 'package:frontend_merallin/face_registration_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -24,11 +26,14 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      // AuthProvider akan langsung dipanggil di sini
-      create: (context) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => AuthProvider()),
+        ChangeNotifierProvider(create: (context) => AttendanceProvider()),
+      ],
       child: MaterialApp(
         title: 'Absensi App',
         theme: ThemeData(
@@ -36,7 +41,6 @@ class MyApp extends StatelessWidget {
           fontFamily: 'Poppins',
         ),
         debugShowCheckedModeBanner: false,
-        // Ganti home dengan Consumer yang akan menjadi gerbang utama
         home: const AuthGate(),
       ),
     );
@@ -53,14 +57,12 @@ class AuthGate extends StatelessWidget {
       builder: (context, authProvider, child) {
         switch (authProvider.authStatus) {
           case AuthStatus.uninitialized:
-            // Loading awal saat buka aplikasi tetap di sini
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
           case AuthStatus.authenticated:
+            // Cek apakah wajah sudah terdaftar
+            // if (authProvider.user?.azurePersonId == null) {
+            //   return const FaceRegistrationScreen();
+            // }
             return const HomeScreen();
           case AuthStatus.authenticating:
           case AuthStatus.unauthenticated:

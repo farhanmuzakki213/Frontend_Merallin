@@ -1,4 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/providers/attendance_provider.dart';
+import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:frontend_merallin/services/permission_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -9,25 +16,130 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  final PermissionService _permissionService = PermissionService(); 
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 3) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Logout'),
+            content: const Text('Apakah Anda yakin ingin keluar?'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Batal'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              TextButton(
+                child:
+                    const Text('Logout', style: TextStyle(color: Colors.red)),
+                onPressed: () {
+                  Provider.of<AuthProvider>(context, listen: false).logout();
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
+  }
+
+  Future<void> _startAttendance() async {
+    // --- PERBAIKAN: Minta izin terlebih dahulu ---
+    final bool permissionsGranted = await _permissionService.requestAttendancePermissions();
+    if (!permissionsGranted && mounted) {
+      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
+      return;
+    }
+    // ---------------------------------------------
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final attendanceProvider =
+        Provider.of<AttendanceProvider>(context, listen: false);
+
+    if (authProvider.token == null) {
+      showErrorSnackBar(context, "Sesi tidak valid, silakan login ulang.");
+      return;
+    }
+
+    final XFile? imageFile = await ImagePicker().pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
+    );
+
+    if (imageFile == null) return;
+
+    await attendanceProvider.clockIn(File(imageFile.path), authProvider.token!);
+
+    if (mounted) {
+      final status = attendanceProvider.status;
+      final message = attendanceProvider.message ?? "Terjadi kesalahan";
+      if (status == AttendanceStatus.success) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      } else if (status == AttendanceStatus.error) {
+        showErrorSnackBar(context, message);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final attendanceStatus = context.watch<AttendanceProvider>().status;
+    final user = context.watch<AuthProvider>().user;
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             children: [
-              _buildHeader(),
+              _buildHeader(user?.name ?? 'User'),
               _buildTimeCard(),
               _buildMenuGrid(),
               const SizedBox(height: 20),
-              _buildAttendanceButton(),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[700],
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    disabledBackgroundColor: Colors.blue[300],
+                  ),
+                  onPressed: attendanceStatus == AttendanceStatus.processing
+                      ? null
+                      : _startAttendance,
+                  child: attendanceStatus == AttendanceStatus.processing
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 3),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.face_retouching_natural,
+                                color: Colors.white),
+                            SizedBox(width: 8),
+                            Text('Attendance Using Face ID',
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 16)),
+                          ],
+                        ),
+                ),
+              ),
             ],
           ),
         ),
@@ -49,7 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String userName) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: Row(
@@ -59,9 +171,9 @@ class _HomeScreenState extends State<HomeScreen> {
             backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=56'),
           ),
           const SizedBox(width: 12),
-          const Text(
-            'Hello, User',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            'Hello, $userName',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Spacer(),
           IconButton(
@@ -91,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(height: 4),
           Text(
-            'Sabtu, 2 Maret 2024',
+            'Rabu, 6 Agustus 2025',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           SizedBox(height: 20),
@@ -112,7 +224,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // PERUBAHAN: Menggunakan widget baru `AnimatedMenuItem`
   Widget _buildMenuGrid() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -141,33 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  Widget _buildAttendanceButton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue[700],
-          minimumSize: const Size(double.infinity, 50),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        onPressed: () {},
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.face_retouching_natural, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Attendance Using Face ID',
-                style: TextStyle(color: Colors.white, fontSize: 16)),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// WIDGET BARU: Widget untuk item menu dengan animasi
 class AnimatedMenuItem extends StatefulWidget {
   final IconData icon;
   final String label;
@@ -187,27 +273,20 @@ class AnimatedMenuItem extends StatefulWidget {
 class _AnimatedMenuItemState extends State<AnimatedMenuItem> {
   bool _isPressed = false;
 
-  void _onTapDown(TapDownDetails details) {
-    setState(() => _isPressed = true);
-  }
-
+  void _onTapDown(TapDownDetails details) => setState(() => _isPressed = true);
   void _onTapUp(TapUpDetails details) {
     setState(() => _isPressed = false);
     widget.onTap();
   }
 
-  void _onTapCancel() {
-    setState(() => _isPressed = false);
-  }
+  void _onTapCancel() => setState(() => _isPressed = false);
 
   @override
   Widget build(BuildContext context) {
-    final double scale = _isPressed ? 1.15 : 1.0;
-
-    // Tentukan warna berdasarkan state _isPressed
-    final Color backgroundColor = _isPressed ? Colors.blue[700]! : Colors.white;
-    final Color contentColor = _isPressed ? Colors.white : Colors.blue[700]!;
-    final Color textColor = _isPressed ? Colors.white : Colors.black87;
+    final scale = _isPressed ? 1.15 : 1.0;
+    final backgroundColor = _isPressed ? Colors.blue[700]! : Colors.white;
+    final contentColor = _isPressed ? Colors.white : Colors.blue[700]!;
+    final textColor = _isPressed ? Colors.white : Colors.black87;
 
     return GestureDetector(
       onTapDown: _onTapDown,
@@ -217,7 +296,6 @@ class _AnimatedMenuItemState extends State<AnimatedMenuItem> {
         scale: scale,
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOut,
-        // Ganti Card dengan AnimatedContainer untuk animasi warna
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
@@ -240,7 +318,7 @@ class _AnimatedMenuItemState extends State<AnimatedMenuItem> {
                 widget.label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: textColor, // Gunakan warna teks yang sudah ditentukan
+                  color: textColor,
                   fontWeight: _isPressed ? FontWeight.bold : FontWeight.normal,
                 ),
               ),

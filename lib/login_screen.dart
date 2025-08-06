@@ -25,29 +25,21 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-  if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  try {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final String? errorMessage = await authProvider.login(
+    await authProvider.login(
       _emailController.text,
       _passwordController.text,
     );
-
-    if (errorMessage != null && mounted) {
-      showErrorSnackBar(context, errorMessage);
+    
+    if (mounted && authProvider.authStatus == AuthStatus.unauthenticated) {
+      showErrorSnackBar(context, authProvider.errorMessage ?? 'Login gagal.');
     }
-  } catch (e) {
-    if (mounted) {
-      showErrorSnackBar(context, 'Terjadi kesalahan tak terduga');
-    }
-    debugPrint('Uncaught error in _login: $e');
   }
-}
 
   @override
   Widget build(BuildContext context) {
-    // Ambil status loading dari provider
     final authStatus = context.watch<AuthProvider>().authStatus;
 
     return Scaffold(
@@ -64,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Image.asset(
-                    'assets/logo_meralin_besar.jpeg', // Pastikan path logo benar
+                    'assets/logo_meralin_besar.jpeg',
                     height: 100,
                   ),
                   const SizedBox(height: 32.0),
@@ -133,26 +125,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 32.0),
-                  // Tampilkan CircularProgressIndicator jika isLoading true
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff039be5),
                       foregroundColor: Colors.white,
-                      // Buat tombol sedikit lebih tinggi agar loading indicator pas
                       minimumSize: const Size.fromHeight(50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                       elevation: 5,
-                      // Buat warna sedikit lebih gelap saat disabled (loading)
                       disabledBackgroundColor:
                           const Color(0xff039be5).withOpacity(0.7),
                     ),
-                    // Nonaktifkan tombol saat sedang loading untuk mencegah klik ganda
                     onPressed:
                         authStatus == AuthStatus.authenticating ? null : _login,
                     child: authStatus == AuthStatus.authenticating
-                        // Jika sedang loading, tampilkan indicator
                         ? const SizedBox(
                             height: 24,
                             width: 24,
@@ -161,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               strokeWidth: 3,
                             ),
                           )
-                        // Jika tidak, tampilkan teks "Login"
                         : const Text(
                             'Login',
                             style: TextStyle(

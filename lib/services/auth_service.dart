@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 
 class AuthService {
   // Ganti dengan IP address atau domain backend Anda
-  final String _baseUrl = 'http://3.216.172.183/api';
+  final String _baseUrl = dotenv.env['API_BASE_URL']!;
   final Map<String, String> _headers = {
     'Content-Type': 'application/json; charset=UTF-8',
     'Accept': 'application/json',
@@ -22,7 +23,10 @@ class AuthService {
       if (response.statusCode == 200) {
         final responseBody = json.decode(response.body);
         final user = User.fromJson(responseBody['user']);
-        final token = responseBody['token'];
+        final token = responseBody['meta']['token'];
+        if (token == null) {
+          throw Exception('Token tidak ditemukan dalam respons API.');
+        }
         return {'user': user, 'token': token};
       } else if (response.statusCode == 401) {
         throw Exception('Email atau password salah');
@@ -88,5 +92,43 @@ class AuthService {
       // Menangani error lainnya
       throw Exception('Terjadi kesalahan: ${e.toString()}');
     }
+  }
+
+  Future<void> registerFace(File image, String token) async {
+    // final url = Uri.parse('$_baseUrl/user/register-face');
+    // try {
+    //   // 1. Buat MultipartRequest
+    //   var request = http.MultipartRequest('POST', url);
+
+    //   // 2. Tambahkan headers
+    //   request.headers['Authorization'] = 'Bearer $token';
+    //   request.headers['Accept'] = 'application/json';
+
+    //   // 3. Tambahkan file gambar ke request
+    //   request.files.add(
+    //     await http.MultipartFile.fromPath(
+    //       'photo', // Nama field ini harus sama dengan yang diharapkan backend
+    //       image.path,
+    //     ),
+    //   );
+
+    //   // 4. Kirim request
+    //   var streamedResponse = await request.send();
+
+    //   // 5. Dapatkan respons
+    //   var response = await http.Response.fromStream(streamedResponse);
+
+    //   // 6. Cek status code
+    //   if (response.statusCode != 200) {
+    //     final responseBody = json.decode(response.body);
+    //     throw Exception(responseBody['message'] ?? 'Gagal mendaftarkan wajah.');
+    //   }
+    // } on SocketException {
+    //   throw Exception('Tidak dapat terhubung ke server.');
+    // } catch (e) {
+    //   throw Exception(e.toString().replaceFirst('Exception: ', ''));
+    // }
+    await Future.delayed(const Duration(seconds: 1)); // Simulasi delay jaringan
+    return;
   }
 }

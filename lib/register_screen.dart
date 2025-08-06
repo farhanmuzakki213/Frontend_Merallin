@@ -17,8 +17,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController(); // Tambahkan ini
-  final _addressCtrl = TextEditingController(); // Tambahkan ini
+  final _phoneCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -30,8 +30,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmPasswordCtrl.dispose();
-    _phoneCtrl.dispose(); // Tambahkan ini
-    _addressCtrl.dispose(); // Tambahkan ini
+    _phoneCtrl.dispose();
+    _addressCtrl.dispose();
     super.dispose();
   }
 
@@ -39,13 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (!_agreeToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Anda harus menyetujui kebijakan privasi & ketentuan layanan.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      showErrorSnackBar(context, 'Anda harus menyetujui kebijakan privasi & ketentuan layanan.');
       return;
     }
 
@@ -56,8 +50,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: _emailCtrl.text,
       password: _passwordCtrl.text,
       passwordConfirmation: _confirmPasswordCtrl.text,
-      phone: _phoneCtrl.text, // Tambahkan ini
-      address: _addressCtrl.text, // Tambahkan ini
+      phone: _phoneCtrl.text,
+      address: _addressCtrl.text,
     );
 
     if (mounted) {
@@ -67,7 +61,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             content: Text('Registrasi berhasil! Silakan login.'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.all(10),
           ),
         );
         Navigator.of(context).pop();
@@ -138,12 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Enter your name',
                       icon: Icons.person_outline,
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Name is required';
-                      }
-                      return null;
-                    },
+                    validator: (v) => v!.isEmpty ? 'Name is required' : null,
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
@@ -154,19 +142,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Enter your phone number',
                       icon: Icons.phone_outlined,
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Phone number is required';
-                      }
-                      // Validasi nomor telepon minimal 10 digit
-                      if (value.length < 10) {
-                        return 'Enter a valid phone number';
-                      }
-                      return null;
-                    },
+                    validator: (v) => v!.isEmpty ? 'Phone number is required' : null,
                   ),
-
-                  // Tambahkan field address setelah phone number
                   const SizedBox(height: 20),
                   TextFormField(
                     controller: _addressCtrl,
@@ -175,15 +152,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Enter your address',
                       icon: Icons.location_on_outlined,
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Address is required';
-                      }
-                      if (value.length < 10) {
-                        return 'Address is too short';
-                      }
-                      return null;
-                    },
+                    validator: (v) => v!.isEmpty ? 'Address is required' : null,
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
@@ -193,15 +162,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Enter your email',
                       icon: Icons.email_outlined,
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Email is required';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Enter a valid email';
-                      }
-                      return null;
-                    },
+                    validator: (v) => v!.isEmpty || !v.contains('@') ? 'Enter a valid email' : null,
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
@@ -212,26 +173,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Enter your password',
                       icon: Icons.lock_outline,
                       suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: Colors.black,
-                        ),
-                        onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                        },
+                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Password is required';
-                      }
-                      if (value.length < 6) {
-                        return 'Min 6 characters';
-                      }
-                      return null;
-                    },
+                    validator: (v) => v!.length < 6 ? 'Min 6 characters' : null,
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
@@ -242,67 +188,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Confirm Password',
                       icon: Icons.lock_outline,
                       suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureConfirmPassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: Colors.black,
-                        ),
-                        onPressed: () {
-                          setState(() => _obscureConfirmPassword =
-                              !_obscureConfirmPassword);
-                        },
+                        icon: Icon(_obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                       ),
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Confirm your password';
-                      }
-                      if (value != _passwordCtrl.text) {
-                        return 'Passwords do not match';
-                      }
-                      return null;
-                    },
+                    validator: (v) => v! != _passwordCtrl.text ? 'Passwords do not match' : null,
                   ),
                   const SizedBox(height: 24),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Checkbox(
-                        value: _agreeToTerms,
-                        onChanged: (value) {
-                          setState(() {
-                            _agreeToTerms = value!;
-                          });
-                        },
-                      ),
+                      Checkbox(value: _agreeToTerms, onChanged: (v) => setState(() => _agreeToTerms = v!)),
                       Expanded(
                         child: Text.rich(
                           TextSpan(
                             text: 'I agree to the ',
                             style: TextStyle(color: Colors.grey[700]),
                             children: [
-                              TextSpan(
-                                text: 'Privacy Policy',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xff039be5),
-                                  // decoration dihapus dari sini
-                                ),
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () {},
-                              ),
+                              TextSpan(text: 'Privacy Policy', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xff039be5)), recognizer: TapGestureRecognizer()..onTap = () {}),
                               const TextSpan(text: ' and '),
-                              TextSpan(
-                                text: 'Terms of Service',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xff039be5),
-                                  // decoration dihapus dari sini
-                                ),
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () {},
-                              ),
+                              TextSpan(text: 'Terms of Service', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xff039be5)), recognizer: TapGestureRecognizer()..onTap = () {}),
                             ],
                           ),
                         ),
@@ -310,51 +214,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  authStatus == AuthStatus.authenticating
-                      ? const Center(child: CircularProgressIndicator())
-                      : SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            // Nonaktifkan tombol jika tidak setuju terms
-                            onPressed: _agreeToTerms ? _submitRegister : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xff039be5),
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: Colors.grey.shade400,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              elevation: 5,
-                            ),
-                            child: const Text(
-                              'Create account',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: authStatus == AuthStatus.authenticating || !_agreeToTerms ? null : _submitRegister,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff039be5),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade400,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      ),
+                      child: authStatus == AuthStatus.authenticating
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Create account', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        "Already have an account? ",
-                        style: TextStyle(color: Colors.grey[700]),
-                      ),
+                      Text("Already have an account? ", style: TextStyle(color: Colors.grey[700])),
                       TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text(
-                          'Log in',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xff039be5),
-                          ),
-                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Log in', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff039be5))),
                       ),
                     ],
                   ),
