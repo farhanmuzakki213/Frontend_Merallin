@@ -21,7 +21,14 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     try {
       final rolesData = json['roles'] as List<dynamic>? ?? [];
-      final roleNames = rolesData.map((role) => role['name'] as String).toList();
+      List<String> roleNames;
+      if (rolesData.isNotEmpty && rolesData.first is Map) {
+        // Format dari API: [{"name": "karyawan"}]
+        roleNames = rolesData.map((role) => role['name'] as String).toList();
+      } else {
+        // Format dari Hive: ["karyawan"]
+        roleNames = List<String>.from(rolesData);
+      }
       return User(
         id: json['id'],
         name: json['name'],

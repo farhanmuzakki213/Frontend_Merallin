@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/profile_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
@@ -16,44 +17,55 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  final PermissionService _permissionService = PermissionService(); 
+  final PermissionService _permissionService = PermissionService();
 
+  static const List<Widget> _widgetOptions = <Widget>[
+    HomeScreenContent(), // Konten utama dipisahkan ke widget sendiri
+    PlaceholderScreen(title: 'Riwayat Absensi'),
+    PlaceholderScreen(title: 'Pengaturan'),
+    ProfileScreen(),
+  ];
   void _onItemTapped(int index) {
-    if (index == 3) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Logout'),
-            content: const Text('Apakah Anda yakin ingin keluar?'),
-            actions: <Widget>[
-              TextButton(
-                child: const Text('Batal'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              TextButton(
-                child:
-                    const Text('Logout', style: TextStyle(color: Colors.red)),
-                onPressed: () {
-                  Provider.of<AuthProvider>(context, listen: false).logout();
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
-  Future<void> _startAttendance() async {
-    final bool permissionsGranted = await _permissionService.requestAttendancePermissions();
-    if (!permissionsGranted && mounted) {
-      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // --- PERBAIKAN: Body sekarang menampilkan halaman yang dipilih ---
+      body: Center(
+        child: _widgetOptions.elementAt(_selectedIndex),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Setting'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blue[800],
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+      ),
+    );
+  }
+}
+
+class HomeScreenContent extends StatelessWidget {
+  const HomeScreenContent({super.key});
+
+  Future<void> _startAttendance(BuildContext context) async {
+    final PermissionService permissionService = PermissionService();
+    final bool permissionsGranted =
+        await permissionService.requestAttendancePermissions();
+    if (!permissionsGranted && context.mounted) {
+      showErrorSnackBar(
+          context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
       return;
     }
 
@@ -75,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     await attendanceProvider.clockIn(File(imageFile.path), authProvider.token!);
 
-    if (mounted) {
+    if (context.mounted) {
       final status = attendanceProvider.status;
       final message = attendanceProvider.message ?? "Terjadi kesalahan";
       if (status == AttendanceStatus.success) {
@@ -94,34 +106,77 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final attendanceStatus = context.watch<AttendanceProvider>().status;
     final user = context.watch<AuthProvider>().user;
-    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildHeader(user?.name ?? 'User'),
-              _buildTimeCard(),
-              _buildMenuGrid(userRole),
-              const SizedBox(height: 20),
-              _buildAttendanceButton(attendanceStatus),
-            ],
-          ),
+    final String? userRole =
+        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildHeader(user?.name ?? 'User'),
+            _buildTimeCard(),
+            _buildMenuGrid(userRole),
+            const SizedBox(height: 20),
+            _buildAttendanceButton(context, attendanceStatus),
+          ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Setting'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+    );
+  }
+
+  Widget _buildMenuGrid(String? role) {
+    if (role == 'driver') {
+      return _buildDriverMenuGrid();
+    }
+    return _buildEmployeeMenuGrid();
+  }
+
+  Widget _buildEmployeeMenuGrid() {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: GridView.count(
+        crossAxisCount: 3,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        children: [
+          AnimatedMenuItem(
+              icon: Icons.work_outline, label: 'Datang', onTap: () {}),
+          AnimatedMenuItem(
+              icon: Icons.home_work_outlined, label: 'Pulang', onTap: () {}),
+          AnimatedMenuItem(
+              icon: Icons.calendar_today_outlined,
+              label: 'Jadwal',
+              onTap: () {}),
+          AnimatedMenuItem(
+              icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
+          AnimatedMenuItem(
+              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
+          AnimatedMenuItem(
+              icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue[800],
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        showUnselectedLabels: true,
-        type: BottomNavigationBarType.fixed,
+      ),
+    );
+  }
+
+  Widget _buildDriverMenuGrid() {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        children: [
+          AnimatedMenuItem(
+              icon: Icons.local_shipping_outlined,
+              label: 'Mulai Trip',
+              onTap: () {}),
+          AnimatedMenuItem(
+              icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
+        ],
       ),
     );
   }
@@ -162,13 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            '09:41 WIB',
+            '11:54 WIB',
             style: TextStyle(
                 color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 4),
           Text(
-            'Rabu, 6 Agustus 2025',
+            'Kamis, 7 Agustus 2025',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           SizedBox(height: 20),
@@ -189,67 +244,27 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMenuGrid(String? role) {
-    if (role == 'driver') {
-      return _buildDriverMenuGrid();
-    }
-    return _buildEmployeeMenuGrid();
-  }
-
-  Widget _buildEmployeeMenuGrid() {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: GridView.count(
-        crossAxisCount: 3,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        children: [
-          AnimatedMenuItem(icon: Icons.work_outline, label: 'Datang', onTap: () {}),
-          AnimatedMenuItem(icon: Icons.home_work_outlined, label: 'Pulang', onTap: () {}),
-          AnimatedMenuItem(icon: Icons.calendar_today_outlined, label: 'Jadwal', onTap: () {}),
-          AnimatedMenuItem(icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
-          AnimatedMenuItem(icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
-          AnimatedMenuItem(icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDriverMenuGrid() {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: GridView.count(
-        crossAxisCount: 2, // Hanya 2 item, jadi 2 kolom lebih baik
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        children: [
-          AnimatedMenuItem(icon: Icons.local_shipping_outlined, label: 'Mulai Trip', onTap: () {}),
-          AnimatedMenuItem(icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAttendanceButton(AttendanceStatus attendanceStatus) {
+  Widget _buildAttendanceButton(
+      BuildContext context, AttendanceStatus attendanceStatus) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue[700],
           minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           disabledBackgroundColor: Colors.blue[300],
         ),
-        onPressed: attendanceStatus == AttendanceStatus.processing ? null : _startAttendance,
+        onPressed: attendanceStatus == AttendanceStatus.processing
+            ? null
+            : () => _startAttendance(context),
         child: attendanceStatus == AttendanceStatus.processing
             ? const SizedBox(
                 height: 24,
                 width: 24,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 3),
               )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -260,6 +275,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(color: Colors.white, fontSize: 16)),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class PlaceholderScreen extends StatelessWidget {
+  final String title;
+  const PlaceholderScreen({Key? key, required this.title}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Colors.blue[700],
+      ),
+      body: Center(
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
       ),
     );
   }
