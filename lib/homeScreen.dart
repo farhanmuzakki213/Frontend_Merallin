@@ -51,13 +51,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startAttendance() async {
-    // --- PERBAIKAN: Minta izin terlebih dahulu ---
     final bool permissionsGranted = await _permissionService.requestAttendancePermissions();
     if (!permissionsGranted && mounted) {
       showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
       return;
     }
-    // ---------------------------------------------
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final attendanceProvider =
@@ -96,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final attendanceStatus = context.watch<AttendanceProvider>().status;
     final user = context.watch<AuthProvider>().user;
-
+    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -104,42 +102,9 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildHeader(user?.name ?? 'User'),
               _buildTimeCard(),
-              _buildMenuGrid(),
+              _buildMenuGrid(userRole),
               const SizedBox(height: 20),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[700],
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    disabledBackgroundColor: Colors.blue[300],
-                  ),
-                  onPressed: attendanceStatus == AttendanceStatus.processing
-                      ? null
-                      : _startAttendance,
-                  child: attendanceStatus == AttendanceStatus.processing
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 3),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.face_retouching_natural,
-                                color: Colors.white),
-                            SizedBox(width: 8),
-                            Text('Attendance Using Face ID',
-                                style: TextStyle(
-                                    color: Colors.white, fontSize: 16)),
-                          ],
-                        ),
-                ),
-              ),
+              _buildAttendanceButton(attendanceStatus),
             ],
           ),
         ),
@@ -224,7 +189,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMenuGrid() {
+  Widget _buildMenuGrid(String? role) {
+    if (role == 'driver') {
+      return _buildDriverMenuGrid();
+    }
+    return _buildEmployeeMenuGrid();
+  }
+
+  Widget _buildEmployeeMenuGrid() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: GridView.count(
@@ -234,21 +206,60 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
         children: [
-          AnimatedMenuItem(
-              icon: Icons.work_outline, label: 'Datang', onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.home_work_outlined, label: 'Pulang', onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.calendar_today_outlined,
-              label: 'Jadwal',
-              onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.work_outline, label: 'Datang', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.home_work_outlined, label: 'Pulang', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.calendar_today_outlined, label: 'Jadwal', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDriverMenuGrid() {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: GridView.count(
+        crossAxisCount: 2, // Hanya 2 item, jadi 2 kolom lebih baik
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        children: [
+          AnimatedMenuItem(icon: Icons.local_shipping_outlined, label: 'Mulai Trip', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceButton(AttendanceStatus attendanceStatus) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue[700],
+          minimumSize: const Size(double.infinity, 50),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          disabledBackgroundColor: Colors.blue[300],
+        ),
+        onPressed: attendanceStatus == AttendanceStatus.processing ? null : _startAttendance,
+        child: attendanceStatus == AttendanceStatus.processing
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.face_retouching_natural, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Attendance Using Face ID',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                ],
+              ),
       ),
     );
   }

@@ -100,33 +100,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> registerFace(File image) async {
-    if (_token == null) {
-      _errorMessage = "Sesi tidak valid.";
-      return false;
-    }
-    
-    _authStatus = AuthStatus.authenticating;
-    notifyListeners();
-
-    try {
-      await _authService.registerFace(image, _token!);
-      // Setelah berhasil, kita perlu login ulang untuk mendapatkan data user terbaru
-      await login(_user!.email, _authBox.get('temp_password_for_relogin')); 
-      // Anda perlu menyimpan password sementara saat login pertama kali, 
-      // atau membuat endpoint baru di backend untuk get user profile.
-      // Untuk simplisitas, kita anggap login ulang adalah solusinya.
-      // Namun, cara terbaik adalah membuat endpoint GET /api/user
-      
-      // Asumsi login ulang berhasil dan user object terupdate
-      return true;
-    } catch (e) {
-      _errorMessage = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
-
   Future<void> logout() async {
     _user = null;
     _token = null;

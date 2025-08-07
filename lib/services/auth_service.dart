@@ -20,8 +20,12 @@ class AuthService {
         body: json.encode({'email': email, 'password': password}),
       );
 
+      dynamic responseBody = json.decode(response.body);
+      if (responseBody is List && responseBody.isNotEmpty) {
+          responseBody = responseBody[0];
+      }
+
       if (response.statusCode == 200) {
-        final responseBody = json.decode(response.body);
         final user = User.fromJson(responseBody['user']);
         final token = responseBody['meta']['token'];
         if (token == null) {
@@ -92,43 +96,5 @@ class AuthService {
       // Menangani error lainnya
       throw Exception('Terjadi kesalahan: ${e.toString()}');
     }
-  }
-
-  Future<void> registerFace(File image, String token) async {
-    // final url = Uri.parse('$_baseUrl/user/register-face');
-    // try {
-    //   // 1. Buat MultipartRequest
-    //   var request = http.MultipartRequest('POST', url);
-
-    //   // 2. Tambahkan headers
-    //   request.headers['Authorization'] = 'Bearer $token';
-    //   request.headers['Accept'] = 'application/json';
-
-    //   // 3. Tambahkan file gambar ke request
-    //   request.files.add(
-    //     await http.MultipartFile.fromPath(
-    //       'photo', // Nama field ini harus sama dengan yang diharapkan backend
-    //       image.path,
-    //     ),
-    //   );
-
-    //   // 4. Kirim request
-    //   var streamedResponse = await request.send();
-
-    //   // 5. Dapatkan respons
-    //   var response = await http.Response.fromStream(streamedResponse);
-
-    //   // 6. Cek status code
-    //   if (response.statusCode != 200) {
-    //     final responseBody = json.decode(response.body);
-    //     throw Exception(responseBody['message'] ?? 'Gagal mendaftarkan wajah.');
-    //   }
-    // } on SocketException {
-    //   throw Exception('Tidak dapat terhubung ke server.');
-    // } catch (e) {
-    //   throw Exception(e.toString().replaceFirst('Exception: ', ''));
-    // }
-    await Future.delayed(const Duration(seconds: 1)); // Simulasi delay jaringan
-    return;
   }
 }
