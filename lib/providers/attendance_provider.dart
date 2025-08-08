@@ -9,31 +9,58 @@ class AttendanceProvider extends ChangeNotifier {
 
   AttendanceStatus _status = AttendanceStatus.idle;
   String? _message;
+  bool _hasClockedIn = false;
+  bool _hasClockedOut = false;
 
   AttendanceStatus get status => _status;
   String? get message => _message;
+  bool get hasClockedIn => _hasClockedIn;
+  bool get hasClockedOut => _hasClockedOut;
+
+  Future<void> checkTodayAttendanceStatus(String token) async {
+    try {
+      final status = await _attendanceService.getTodayAttendanceStatus(token);
+      _hasClockedIn = status['clock_in'] != null;
+      _hasClockedOut = status['clock_out'] != null;
+      notifyListeners();
+    } catch (e) {
+      print("Gagal memeriksa status absensi: $e");
+    }
+  }
 
   Future<void> clockIn(File image, String token) async {
     _status = AttendanceStatus.processing;
-    _message = 'Memproses absensi...';
+    _message = 'Memproses absensi datang...';
     notifyListeners();
 
     try {
-      await _attendanceService.performAttendance(image, token);
+      await _attendanceService.performClockIn(image, token);
       _status = AttendanceStatus.success;
-      _message = 'Absensi berhasil direkam!';
+      _message = 'Absensi Datang berhasil direkam!';
+      _hasClockedIn = true;
       notifyListeners();
     } catch (e) {
       _status = AttendanceStatus.error;
       _message = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
-    } finally {
-      Future.delayed(const Duration(seconds: 4), () {
-        if (status != AttendanceStatus.processing) {
-          _status = AttendanceStatus.idle;
-          notifyListeners();
-        }
-      });
+    }
+  }
+
+  Future<void> clockOut(File image, String token) async {
+    _status = AttendanceStatus.processing;
+    _message = 'Memproses absensi pulang...';
+    notifyListeners();
+
+    try {
+      await _attendanceService.performClockOut(image, token);
+      _status = AttendanceStatus.success;
+      _message = 'Absensi Pulang berhasil direkam!';
+      _hasClockedOut = true;
+      notifyListeners();
+    } catch (e) {
+      _status = AttendanceStatus.error;
+      _message = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
     }
   }
 }

@@ -17,14 +17,26 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  final PermissionService _permissionService = PermissionService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.token != null) {
+        Provider.of<AttendanceProvider>(context, listen: false)
+            .checkTodayAttendanceStatus(authProvider.token!);
+      }
+    });
+  }
 
   static const List<Widget> _widgetOptions = <Widget>[
-    HomeScreenContent(), // Konten utama dipisahkan ke widget sendiri
+    HomeScreenContent(),
     PlaceholderScreen(title: 'Riwayat Absensi'),
     PlaceholderScreen(title: 'Pengaturan'),
     ProfileScreen(),
   ];
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -34,7 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // --- PERBAIKAN: Body sekarang menampilkan halaman yang dipilih ---
       body: Center(
         child: _widgetOptions.elementAt(_selectedIndex),
       ),
@@ -59,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
 class HomeScreenContent extends StatelessWidget {
   const HomeScreenContent({super.key});
 
-  Future<void> _startAttendance(BuildContext context) async {
+  Future<void> _startAttendance(BuildContext context, String type) async {
     final PermissionService permissionService = PermissionService();
     final bool permissionsGranted =
         await permissionService.requestAttendancePermissions();
@@ -85,17 +96,20 @@ class HomeScreenContent extends StatelessWidget {
 
     if (imageFile == null) return;
 
-    await attendanceProvider.clockIn(File(imageFile.path), authProvider.token!);
+    if (type == 'in') {
+      await attendanceProvider.clockIn(
+          File(imageFile.path), authProvider.token!);
+    } else {
+      await attendanceProvider.clockOut(
+          File(imageFile.path), authProvider.token!);
+    }
 
     if (context.mounted) {
       final status = attendanceProvider.status;
       final message = attendanceProvider.message ?? "Terjadi kesalahan";
+
       if (status == AttendanceStatus.success) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ));
+        showInfoSnackBar(context, message);
       } else if (status == AttendanceStatus.error) {
         showErrorSnackBar(context, message);
       }
@@ -104,7 +118,7 @@ class HomeScreenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final attendanceStatus = context.watch<AttendanceProvider>().status;
+    final attendanceProvider = context.watch<AttendanceProvider>();
     final user = context.watch<AuthProvider>().user;
     final String? userRole =
         user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
@@ -115,23 +129,24 @@ class HomeScreenContent extends StatelessWidget {
           children: [
             _buildHeader(user?.name ?? 'User'),
             _buildTimeCard(),
-            _buildMenuGrid(userRole),
+            _buildMenuGrid(context, userRole, attendanceProvider),
             const SizedBox(height: 20),
-            _buildAttendanceButton(context, attendanceStatus),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMenuGrid(String? role) {
+  Widget _buildMenuGrid(BuildContext context, String? role,
+      AttendanceProvider attendanceProvider) {
     if (role == 'driver') {
       return _buildDriverMenuGrid();
     }
-    return _buildEmployeeMenuGrid();
+    return _buildEmployeeMenuGrid(context, attendanceProvider);
   }
 
-  Widget _buildEmployeeMenuGrid() {
+  Widget _buildEmployeeMenuGrid(
+      BuildContext context, AttendanceProvider attendanceProvider) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: GridView.count(
@@ -142,9 +157,69 @@ class HomeScreenContent extends StatelessWidget {
         mainAxisSpacing: 16,
         children: [
           AnimatedMenuItem(
-              icon: Icons.work_outline, label: 'Datang', onTap: () {}),
+            icon: Icons.work_outline,
+            label: 'Datang',
+            onTap: () {
+              if (attendanceProvider.status == AttendanceStatus.processing)
+                return;
+
+              // Logika Waktu untuk Absen Datang (07:00 - 23:59)
+              final now = DateTime.now();
+              final startTime =
+                  DateTime(now.year, now.month, now.day, 7, 0); // 07:00
+              final endTime = DateTime(
+                  now.year, now.month, now.day, 23, 59); // 23:59 (Tengah Malam)
+
+              if (now.isBefore(startTime)) {
+                showInfoSnackBar(
+                    context, 'Belum waktunya absen (mulai 07:00).');
+                return;
+              }
+              if (now.isAfter(endTime)) {
+                showInfoSnackBar(
+                    context, 'Waktu absen untuk hari ini sudah habis.');
+                return;
+              }
+
+              if (attendanceProvider.hasClockedIn) {
+                showInfoSnackBar(context, 'Anda sudah absen datang hari ini.');
+              } else {
+                _startAttendance(context, 'in');
+              }
+            },
+          ),
           AnimatedMenuItem(
-              icon: Icons.home_work_outlined, label: 'Pulang', onTap: () {}),
+            icon: Icons.home_work_outlined,
+            label: 'Pulang',
+            onTap: () {
+              if (attendanceProvider.status == AttendanceStatus.processing)
+                return;
+
+              final now = DateTime.now();
+              final startTime =
+                  DateTime(now.year, now.month, now.day, 17, 0); // 17:00
+              final endTime =
+                  DateTime(now.year, now.month, now.day, 23, 59); // 23:59
+
+              if (now.isBefore(startTime)) {
+                showInfoSnackBar(context, 'Belum waktunya absen pulang.');
+                return;
+              }
+              if (now.isAfter(endTime)) {
+                showInfoSnackBar(context, 'Waktu absen pulang sudah habis.');
+                return;
+              }
+
+              if (!attendanceProvider.hasClockedIn) {
+                showErrorSnackBar(
+                    context, 'Anda harus absen datang terlebih dahulu.');
+              } else if (attendanceProvider.hasClockedOut) {
+                showInfoSnackBar(context, 'Anda sudah absen pulang hari ini.');
+              } else {
+                _startAttendance(context, 'out');
+              }
+            },
+          ),
           AnimatedMenuItem(
               icon: Icons.calendar_today_outlined,
               label: 'Jadwal',
@@ -217,13 +292,13 @@ class HomeScreenContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            '11:54 WIB',
+            '16:50 WIB', // Ganti dengan data waktu live
             style: TextStyle(
                 color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 4),
           Text(
-            'Kamis, 7 Agustus 2025',
+            'Kamis, 7 Agustus 2025', // Ganti dengan data tanggal live
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           SizedBox(height: 20),
@@ -240,41 +315,6 @@ class HomeScreenContent extends StatelessWidget {
                 color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAttendanceButton(
-      BuildContext context, AttendanceStatus attendanceStatus) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue[700],
-          minimumSize: const Size(double.infinity, 50),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          disabledBackgroundColor: Colors.blue[300],
-        ),
-        onPressed: attendanceStatus == AttendanceStatus.processing
-            ? null
-            : () => _startAttendance(context),
-        child: attendanceStatus == AttendanceStatus.processing
-            ? const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 3),
-              )
-            : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.face_retouching_natural, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text('Attendance Using Face ID',
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
-                ],
-              ),
       ),
     );
   }
