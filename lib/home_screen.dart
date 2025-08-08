@@ -1,12 +1,19 @@
+// lib/home_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/profile_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/services/permission_service.dart';
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:frontend_merallin/services/permission_service.dart';
+// --- PERUBAHAN DI SINI: Tambahkan import untuk halaman baru ---
+import 'package:frontend_merallin/history_screen.dart';
+
+import 'driver_history_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,14 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  final PermissionService _permissionService = PermissionService();
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomeScreenContent(), // Konten utama dipisahkan ke widget sendiri
-    PlaceholderScreen(title: 'Riwayat Absensi'),
-    PlaceholderScreen(title: 'Pengaturan'),
-    ProfileScreen(),
-  ];
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -33,10 +33,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+
+    // FIX: Buat widget history secara dinamis berdasarkan role
+    Widget historyScreen;
+    // FIX: Gunakan '==' untuk perbandingan, bukan '='
+    if (userRole == 'driver') {
+      historyScreen = const DriverHistoryScreen(); // Ganti dengan halaman riwayat driver Anda
+    } else {
+      // Default untuk 'karyawan' atau role lainnya
+      historyScreen = const HistoryScreen();
+    }
+    final List<Widget> widgetOptions = [
+      const HomeScreenContent(),
+      historyScreen, // Masukkan halaman riwayat yang sudah ditentukan
+      const PlaceholderScreen(title: 'Pengaturan'),
+      const ProfilePage(),
+    ];
     return Scaffold(
-      // --- PERBAIKAN: Body sekarang menampilkan halaman yang dipilih ---
       body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
+        child: widgetOptions.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
@@ -56,38 +73,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class HomeScreenContent extends StatelessWidget {
+class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({super.key});
 
-  Future<void> _startAttendance(BuildContext context) async {
-    final PermissionService permissionService = PermissionService();
-    final bool permissionsGranted =
-        await permissionService.requestAttendancePermissions();
-    if (!permissionsGranted && context.mounted) {
-      showErrorSnackBar(
-          context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
+  @override
+  State<HomeScreenContent> createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends State<HomeScreenContent> {
+  final PermissionService _permissionService = PermissionService();
+
+  Future<void> _startAttendance() async {
+    final bool permissionsGranted = await _permissionService.requestAttendancePermissions();
+    if (!mounted) return;
+
+    if (!permissionsGranted) {
+      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
       return;
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final attendanceProvider =
-        Provider.of<AttendanceProvider>(context, listen: false);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
 
     if (authProvider.token == null) {
       showErrorSnackBar(context, "Sesi tidak valid, silakan login ulang.");
       return;
     }
 
-    final XFile? imageFile = await ImagePicker().pickImage(
+    final imageFile = await ImagePicker().pickImage(
       source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.front,
     );
 
     if (imageFile == null) return;
+    if (!mounted) return;
 
     await attendanceProvider.clockIn(File(imageFile.path), authProvider.token!);
 
-    if (context.mounted) {
+    if (mounted) {
       final status = attendanceProvider.status;
       final message = attendanceProvider.message ?? "Terjadi kesalahan";
       if (status == AttendanceStatus.success) {
@@ -106,8 +129,7 @@ class HomeScreenContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final attendanceStatus = context.watch<AttendanceProvider>().status;
     final user = context.watch<AuthProvider>().user;
-    final String? userRole =
-        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -117,66 +139,9 @@ class HomeScreenContent extends StatelessWidget {
             _buildTimeCard(),
             _buildMenuGrid(userRole),
             const SizedBox(height: 20),
-            _buildAttendanceButton(context, attendanceStatus),
+            _buildAttendanceButton(attendanceStatus),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMenuGrid(String? role) {
-    if (role == 'driver') {
-      return _buildDriverMenuGrid();
-    }
-    return _buildEmployeeMenuGrid();
-  }
-
-  Widget _buildEmployeeMenuGrid() {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: GridView.count(
-        crossAxisCount: 3,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        children: [
-          AnimatedMenuItem(
-              icon: Icons.work_outline, label: 'Datang', onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.home_work_outlined, label: 'Pulang', onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.calendar_today_outlined,
-              label: 'Jadwal',
-              onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDriverMenuGrid() {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        children: [
-          AnimatedMenuItem(
-              icon: Icons.local_shipping_outlined,
-              label: 'Mulai Trip',
-              onTap: () {}),
-          AnimatedMenuItem(
-              icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
-        ],
       ),
     );
   }
@@ -217,13 +182,13 @@ class HomeScreenContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            '11:54 WIB',
+            '11:33 AM',
             style: TextStyle(
                 color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 4),
           Text(
-            'Kamis, 7 Agustus 2025',
+            'Jumat, 8 Agustus 2025',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           SizedBox(height: 20),
@@ -243,9 +208,57 @@ class HomeScreenContent extends StatelessWidget {
       ),
     );
   }
+  
+  Widget _buildMenuGrid(String? role) {
+    if (role == 'driver') {
+      return _buildDriverMenuGrid();
+    }
+    return _buildEmployeeMenuGrid();
+  }
 
-  Widget _buildAttendanceButton(
-      BuildContext context, AttendanceStatus attendanceStatus) {
+  Widget _buildEmployeeMenuGrid() {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: GridView.count(
+        crossAxisCount: 3,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        children: [
+          AnimatedMenuItem(icon: Icons.work_outline, label: 'Datang', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.home_work_outlined, label: 'Pulang', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.calendar_today_outlined, label: 'Jadwal', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
+          AnimatedMenuItem(icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverMenuGrid() {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        children: [
+          AnimatedMenuItem(
+              icon: Icons.local_shipping_outlined,
+              label: 'Mulai Trip',
+              onTap: () {}),
+          AnimatedMenuItem(
+              icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceButton(AttendanceStatus attendanceStatus) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
       child: ElevatedButton(
@@ -256,9 +269,7 @@ class HomeScreenContent extends StatelessWidget {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           disabledBackgroundColor: Colors.blue[300],
         ),
-        onPressed: attendanceStatus == AttendanceStatus.processing
-            ? null
-            : () => _startAttendance(context),
+        onPressed: attendanceStatus == AttendanceStatus.processing ? null : _startAttendance,
         child: attendanceStatus == AttendanceStatus.processing
             ? const SizedBox(
                 height: 24,
@@ -282,7 +293,7 @@ class HomeScreenContent extends StatelessWidget {
 
 class PlaceholderScreen extends StatelessWidget {
   final String title;
-  const PlaceholderScreen({Key? key, required this.title}) : super(key: key);
+  const PlaceholderScreen({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -305,16 +316,15 @@ class AnimatedMenuItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-
   const AnimatedMenuItem({
-    Key? key,
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
-  _AnimatedMenuItemState createState() => _AnimatedMenuItemState();
+  State<AnimatedMenuItem> createState() => _AnimatedMenuItemState();
 }
 
 class _AnimatedMenuItemState extends State<AnimatedMenuItem> {
