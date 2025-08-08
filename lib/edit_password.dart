@@ -42,7 +42,6 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
         return;
       }
 
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -84,21 +83,21 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 'Untuk melindungi akun Anda, pastikan password Anda kuat dan mudah diingat.',
                 style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 14),
               _buildPasswordField(
                 controller: _oldPasswordController,
                 labelText: 'Password Lama',
                 obscureText: _obscureOld,
                 onToggle: () => setState(() => _obscureOld = !_obscureOld),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               _buildPasswordField(
                 controller: _newPasswordController,
                 labelText: 'Password Baru',
                 obscureText: _obscureNew,
                 onToggle: () => setState(() => _obscureNew = !_obscureNew),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               _buildPasswordField(
                 controller: _confirmPasswordController,
                 labelText: 'Konfirmasi Password Baru',
@@ -106,20 +105,20 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 onToggle: () =>
                     setState(() => _obscureConfirm = !_obscureConfirm),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade700,
+                    backgroundColor: const Color(0xff039be5),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(50),
                     ),
                   ),
                   onPressed: _submit,
                   child: const Text(
-                    'Simpan Password', // Teks disamakan
+                    'Konfirmasi Password',
                     style: TextStyle(fontSize: 16, color: Colors.white),
                   ),
                 ),
@@ -135,39 +134,56 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
   // Widget ini diubah total agar gayanya sama dengan Edit Profil
   Widget _buildPasswordField({
     required TextEditingController controller,
-    required String labelText,
     required bool obscureText,
     required VoidCallback onToggle,
+    required String labelText,
   }) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Field ini tidak boleh kosong';
-        }
-        if (value.length < 6) {
-          return 'Password minimal 6 karakter';
-        }
-        return null;
-      },
-      decoration: InputDecoration(
-        labelText: labelText,
-        prefixIcon: const Icon(Icons.lock_outline),
-        suffixIcon: IconButton(
-          icon: Icon(
-            obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+    IconData prefixIcon;
+    if (labelText.contains('Lama')) {
+      prefixIcon = Icons.lock_outline;
+    } else if (labelText.contains('Baru') &&
+        !labelText.contains('Konfirmasi')) {
+      prefixIcon = Icons.lock;
+    } else {
+      prefixIcon = Icons.lock_reset;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(50),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: TextFormField(
+        controller: controller,
+        obscureText: obscureText,
+        style: const TextStyle(fontSize: 16),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Field tidak boleh kosong';
+          }
+          if (value.length < 8) {
+            return 'Minimal 8 karakter';
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          prefixIcon: Icon(prefixIcon, size: 20, color: Colors.black45),
+          labelText: labelText,
+          labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+          errorStyle: const TextStyle(fontSize: 11, color: Colors.red),
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          suffixIcon: IconButton(
+            icon: Icon(
+              obscureText ? Icons.visibility_off : Icons.visibility,
+              color: Colors.black45,
+              size: 20,
+            ),
+            onPressed: onToggle,
           ),
-          onPressed: onToggle,
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
       ),
     );

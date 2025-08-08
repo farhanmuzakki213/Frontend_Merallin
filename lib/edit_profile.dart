@@ -1,5 +1,3 @@
-// lib/edit_profile.dart
-
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
@@ -41,7 +39,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   void _saveProfile() {
     if (_formKey.currentState!.validate()) {
-      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -89,7 +86,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 controller: _emailController,
                 labelText: 'Email',
                 icon: Icons.email_outlined,
-                readOnly: true, // Email tidak bisa diubah
+                readOnly: true,
               ),
               const SizedBox(height: 20),
               _buildTextField(
@@ -110,6 +107,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 labelText: 'Alamat',
                 icon: Icons.location_on_outlined,
                 maxLines: 3,
+                isAddress: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Alamat tidak boleh kosong';
@@ -122,7 +120,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade700,
+                    backgroundColor: const Color(0xff039be5),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -143,63 +141,67 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Widget _buildProfilePicture() {
-    // ... (kode untuk foto profil tetap sama)
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        const CircleAvatar(
-          radius: 60,
-          backgroundImage: NetworkImage('https://via.placeholder.com/150'),
-        ),
-        Positioned(
-          bottom: 0,
-          right: 80, // Sesuaikan posisi agar pas di tengah
-          child: GestureDetector(
-            onTap: () {
-              
-            },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade700,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const CircleAvatar(
+            radius: 60,
+            backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade700,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(Icons.edit, color: Colors.white, size: 20),
               ),
-              child: const Icon(Icons.edit, color: Colors.white, size: 20),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  // --- GAYA FORM DIUBAH DI SINI ---
   Widget _buildTextField({
     required TextEditingController controller,
     required String labelText,
     required IconData icon,
     bool readOnly = false,
     int? maxLines = 1,
+    bool isAddress = false,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      controller: controller,
-      readOnly: readOnly,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      validator: validator,
-      decoration: InputDecoration(
-        labelText: labelText,
-        prefixIcon: Icon(icon),
-        filled: true,
-        fillColor: readOnly ? Colors.grey.shade200 : Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isAddress ? 12 : 50),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: TextFormField(
+        controller: controller,
+        readOnly: readOnly,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
+        validator: validator,
+        style: const TextStyle(fontSize: 16),
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: Colors.black45, size: 20),
+          labelText: labelText,
+          labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+          errorStyle: const TextStyle(fontSize: 11, color: Colors.red),
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );

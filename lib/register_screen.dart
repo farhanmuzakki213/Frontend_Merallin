@@ -177,7 +177,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
-                    validator: (v) => v!.length < 6 ? 'Min 6 characters' : null,
+                    validator: (v) => v!.length < 8 ? 'Min 8 characters' : null,
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
