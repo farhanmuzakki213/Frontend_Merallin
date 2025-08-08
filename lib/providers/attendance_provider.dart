@@ -17,24 +17,13 @@ class AttendanceProvider extends ChangeNotifier {
   bool get hasClockedIn => _hasClockedIn;
   bool get hasClockedOut => _hasClockedOut;
 
-  Future<void> checkTodayAttendanceStatus(String token) async {
-    try {
-      final status = await _attendanceService.getTodayAttendanceStatus(token);
-      _hasClockedIn = status['clock_in'] != null;
-      _hasClockedOut = status['clock_out'] != null;
-      notifyListeners();
-    } catch (e) {
-      print("Gagal memeriksa status absensi: $e");
-    }
-  }
-
   Future<void> clockIn(File image, String token) async {
     _status = AttendanceStatus.processing;
     _message = 'Memproses absensi datang...';
     notifyListeners();
 
     try {
-      await _attendanceService.performClockIn(image, token);
+      await _attendanceService.performAttendance(image, token);
       _status = AttendanceStatus.success;
       _message = 'Absensi Datang berhasil direkam!';
       _hasClockedIn = true;
@@ -52,7 +41,7 @@ class AttendanceProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _attendanceService.performClockOut(image, token);
+      await _attendanceService.performAttendance(image, token);
       _status = AttendanceStatus.success;
       _message = 'Absensi Pulang berhasil direkam!';
       _hasClockedOut = true;

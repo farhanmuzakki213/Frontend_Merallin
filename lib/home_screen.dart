@@ -1,12 +1,19 @@
+// lib/home_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/profile_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/services/permission_service.dart';
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:frontend_merallin/services/permission_service.dart';
+// --- PERUBAHAN DI SINI: Tambahkan import untuk halaman baru ---
+import 'package:frontend_merallin/history_screen.dart';
+
+import 'driver_history_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,26 +24,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (authProvider.token != null) {
-        Provider.of<AttendanceProvider>(context, listen: false)
-            .checkTodayAttendanceStatus(authProvider.token!);
-      }
-    });
-  }
-
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomeScreenContent(),
-    PlaceholderScreen(title: 'Riwayat Absensi'),
-    PlaceholderScreen(title: 'Pengaturan'),
-    ProfileScreen(),
-  ];
-
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -45,9 +32,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+
+    // FIX: Buat widget history secara dinamis berdasarkan role
+    Widget historyScreen;
+    // FIX: Gunakan '==' untuk perbandingan, bukan '='
+    if (userRole == 'driver') {
+      historyScreen = const DriverHistoryScreen(); // Ganti dengan halaman riwayat driver Anda
+    } else {
+      // Default untuk 'karyawan' atau role lainnya
+      historyScreen = const HistoryScreen();
+    }
+    final List<Widget> widgetOptions = [
+      const HomeScreenContent(),
+      historyScreen, // Masukkan halaman riwayat yang sudah ditentukan
+      const PlaceholderScreen(title: 'Pengaturan'),
+      const ProfilePage(),
+    ];
     return Scaffold(
       body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
+        child: widgetOptions.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
@@ -67,34 +72,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class HomeScreenContent extends StatelessWidget {
+class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({super.key});
 
+  @override
+  State<HomeScreenContent> createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends State<HomeScreenContent> {
+  final PermissionService _permissionService = PermissionService();
+
   Future<void> _startAttendance(BuildContext context, String type) async {
-    final PermissionService permissionService = PermissionService();
-    final bool permissionsGranted =
-        await permissionService.requestAttendancePermissions();
-    if (!permissionsGranted && context.mounted) {
-      showErrorSnackBar(
-          context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
+    final bool permissionsGranted = await _permissionService.requestAttendancePermissions();
+    if (!mounted) return;
+
+    if (!permissionsGranted) {
+      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
       return;
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final attendanceProvider =
-        Provider.of<AttendanceProvider>(context, listen: false);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
 
     if (authProvider.token == null) {
       showErrorSnackBar(context, "Sesi tidak valid, silakan login ulang.");
       return;
     }
 
-    final XFile? imageFile = await ImagePicker().pickImage(
+    final imageFile = await ImagePicker().pickImage(
       source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.front,
     );
 
     if (imageFile == null) return;
+    if (!mounted) return;
 
     if (type == 'in') {
       await attendanceProvider.clockIn(
@@ -104,7 +115,7 @@ class HomeScreenContent extends StatelessWidget {
           File(imageFile.path), authProvider.token!);
     }
 
-    if (context.mounted) {
+    if (mounted) {
       final status = attendanceProvider.status;
       final message = attendanceProvider.message ?? "Terjadi kesalahan";
 
@@ -120,8 +131,7 @@ class HomeScreenContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final attendanceProvider = context.watch<AttendanceProvider>();
     final user = context.watch<AuthProvider>().user;
-    final String? userRole =
-        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -322,7 +332,7 @@ class HomeScreenContent extends StatelessWidget {
 
 class PlaceholderScreen extends StatelessWidget {
   final String title;
-  const PlaceholderScreen({Key? key, required this.title}) : super(key: key);
+  const PlaceholderScreen({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -345,16 +355,15 @@ class AnimatedMenuItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-
   const AnimatedMenuItem({
-    Key? key,
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
-  _AnimatedMenuItemState createState() => _AnimatedMenuItemState();
+  State<AnimatedMenuItem> createState() => _AnimatedMenuItemState();
 }
 
 class _AnimatedMenuItemState extends State<AnimatedMenuItem> {

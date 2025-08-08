@@ -1,3 +1,5 @@
+// login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/register_screen.dart';
@@ -5,6 +7,7 @@ import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
+  // OPTIMISASI: Constructor dibuat const
   const LoginScreen({super.key});
 
   @override
@@ -27,14 +30,21 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.login(
-      _emailController.text,
-      _passwordController.text,
-    );
-    
-    if (mounted && authProvider.authStatus == AuthStatus.unauthenticated) {
-      showErrorSnackBar(context, authProvider.errorMessage ?? 'Login gagal.');
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final String? errorMessage = await authProvider.login(
+        _emailController.text,
+        _passwordController.text,
+      );
+
+      if (errorMessage != null && mounted) {
+        showErrorSnackBar(context, errorMessage);
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorSnackBar(context, 'Terjadi kesalahan tak terduga');
+      }
+      debugPrint('Uncaught error in _login: $e');
     }
   }
 
@@ -48,6 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: ConstrainedBox(
+            // OPTIMISASI: Widget dibuat const
             constraints: const BoxConstraints(maxWidth: 350),
             child: Form(
               key: _formKey,
@@ -59,6 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'assets/logo_meralin_besar.jpeg',
                     height: 100,
                   ),
+                  // OPTIMISASI: Widget dibuat const
                   const SizedBox(height: 32.0),
                   const Text(
                     'Welcome Back!',
@@ -69,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.black87,
                     ),
                   ),
+                  // OPTIMISASI: Widget dibuat const
                   const SizedBox(height: 8.0),
                   Text(
                     'Please enter your details',
@@ -78,6 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.grey[600],
                     ),
                   ),
+                  // OPTIMISASI: Widget dibuat const
                   const SizedBox(height: 32.0),
                   TextFormField(
                     controller: _emailController,
@@ -95,6 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
+                  // OPTIMISASI: Widget dibuat const
                   const SizedBox(height: 20.0),
                   TextFormField(
                     controller: _passwordController,
@@ -124,6 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
+                  // OPTIMISASI: Widget dibuat const
                   const SizedBox(height: 32.0),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
@@ -140,6 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed:
                         authStatus == AuthStatus.authenticating ? null : _login,
                     child: authStatus == AuthStatus.authenticating
+                        // OPTIMISASI: Widget dibuat const
                         ? const SizedBox(
                             height: 24,
                             width: 24,
@@ -148,6 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               strokeWidth: 3,
                             ),
                           )
+                        // OPTIMISASI: Widget dibuat const
                         : const Text(
                             'Login',
                             style: TextStyle(
@@ -156,6 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                   ),
+                  // OPTIMISASI: Widget dibuat const
                   const SizedBox(height: 24.0),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -171,6 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
+                              // OPTIMISASI: Widget dibuat const
                               builder: (context) => const RegisterScreen(),
                             ),
                           );
@@ -180,6 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             minimumSize: const Size(30, 30),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             alignment: Alignment.centerLeft),
+                        // OPTIMISASI: Widget dibuat const
                         child: const Text(
                           'Register',
                           style: TextStyle(
@@ -206,6 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }) {
     return InputDecoration(
       hintText: hintText,
+      // OPTIMISASI: Widget dibuat const
       hintStyle: const TextStyle(color: Colors.black54),
       filled: true,
       fillColor: Colors.grey.shade200,
@@ -215,6 +237,7 @@ class _LoginScreenState extends State<LoginScreen> {
         borderRadius: BorderRadius.circular(30),
         borderSide: BorderSide.none,
       ),
+      // OPTIMISASI: Widget dibuat const
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
     );
   }

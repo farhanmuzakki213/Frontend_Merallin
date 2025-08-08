@@ -1,5 +1,3 @@
-// frontend_merallin/services/attendance_service.dart
-
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -9,35 +7,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class AttendanceService {
   final String _baseUrl = dotenv.env['API_BASE_URL']!;
 
-  Future<Map<String, dynamic>> getTodayAttendanceStatus(String token) async {
-    final url = Uri.parse('$_baseUrl/attendance/status-today');
-    try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body)['data'];
-      } else {
-        throw Exception('Gagal mendapatkan status absensi.');
-      }
-    } on SocketException {
-      throw Exception('Periksa koneksi internet Anda.');
-    } catch (e) {
-      throw Exception(e.toString().replaceFirst('Exception: ', ''));
+  Future<void> performAttendance(File image, String token) async {
+    // 1. Dapatkan Lokasi
+    final Position position = await _getLocation();
+    if (position.isMocked) {
+      throw Exception('Terdeteksi menggunakan lokasi palsu. Proses dibatalkan.');
     }
-  }
-
-  Future<void> performClockIn(File image, String token) async {
-    final url = Uri.parse('$_baseUrl/attendance/clock-in');
-    await _uploadAttendance(url, image, token);
-  }
-
-  Future<void> performClockOut(File image, String token) async {
     final url = Uri.parse('$_baseUrl/attendance/clock-in');
     await _uploadAttendance(url, image, token);
   }
@@ -68,8 +43,8 @@ class AttendanceService {
 
       if (response.statusCode != 200) {
         final responseBody = json.decode(response.body);
-        throw Exception(
-            responseBody['message'] ?? 'Gagal mengirim data absensi.');
+        // Coba baca pesan error dari backend
+        throw Exception(responseBody['message'] ?? 'Gagal mengirim data absensi.');
       }
     } on SocketException {
       throw Exception('Gagal mengirim data absensi. Periksa koneksi Anda.');
@@ -84,7 +59,7 @@ class AttendanceService {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      throw Exception('Layanan lokasi tidak aktif.');
+      throw Exception('Layanan lokasi tidak aktif. Mohon aktifkan GPS Anda.');
     }
 
     permission = await Geolocator.checkPermission();
@@ -96,8 +71,7 @@ class AttendanceService {
     }
 
     if (permission == LocationPermission.deniedForever) {
-      throw Exception(
-          'Izin lokasi ditolak secara permanen, Anda tidak dapat melakukan absensi.');
+      throw Exception('Izin lokasi ditolak permanen, Anda tidak dapat absen.');
     }
 
     return await Geolocator.getCurrentPosition(
