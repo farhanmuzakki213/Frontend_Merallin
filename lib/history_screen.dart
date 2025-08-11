@@ -1,5 +1,3 @@
-// lib/history_screen.dart
-
 import 'package:flutter/material.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -10,8 +8,11 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  int _selectedDay = DateTime.now().day; // Default ke tanggal hari ini
-  final List<String> _dayNames = const ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+  // Menyimpan tanggal yang dipilih, defaultnya tanggal 6
+  int _selectedDay = 6;
+
+  // Placeholder untuk nama hari
+  final List<String> _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
   @override
   Widget build(BuildContext context) {
@@ -19,8 +20,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(
         title: const Text('Riwayat Absensi', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue.shade800,
-        elevation: 0,
-        automaticallyImplyLeading: false,
+        elevation: 0, // Dibuat flat agar menyatu dengan body
+        automaticallyImplyLeading: false, // Menghilangkan tombol kembali
       ),
       body: Column(
         children: [
@@ -55,7 +56,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Column(
         children: [
           const Text(
-            'Agustus 2025', // Seharusnya dinamis, untuk sekarang statis
+            'Agustus 2025',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -69,16 +70,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
             child: Row(
               children: List.generate(31, (index) {
                 final day = index + 1;
+                // Menggunakan _selectedDay untuk menentukan tanggal terpilih
                 final isSelected = day == _selectedDay;
                 return GestureDetector(
                   onTap: () {
+                    // Memperbarui state saat tanggal lain dipilih
                     setState(() {
                       _selectedDay = day;
-                      
                     });
                   },
                   child: _DateCard(
                     day: day.toString(),
+                    // Menggunakan placeholder nama hari secara berulang
                     dayName: _dayNames[index % 7],
                     isSelected: isSelected,
                   ),
@@ -92,22 +95,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildHistoryDetails() {
+    // Mendapatkan nama hari berdasarkan tanggal yang dipilih
     final dayName = _dayNames[(_selectedDay - 1) % 7];
     final fullDayName = {'Sen': 'Senin', 'Sel': 'Selasa', 'Rab': 'Rabu', 'Kam': 'Kamis', 'Jum': 'Jumat', 'Sab': 'Sabtu', 'Min': 'Minggu'}[dayName];
-
-    // Tampilkan data hanya jika tanggal yang dipilih adalah tanggal 6 (sesuai data dummy)
-    if (_selectedDay != 6) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Text(
-            'Tidak ada data absensi untuk tanggal $_selectedDay Agustus 2025.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-          ),
-        ),
-      );
-    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -115,6 +105,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
+            // Judul tanggal diperbarui sesuai _selectedDay
             '$fullDayName, $_selectedDay Agustus 2025',
             style: TextStyle(
               fontSize: 18,
@@ -123,7 +114,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Data di bawah ini adalah dummy data
+          // Data di bawah ini masih statis, namun bisa diubah
+          // untuk mengambil data sesuai _selectedDay
           const _HistoryCard(
             title: 'Absensi Datang',
             time: '08:05:12',
@@ -138,7 +130,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             status: 'Tepat Waktu',
             statusColor: Colors.green.shade700,
           ),
-          const SizedBox(height: 24), // Beri jarak lebih
+          const SizedBox(height: 12),
           const _HistoryCard(
             title: 'Absensi Pulang',
             time: '17:30:45',
@@ -158,8 +150,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 }
-
-// --- WIDGET-WIDGET HELPER ---
 
 class _DateCard extends StatelessWidget {
   final String day;
@@ -223,12 +213,18 @@ class _DateCard extends StatelessWidget {
 class _HistoryCard extends StatelessWidget {
   final String title;
   final String time;
+  final String? location;
+  final String? status;
+  final Color? statusColor;
   final IconData icon;
   final Color iconColor;
 
   const _HistoryCard({
     required this.title,
     required this.time,
+    this.location,
+    this.status,
+    this.statusColor,
     required this.icon,
     required this.iconColor,
   });
@@ -254,13 +250,39 @@ class _HistoryCard extends StatelessWidget {
               ),
             ),
             const Divider(height: 20),
-            _buildInfoRow(Icons.access_time_filled, 'Jam', time),
+            Row(
+              children: [
+                // Kolom 1 & 2: Jam dan Status
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInfoRow(Icons.access_time_filled, 'Jam', time),
+                      if (status != null && statusColor != null) ...[
+                        const SizedBox(height: 8),
+                        _buildInfoRow(Icons.check_circle, 'Status', status!, valueColor: statusColor),
+                      ],
+                    ],
+                  ),
+                ),
+                // Kolom 3 & 4: Lokasi
+                if (location != null)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                         _buildInfoRow(Icons.location_on, 'Lokasi', location!),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
-  
+
   Widget _buildInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +293,10 @@ class _HistoryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              Text(
+                label,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
               const SizedBox(height: 2),
               Text(
                 value,
@@ -328,7 +353,7 @@ class _LocationDetailsCard extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  
+                  // TODO: Implement map functionality
                 },
                 icon: const Icon(Icons.map, color: Colors.white),
                 label: const Text('Lihat di Peta', style: TextStyle(color: Colors.white)),
@@ -356,7 +381,10 @@ class _LocationDetailsCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              Text(
+                label,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
               const SizedBox(height: 2),
               Text(
                 value,

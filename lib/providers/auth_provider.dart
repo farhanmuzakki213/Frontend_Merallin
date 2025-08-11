@@ -14,11 +14,13 @@ enum AuthStatus {
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final Box _authBox = Hive.box('authBox');
+  bool _isUpdating = false;
 
   User? _user;
   String? _token;
   String? _errorMessage;
   AuthStatus _authStatus = AuthStatus.uninitialized;
+  bool get isUpdating => _isUpdating;
 
   User? get user => _user;
   String? get token => _token;
@@ -96,6 +98,33 @@ class AuthProvider extends ChangeNotifier {
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<String?> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    if (_token == null) return 'Anda tidak terautentikasi.';
+
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      await _authService.updatePassword(
+        token: _token!,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        newPasswordConfirmation: newPasswordConfirmation,
+      );
+      return null; // Sukses
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return _errorMessage; // Gagal, kembalikan pesan error
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
     }
   }
 
