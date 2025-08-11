@@ -1,18 +1,22 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/profile_service.dart';
 
 enum AuthStatus {
   uninitialized,
   authenticated,
   authenticating,
   unauthenticated,
+  updating,
 }
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  final ProfileService _profileService = ProfileService();
   final Box _authBox = Hive.box('authBox');
 
   User? _user;
@@ -53,7 +57,7 @@ class AuthProvider extends ChangeNotifier {
       final result = await _authService.login(email, password);
       _user = result['user'];
       _token = result['token'];
-      
+
       await _authBox.put('token', _token);
       await _authBox.put('user', json.encode(_user!.toJson()));
 
@@ -94,6 +98,50 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateUserProfile({
+    required String name,
+    required String address,
+    required String phone,
+    File? profilePhoto,
+  }) async {
+    // Pastikan user dan token ada
+    if (_user == null || _token == null) {
+      _errorMessage = "Sesi tidak valid. Silakan login kembali.";
+      notifyListeners();
+      return false;
+    }
+
+    _authStatus = AuthStatus.updating;
+    notifyListeners();
+
+    try {
+      // Panggil service untuk update profil
+      final updatedUser = await _profileService.updateProfile(
+        token: _token!,
+        name: name,
+        email: _user!.email, // Email tidak diubah, kirim yang lama
+        address: address,
+        phone: phone,
+        profilePhoto: profilePhoto,
+      );
+
+      // Jika berhasil, perbarui state lokal dan data di Hive
+      _user = updatedUser;
+      await _authBox.put('user', json.encode(_user!.toJson()));
+
+      _authStatus = AuthStatus.authenticated;
+      _errorMessage = null; // Hapus pesan error lama jika ada
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _authStatus =
+          AuthStatus.authenticated; // Kembalikan status ke authenticated
       notifyListeners();
       return false;
     }
