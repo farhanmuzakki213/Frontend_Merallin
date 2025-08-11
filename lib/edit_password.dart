@@ -1,6 +1,8 @@
 // lib/edit_password.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // <-- JANGAN LUPA IMPORT
+import '../providers/auth_provider.dart'; // <-- JANGAN LUPA IMPORT
 
 class EditPasswordPage extends StatefulWidget {
   const EditPasswordPage({super.key});
@@ -29,35 +31,61 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
     super.dispose();
   }
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      if (_newPasswordController.text != _confirmPasswordController.text) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Konfirmasi password tidak cocok.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+  // --- FUNGSI _submit DIUBAH TOTAL ---
+  void _submit() async {
+    // 1. Validasi form
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
+    // 2. Cek apakah password baru dan konfirmasi cocok
+    if (_newPasswordController.text != _confirmPasswordController.text) {
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Konfirmasi password baru tidak cocok.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 3. Panggil AuthProvider untuk update password
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final error = await authProvider.updatePassword(
+      currentPassword: _oldPasswordController.text,
+      newPassword: _newPasswordController.text,
+      newPasswordConfirmation: _confirmPasswordController.text,
+    );
+    
+    if (!mounted) return;
+
+    // 4. Handle hasil dari provider
+    if (error == null) {
+      // Sukses
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Password berhasil diperbarui.'),
           backgroundColor: Colors.green,
         ),
       );
-
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      Navigator.of(context).pop();
+    } else {
+      // Gagal
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Ambil state isUpdating dari provider
+    final authProvider = context.watch<AuthProvider>();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8F9),
       appBar: AppBar(
@@ -84,6 +112,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
               ),
               const SizedBox(height: 14),
+              // Nama field di backend adalah 'current_password'
               _buildPasswordField(
                 controller: _oldPasswordController,
                 labelText: 'Password Lama',
@@ -91,6 +120,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 onToggle: () => setState(() => _obscureOld = !_obscureOld),
               ),
               const SizedBox(height: 14),
+              // Nama field di backend adalah 'password'
               _buildPasswordField(
                 controller: _newPasswordController,
                 labelText: 'Password Baru',
@@ -98,6 +128,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 onToggle: () => setState(() => _obscureNew = !_obscureNew),
               ),
               const SizedBox(height: 14),
+              // Nama field di backend adalah 'password_confirmation'
               _buildPasswordField(
                 controller: _confirmPasswordController,
                 labelText: 'Konfirmasi Password Baru',
@@ -116,11 +147,21 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                       borderRadius: BorderRadius.circular(50),
                     ),
                   ),
-                  onPressed: _submit,
-                  child: const Text(
-                    'Konfirmasi Password',
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
+                  // Nonaktifkan tombol saat sedang loading
+                  onPressed: authProvider.isUpdating ? null : _submit,
+                  child: authProvider.isUpdating
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                      : const Text(
+                          'Konfirmasi Password',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
                 ),
               ),
             ],
@@ -130,8 +171,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
     );
   }
 
-  // --- PERUBAHAN UTAMA ADA DI SINI ---
-  // Widget ini diubah total agar gayanya sama dengan Edit Profil
+  // Widget _buildPasswordField ini tidak perlu diubah, sudah bagus.
   Widget _buildPasswordField({
     required TextEditingController controller,
     required bool obscureText,
@@ -162,7 +202,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
           if (value == null || value.isEmpty) {
             return 'Field tidak boleh kosong';
           }
-          if (value.length < 8) {
+          if (labelText.contains('Baru') && value.length < 8) {
             return 'Minimal 8 karakter';
           }
           return null;

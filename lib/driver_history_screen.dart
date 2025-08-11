@@ -13,7 +13,8 @@ class _TripData {
   final _LocationData departure;
   final _LocationData arrival;
 
-  _TripData({
+  // OPTIMISASI: Constructor dibuat const
+  const _TripData({
     required this.projectName,
     required this.nopol,
     required this.driverName,
@@ -33,7 +34,8 @@ class _LocationData {
   final String latitude;
   final String longitude;
 
-  _LocationData({
+  // OPTIMISASI: Constructor dibuat const
+  const _LocationData({
     required this.title,
     required this.location,
     required this.latitude,
@@ -41,6 +43,7 @@ class _LocationData {
   });
 }
 // --- END DATA MODELS ---
+
 
 class DriverHistoryScreen extends StatefulWidget {
   const DriverHistoryScreen({super.key});
@@ -62,8 +65,9 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   ];
 
   // --- DUMMY DATA ---
+  // OPTIMISASI: List dibuat final dan data dibuat const
   final List<_TripData> _tripHistory = [
-    _TripData(
+    const _TripData(
       projectName: 'Proyek Pengiriman A',
       nopol: 'B 1234 XYZ',
       driverName: 'Budi Santoso',
@@ -85,7 +89,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         longitude: '107.619125',
       ),
     ),
-    _TripData(
+    const _TripData(
       projectName: 'Proyek Pengiriman B',
       nopol: 'B 5678 ABC',
       driverName: 'Budi Santoso',
@@ -113,12 +117,10 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[200],
       appBar: AppBar(
-        title: const Text('Riwayat Perjalanan',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Riwayat Perjalanan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.teal.shade800,
-        elevation: 2,
+        elevation: 0,
         automaticallyImplyLeading: false,
       ),
       body: Column(
@@ -139,19 +141,20 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         color: Colors.teal.shade800,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            spreadRadius: 2,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: const Offset(0, 2),
           )
         ],
       ),
+      // OPTIMISASI: Column dibuat const
       child: Column(
         children: [
           const Text(
             'Agustus 2025',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
@@ -197,20 +200,18 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     }[dayName];
 
     if (_tripHistory.isEmpty) {
-      return const Center(
-          child: Text("Tidak ada riwayat perjalanan.",
-              style: TextStyle(fontSize: 16, color: Colors.grey)));
+      return const Center(child: Text("Tidak ada riwayat perjalanan.", style: TextStyle(fontSize: 16, color: Colors.grey)));
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 12.0),
+          padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 8.0),
           child: Text(
             '$fullDayName, $_selectedDay Agustus 2025',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.grey.shade800,
             ),
@@ -218,12 +219,23 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         ),
         Expanded(
           child: ListView.builder(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             itemCount: _tripHistory.length,
             itemBuilder: (context, index) {
               final trip = _tripHistory[index];
-              return _ExpandableTripCard(trip: trip);
+              return _TripDetailsGroup(trip: trip);
+            },
+            separatorBuilder: (context, index) {
+              // OPTIMISASI: Widget dibuat const
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: Divider(
+                  color: Colors.black.withOpacity(0.5),
+                  thickness: 2.5,
+                  indent: 2,
+                  endIndent: 2,
+                ),
+              );
             },
           ),
         ),
@@ -232,11 +244,12 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   }
 }
 
+
 class _DateCard extends StatelessWidget {
   final String day;
   final String dayName;
   final bool isSelected;
-
+  // OPTIMISASI: Constructor dibuat const
   const _DateCard({
     required this.day,
     required this.dayName,
@@ -258,10 +271,10 @@ class _DateCard extends StatelessWidget {
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: Colors.teal.withOpacity(0.4),
+                  color: Colors.teal.withOpacity(0.3),
                   spreadRadius: 2,
-                  blurRadius: 6,
-                  offset: const Offset(0, 4),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
                 ),
               ]
             : [],
@@ -291,25 +304,40 @@ class _DateCard extends StatelessWidget {
   }
 }
 
-class _ExpandableTripCard extends StatefulWidget {
-  final _TripData trip;
-
-  const _ExpandableTripCard({required this.trip});
+class _DriverHistoryCard extends StatefulWidget {
+  final String projectName;
+  final String nopol;
+  final String driverName;
+  final String kmAwal;
+  final String kmTiba;
+  final String tanggalBerangkat;
+  final String tanggalSampai;
+  final String keterangan;
+  // OPTIMISASI: Constructor dibuat const
+  const _DriverHistoryCard({
+    required this.projectName,
+    required this.nopol,
+    required this.driverName,
+    required this.kmAwal,
+    required this.kmTiba,
+    required this.tanggalBerangkat,
+    required this.tanggalSampai,
+    required this.keterangan,
+  });
 
   @override
-  State<_ExpandableTripCard> createState() => _ExpandableTripCardState();
+  State<_DriverHistoryCard> createState() => _DriverHistoryCardState();
 }
 
-class _ExpandableTripCardState extends State<_ExpandableTripCard> {
+class _DriverHistoryCardState extends State<_DriverHistoryCard> {
   bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 5,
-      margin: const EdgeInsets.symmetric(vertical: 10.0),
+      elevation: 3,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -334,11 +362,9 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _buildInfoRow(Icons.person_outline, 'Driver',
-                            widget.trip.driverName),
+                        _buildInfoRow(Icons.person_outline, 'Driver', widget.trip.driverName),
                         const SizedBox(height: 8),
-                        _buildInfoRow(Icons.directions_car_outlined, 'NOPOL',
-                            widget.trip.nopol),
+                        _buildInfoRow(Icons.directions_car_outlined, 'NOPOL', widget.trip.nopol),
                       ],
                     ),
                   ),
@@ -360,8 +386,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
           AnimatedSize(
             duration: const Duration(milliseconds: 350),
             curve: Curves.fastOutSlowIn,
-            child:
-                _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
+            child: _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -380,15 +405,13 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
           const SizedBox(height: 10),
           _buildInfoRow(Icons.route, 'KM Tiba', widget.trip.kmTiba),
           const SizedBox(height: 10),
-          _buildInfoRow(Icons.calendar_today_outlined, 'Berangkat',
-              widget.trip.tanggalBerangkat),
+          _buildInfoRow(Icons.calendar_today_outlined, 'Berangkat', widget.trip.tanggalBerangkat),
           const SizedBox(height: 10),
-          _buildInfoRow(
-              Icons.calendar_today, 'Sampai', widget.trip.tanggalSampai),
+          _buildInfoRow(Icons.calendar_today, 'Sampai', widget.trip.tanggalSampai),
           const SizedBox(height: 10),
-          _buildInfoRow(
-              Icons.info_outline, 'Keterangan', widget.trip.keterangan),
+          _buildInfoRow(Icons.info_outline, 'Keterangan', widget.trip.keterangan),
           const SizedBox(height: 24),
+
           _buildLocationSection(widget.trip.departure),
           const SizedBox(height: 24),
           _buildLocationSection(widget.trip.arrival),
@@ -402,22 +425,16 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle(locationData.title),
-        _buildInfoRow(
-            Icons.location_on_outlined, 'Lokasi', locationData.location),
+        _buildInfoRow(Icons.location_on_outlined, 'Lokasi', locationData.location),
         const SizedBox(height: 10),
-        _buildInfoRow(Icons.map_outlined, 'Koordinat',
-            '${locationData.latitude}, ${locationData.longitude}'),
+        _buildInfoRow(Icons.map_outlined, 'Koordinat', '${locationData.latitude}, ${locationData.longitude}'),
         const SizedBox(height: 20),
         Align(
           alignment: Alignment.centerRight,
           child: ElevatedButton.icon(
-            onPressed: () {
-              /* TODO: Implement map functionality for ${locationData.title} */
-            },
+            onPressed: () { /* TODO: Implement map functionality for ${locationData.title} */ },
             icon: const Icon(Icons.map, color: Colors.white, size: 18),
-            label: const Text('Lihat di Peta',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+            label: const Text('Lihat di Peta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal.shade700,
               shape: RoundedRectangleBorder(
@@ -458,10 +475,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500),
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 4),
               Text(

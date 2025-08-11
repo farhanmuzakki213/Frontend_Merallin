@@ -12,22 +12,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
   int _selectedDay = 6;
 
   // Placeholder untuk nama hari
-  final List<String> _dayNames = [
-    'Sen',
-    'Sel',
-    'Rab',
-    'Kam',
-    'Jum',
-    'Sab',
-    'Min'
-  ];
+  final List<String> _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Riwayat Absensi',
-            style: TextStyle(color: Colors.white)),
+        title: const Text('Riwayat Absensi', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue.shade800,
         elevation: 0, // Dibuat flat agar menyatu dengan body
         automaticallyImplyLeading: false, // Menghilangkan tombol kembali
@@ -51,14 +42,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildDateSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
-      decoration: BoxDecoration(color: Colors.blue.shade800, boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.1),
-          spreadRadius: 1,
-          blurRadius: 3,
-          offset: const Offset(0, 2),
-        )
-      ]),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade800,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: const Offset(0, 2),
+          )
+        ]
+      ),
       child: Column(
         children: [
           const Text(
@@ -101,16 +95,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildHistoryDetails() {
+    // Mendapatkan nama hari berdasarkan tanggal yang dipilih
     final dayName = _dayNames[(_selectedDay - 1) % 7];
-    final fullDayName = {
-      'Sen': 'Senin',
-      'Sel': 'Selasa',
-      'Rab': 'Rabu',
-      'Kam': 'Kamis',
-      'Jum': 'Jumat',
-      'Sab': 'Sabtu',
-      'Min': 'Minggu'
-    }[dayName];
+    final fullDayName = {'Sen': 'Senin', 'Sel': 'Selasa', 'Rab': 'Rabu', 'Kam': 'Kamis', 'Jum': 'Jumat', 'Sab': 'Sabtu', 'Min': 'Minggu'}[dayName];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -356,8 +343,7 @@ class _LocationDetailsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoRow(Icons.check_circle, 'Status', status,
-                valueColor: statusColor),
+            _buildInfoRow(Icons.check_circle, 'Status', status, valueColor: statusColor),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.location_on, 'Lokasi', location),
             const SizedBox(height: 8),
@@ -372,8 +358,7 @@ class _LocationDetailsCard extends StatelessWidget {
                   // TODO: Implement map functionality
                 },
                 icon: const Icon(Icons.map, color: Colors.white),
-                label: const Text('Lihat di Peta',
-                    style: TextStyle(color: Colors.white)),
+                label: const Text('Lihat di Peta', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade800,
                   shape: RoundedRectangleBorder(
@@ -388,8 +373,7 @@ class _LocationDetailsCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value,
-      {Color? valueColor}) {
+  Widget _buildInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

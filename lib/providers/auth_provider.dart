@@ -18,11 +18,13 @@ class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final ProfileService _profileService = ProfileService();
   final Box _authBox = Hive.box('authBox');
+  bool _isUpdating = false;
 
   User? _user;
   String? _token;
   String? _errorMessage;
   AuthStatus _authStatus = AuthStatus.uninitialized;
+  bool get isUpdating => _isUpdating;
 
   User? get user => _user;
   String? get token => _token;

@@ -22,7 +22,7 @@ class AuthService {
 
       dynamic responseBody = json.decode(response.body);
       if (responseBody is List && responseBody.isNotEmpty) {
-          responseBody = responseBody[0];
+        responseBody = responseBody[0];
       }
 
       if (response.statusCode == 200) {
@@ -95,6 +95,54 @@ class AuthService {
     } catch (e) {
       // Menangani error lainnya
       throw Exception('Terjadi kesalahan: ${e.toString()}');
+    }
+  }
+
+  Future<void> updatePassword({
+    required String token,
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    final url = Uri.parse('$_baseUrl/user/password');
+    try {
+      // Menambahkan token otentikasi ke header
+      final headers = {
+        ..._headers,
+        'Authorization': 'Bearer $token',
+      };
+
+      // Backend Laravel mengharapkan field: 'current_password', 'password', 'password_confirmation'
+      final body = json.encode({
+        'current_password': currentPassword,
+        'password': newPassword,
+        'password_confirmation': newPasswordConfirmation,
+      });
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        // Password berhasil diubah
+        return;
+      } else if (response.statusCode == 422) {
+        // Error validasi dari Laravel
+        final responseBody = json.decode(response.body);
+        // Mengambil pesan error dari field 'current_password' atau 'password'
+        final errors = responseBody['errors'] as Map<String, dynamic>;
+        final errorMessage = errors.values.map((e) => e[0]).join('\n');
+        throw Exception(errorMessage);
+      } else if (response.statusCode == 401) {
+        // Unauthorized, token tidak valid
+        throw Exception('Sesi Anda telah berakhir. Silakan login kembali.');
+      } else {
+        // Error lainnya
+        final responseBody = json.decode(response.body);
+        throw Exception(responseBody['message'] ?? 'Gagal mengubah password.');
+      }
+    } on SocketException {
+      throw Exception('Tidak dapat terhubung ke server.');
+    } catch (e) {
+      throw Exception(e.toString());
     }
   }
 }
