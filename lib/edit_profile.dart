@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -16,6 +19,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
+
+  File? _imageFile; // State untuk menyimpan file gambar yang dipilih
+  bool _isLoading = false; // State untuk mengelola status loading
 
   @override
   void initState() {
@@ -37,21 +43,67 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
-  void _saveProfile() {
-    if (_formKey.currentState!.validate()) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil berhasil diperbarui!'),
-          backgroundColor: Colors.green,
-        ),
+  /// Fungsi untuk membuka galeri dan memilih gambar.
+  Future<void> _pickImage() async {
+    final pickedFile = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 80);
+
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  /// Fungsi untuk memvalidasi form, memanggil provider, dan menyimpan perubahan.
+  Future<void> _saveProfile() async {
+    // Jalankan hanya jika form valid dan tidak sedang dalam proses loading
+    if (_formKey.currentState!.validate() && !_isLoading) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      final success = await authProvider.updateUserProfile(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
+        profilePhoto: _imageFile,
       );
-      Navigator.of(context).pop();
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil berhasil diperbarui!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text(authProvider.errorMessage ?? 'Gagal memperbarui profil'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final String? photoUrl = authProvider.user?.profile_photo_url;
+    final String baseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? '';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8F9),
       appBar: AppBar(
@@ -68,7 +120,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildProfilePicture(),
+              _buildProfilePicture(photoUrl, baseUrl),
               const SizedBox(height: 32),
               _buildTextField(
                 controller: _nameController,
@@ -126,11 +178,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: _saveProfile,
-                  child: const Text(
-                    'Simpan Perubahan',
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
+                  onPressed: _isLoading ? null : _saveProfile,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                      : const Text(
+                          'Simpan Perubahan',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
                 ),
               ),
             ],
@@ -140,20 +201,41 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildProfilePicture() {
+  /// Widget untuk membangun tampilan foto profil dengan pratinjau.
+  Widget _buildProfilePicture(String? photoUrl, String baseUrl) {
+    ImageProvider backgroundImage;
+
+    if (_imageFile != null) {
+      backgroundImage = FileImage(_imageFile!);
+    } else if (photoUrl != null && photoUrl.isNotEmpty) {
+      // Membersihkan kemungkinan adanya garis miring ganda
+      final cleanBaseUrl = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final cleanPhotoUrl =
+          photoUrl.startsWith('/') ? photoUrl.substring(1) : photoUrl;
+
+      final fullUrl = '$cleanBaseUrl/$cleanPhotoUrl';
+
+      backgroundImage = NetworkImage(fullUrl);
+    } else {
+      backgroundImage = const NetworkImage(
+          'https://ui-avatars.com/api/?name=User&color=7F9CF5&background=EBF4FF');
+    }
+
     return Center(
       child: Stack(
         alignment: Alignment.center,
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 60,
-            backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+            backgroundImage: backgroundImage,
           ),
           Positioned(
             bottom: 0,
             right: 0,
             child: GestureDetector(
-              onTap: () {},
+              onTap: _pickImage,
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -170,6 +252,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
+  /// Widget helper untuk membangun TextFormField.
   Widget _buildTextField({
     required TextEditingController controller,
     required String labelText,
