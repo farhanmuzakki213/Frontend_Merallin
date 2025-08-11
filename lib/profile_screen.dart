@@ -32,8 +32,7 @@ class ProfilePage extends StatelessWidget {
         elevation: 0,
         foregroundColor: Colors.black,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: ListView(
         children: [
           const SizedBox(height: 24),
           Center(
