@@ -9,7 +9,7 @@ import 'package:frontend_merallin/services/permission_service.dart';
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-// --- PERUBAHAN DI SINI: Tambahkan import untuk halaman baru ---
+import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
 
 import 'driver_history_screen.dart';
@@ -258,7 +258,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           AnimatedMenuItem(
               icon: Icons.local_shipping_outlined,
               label: 'Mulai Trip',
-              onTap: () {}),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const MyTripScreen()),
+                );
+              }),
           AnimatedMenuItem(
               icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
         ],

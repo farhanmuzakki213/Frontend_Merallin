@@ -260,7 +260,8 @@ class _HistoryCard extends StatelessWidget {
                       _buildInfoRow(Icons.access_time_filled, 'Jam', time),
                       if (status != null && statusColor != null) ...[
                         const SizedBox(height: 8),
-                        _buildInfoRow(Icons.check_circle, 'Status', status!, valueColor: statusColor),
+                        _buildInfoRow(Icons.check_circle, 'Status', status!,
+                            valueColor: statusColor),
                       ],
                     ],
                   ),
@@ -271,7 +272,7 @@ class _HistoryCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                         _buildInfoRow(Icons.location_on, 'Lokasi', location!),
+                        _buildInfoRow(Icons.location_on, 'Lokasi', location!),
                       ],
                     ),
                   ),
@@ -283,7 +284,8 @@ class _HistoryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
+  Widget _buildInfoRow(IconData icon, String label, String value,
+      {Color? valueColor}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
