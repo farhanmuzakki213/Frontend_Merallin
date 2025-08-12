@@ -7,17 +7,25 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class AttendanceService {
   final String _baseUrl = dotenv.env['API_BASE_URL']!;
 
-  Future<void> performAttendance(File image, String token) async {
-    // 1. Dapatkan Lokasi
-    final Position position = await _getLocation();
-    if (position.isMocked) {
-      throw Exception('Terdeteksi menggunakan lokasi palsu. Proses dibatalkan.');
-    }
+  Future<void> submitAttendance(
+    File image,
+    String token,
+    String attendanceType, // 'datang' or 'pulang'
+    String attendanceStatus, // 'Tepat waktu' or 'Terlambat'
+  ) async {
+    // REVISED: Using a more generic endpoint. Assumes your backend now uses /attendance.
     final url = Uri.parse('$_baseUrl/attendance/clock-in');
-    await _uploadAttendance(url, image, token);
+    await _uploadAttendance(
+        url, image, token, attendanceType, attendanceStatus);
   }
 
-  Future<void> _uploadAttendance(Uri url, File image, String token) async {
+  Future<void> _uploadAttendance(
+    Uri url,
+    File image,
+    String token,
+    String attendanceType,
+    String attendanceStatus,
+  ) async {
     try {
       final Position position = await _getLocation();
       if (position.isMocked) {
@@ -30,9 +38,12 @@ class AttendanceService {
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
 
+      // REVISED: Add new fields to the request payload.
+      // These keys should match what your Laravel backend expects.
+      request.fields['tipe_absensi'] = attendanceType;
+      request.fields['status_absensi'] = attendanceStatus;
       request.fields['latitude'] = position.latitude.toString();
       request.fields['longitude'] = position.longitude.toString();
-      request.fields['is_mocked'] = position.isMocked ? '1' : '0';
 
       request.files.add(
         await http.MultipartFile.fromPath('photo', image.path),
@@ -41,9 +52,8 @@ class AttendanceService {
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         final responseBody = json.decode(response.body);
-        // Coba baca pesan error dari backend
         throw Exception(responseBody['message'] ?? 'Gagal mengirim data absensi.');
       }
     } on SocketException {
