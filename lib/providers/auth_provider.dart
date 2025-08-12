@@ -105,13 +105,40 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<String?> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    if (_token == null) return 'Anda tidak terautentikasi.';
+
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      await _authService.updatePassword(
+        token: _token!,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        newPasswordConfirmation: newPasswordConfirmation,
+      );
+      return null; // Sukses
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return _errorMessage; // Gagal, kembalikan pesan error
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> updateUserProfile({
     required String name,
     required String address,
     required String phone,
     File? profilePhoto,
-  }) async {
     // Pastikan user dan token ada
+  }) async {
     if (_user == null || _token == null) {
       _errorMessage = "Sesi tidak valid. Silakan login kembali.";
       notifyListeners();
