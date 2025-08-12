@@ -17,7 +17,6 @@ import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
 import 'driver_history_screen.dart';
 
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -36,7 +35,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+    final String? userRole =
+        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
 
     Widget historyScreen;
     if (userRole == 'driver') {
@@ -47,7 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<Widget> widgetOptions = [
       const HomeScreenContent(),
       historyScreen,
-      const PlaceholderScreen(title: 'Pengaturan'),
       const ProfilePage(),
     ];
     return Scaffold(
@@ -58,7 +57,6 @@ class _HomeScreenState extends State<HomeScreen> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Setting'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         currentIndex: _selectedIndex,
@@ -81,18 +79,21 @@ class HomeScreenContent extends StatefulWidget {
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
   final PermissionService _permissionService = PermissionService();
-
-  Future<void> _startAttendance(BuildContext context, String type) async {
-    final bool permissionsGranted = await _permissionService.requestAttendancePermissions();
+  Future<void> _startAttendance(
+      BuildContext context, String type, String attendanceStatus) async {
+    final bool permissionsGranted =
+        await _permissionService.requestAttendancePermissions();
     if (!mounted) return;
 
     if (!permissionsGranted) {
-      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
+      showErrorSnackBar(
+          context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
       return;
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final attendanceProvider =
+        Provider.of<AttendanceProvider>(context, listen: false);
 
     if (authProvider.token == null) {
       showErrorSnackBar(context, "Sesi tidak valid, silakan login ulang.");
@@ -110,10 +111,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     // NOTE: Logika `clockOut` berada di dalam provider, jadi kita panggil method yg sesuai
     if (type == 'in') {
       await attendanceProvider.clockIn(
-          File(imageFile.path), authProvider.token!);
+          File(imageFile.path), authProvider.token!, attendanceStatus);
     } else {
       await attendanceProvider.clockOut(
-          File(imageFile.path), authProvider.token!);
+          File(imageFile.path), authProvider.token!, attendanceStatus);
     }
 
     if (mounted) {
@@ -133,7 +134,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   Widget build(BuildContext context) {
     final attendanceProvider = context.watch<AttendanceProvider>();
     final user = context.watch<AuthProvider>().user;
-    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+    final String? userRole =
+        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -180,6 +182,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               final now = DateTime.now();
               final startTime =
                   DateTime(now.year, now.month, now.day, 7, 0); // 07:00
+              final onTimeDeadline =
+                  DateTime(now.year, now.month, now.day, 8, 0, 1);
               final endTime = DateTime(
                   now.year, now.month, now.day, 23, 59); // 23:59
 
@@ -197,7 +201,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               if (attendanceProvider.hasClockedIn) {
                 showInfoSnackBar(context, 'Anda sudah absen datang hari ini.');
               } else {
-                _startAttendance(context, 'in');
+                final String attendanceStatus =
+                    now.isAfter(onTimeDeadline) ? 'Terlambat' : 'Tepat waktu';
+                _startAttendance(context, 'in', attendanceStatus);
               }
             },
           ),
@@ -211,6 +217,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               }
 
               final now = DateTime.now();
+              final scheduleEndTime =
+                  DateTime(now.year, now.month, now.day, 17, 0);
               final startTime =
                   DateTime(now.year, now.month, now.day, 17, 0); // 17:00
               final endTime =
@@ -231,7 +239,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               } else if (attendanceProvider.hasClockedOut) {
                 showInfoSnackBar(context, 'Anda sudah absen pulang hari ini.');
               } else {
-                _startAttendance(context, 'out');
+                final String attendanceStatus =
+                    now.isBefore(scheduleEndTime) ? 'Terlambat' : 'Tepat waktu';
+                _startAttendance(context, 'out', attendanceStatus);
               }
             },
           ),

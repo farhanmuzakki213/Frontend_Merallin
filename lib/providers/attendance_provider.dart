@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/services/attendance_service.dart';
 import 'package:frontend_merallin/models/attendance_history_model.dart';
+import 'package:intl/intl.dart';
 
+// Menggunakan enum yang lebih deskriptif
 enum DataStatus { initial, loading, success, error }
 
 class AttendanceProvider extends ChangeNotifier {
@@ -28,13 +30,15 @@ class AttendanceProvider extends ChangeNotifier {
   String? get historyMessage => _historyMessage;
   List<AttendanceHistory> get historyList => _historyList;
 
-  Future<void> clockIn(File image, String token) async {
+  // --- FUNGSI CLOCK IN YANG SUDAH DIGABUNG ---
+  Future<void> clockIn(File image, String token, String attendanceStatus) async {
     _attendanceStatus = DataStatus.loading;
     _attendanceMessage = 'Memproses absensi datang...';
     notifyListeners();
 
     try {
-      await _attendanceService.performAttendance(image, token);
+      // Menggunakan metode service yang lebih baru
+      await _attendanceService.submitAttendance(image, token, 'datang', attendanceStatus);
       _attendanceStatus = DataStatus.success;
       _attendanceMessage = 'Absensi Datang berhasil direkam!';
       _hasClockedIn = true;
@@ -45,13 +49,15 @@ class AttendanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> clockOut(File image, String token) async {
+  // --- FUNGSI CLOCK OUT YANG SUDAH DIGABUNG ---
+  Future<void> clockOut(File image, String token, String attendanceStatus) async {
     _attendanceStatus = DataStatus.loading;
     _attendanceMessage = 'Memproses absensi pulang...';
     notifyListeners();
 
     try {
-      await _attendanceService.performAttendance(image, token);
+      // Menggunakan metode service yang lebih baru
+      await _attendanceService.submitAttendance(image, token, 'pulang', attendanceStatus);
       _attendanceStatus = DataStatus.success;
       _attendanceMessage = 'Absensi Pulang berhasil direkam!';
       _hasClockedOut = true;
@@ -65,7 +71,6 @@ class AttendanceProvider extends ChangeNotifier {
   Future<void> fetchHistory(String token) async {
     _historyStatus = DataStatus.loading;
     notifyListeners();
-
     try {
       _historyList = await _attendanceService.getAttendanceHistory(token);
       _historyStatus = DataStatus.success;
@@ -75,19 +80,33 @@ class AttendanceProvider extends ChangeNotifier {
     }
     notifyListeners();
   }
+  
+  void syncStatusFromHistory() {
+    if (_historyList.isEmpty) {
+      _hasClockedIn = false;
+      _hasClockedOut = false;
+      notifyListeners();
+      return;
+    }
+    final todayString = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final todayAttendances = _historyList.where((item) {
+      final itemDateString = DateFormat('yyyy-MM-dd').format(item.createdAt.toLocal());
+      return itemDateString == todayString;
+    }).toList();
+    _hasClockedIn = todayAttendances.isNotEmpty;
+    _hasClockedOut = todayAttendances.length > 1;
+    notifyListeners();
+    debugPrint('Status absensi disinkronkan: Datang=$_hasClockedIn, Pulang=$_hasClockedOut');
+  }
 
-  // --- FUNGSI BARU UNTUK MEMBERSIHKAN STATE ---
   void reset() {
     _attendanceStatus = DataStatus.initial;
     _attendanceMessage = null;
     _hasClockedIn = false;
     _hasClockedOut = false;
-
     _historyStatus = DataStatus.initial;
     _historyMessage = null;
     _historyList = [];
-    
-    // Beri tahu widget yang mendengarkan bahwa state sudah bersih
     notifyListeners();
     debugPrint('AttendanceProvider state has been reset.');
   }
