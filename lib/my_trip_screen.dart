@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'laporan_perjalanan_screen.dart';
+
 class MyTripScreen extends StatelessWidget {
   const MyTripScreen({super.key});
 
@@ -24,7 +26,12 @@ class MyTripScreen extends StatelessWidget {
             destination: 'Surabaya (SUB)',
             status: 'Dalam Perjalanan',
             onTap: () {
-              // TODO: Navigasi ke halaman detail trip
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const LaporanDriverScreen(),
+                ),
+              );
             },
           ),
           // --- Contoh Trip Card 2 (Menunggu Muatan) ---
@@ -38,7 +45,7 @@ class MyTripScreen extends StatelessWidget {
               // TODO: Navigasi ke halaman detail trip
             },
           ),
-           // --- Contoh Trip Card 3 (Selesai) ---
+          // --- Contoh Trip Card 3 (Selesai) ---
           _buildTripCard(
             context,
             tripId: 'TRIP-UPG-MDC-0825-3',
@@ -99,12 +106,14 @@ class MyTripScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(Icons.flight_takeoff_outlined, color: Colors.blue, size: 20),
+                  const Icon(Icons.flight_takeoff_outlined,
+                      color: Colors.blue, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       origin,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -115,12 +124,14 @@ class MyTripScreen extends StatelessWidget {
               ),
               Row(
                 children: [
-                  const Icon(Icons.flight_land_outlined, color: Colors.green, size: 20),
+                  const Icon(Icons.flight_land_outlined,
+                      color: Colors.green, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       destination,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -132,7 +143,8 @@ class MyTripScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildStatusChip(status),
-                  const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                  const Icon(Icons.arrow_forward_ios,
+                      size: 16, color: Colors.grey),
                 ],
               ),
             ],
@@ -180,7 +192,8 @@ class MyTripScreen extends StatelessWidget {
   Widget _buildCreateTripButton(BuildContext context) {
     return ElevatedButton.icon(
       icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-      label: const Text('Buat Trip Baru', style: TextStyle(color: Colors.white)),
+      label:
+          const Text('Buat Trip Baru', style: TextStyle(color: Colors.white)),
       onPressed: () {
         // TODO: Implementasi logika untuk membuat trip baru
         // Contoh: menampilkan dialog atau menavigasi ke form pembuatan trip
