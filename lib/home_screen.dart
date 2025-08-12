@@ -1,17 +1,20 @@
 // lib/home_screen.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+// FIX: Mengubah 'package.' menjadi 'package:'
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+
 import 'package:frontend_merallin/profile_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/services/permission_service.dart';
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
-
 import 'driver_history_screen.dart';
 
 
@@ -35,18 +38,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = context.watch<AuthProvider>().user;
     final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
 
-    // FIX: Buat widget history secara dinamis berdasarkan role
     Widget historyScreen;
-    // FIX: Gunakan '==' untuk perbandingan, bukan '='
     if (userRole == 'driver') {
-      historyScreen = const DriverHistoryScreen(); // Ganti dengan halaman riwayat driver Anda
+      historyScreen = const DriverHistoryScreen();
     } else {
-      // Default untuk 'karyawan' atau role lainnya
       historyScreen = const HistoryScreen();
     }
     final List<Widget> widgetOptions = [
       const HomeScreenContent(),
-      historyScreen, // Masukkan halaman riwayat yang sudah ditentukan
+      historyScreen,
       const PlaceholderScreen(title: 'Pengaturan'),
       const ProfilePage(),
     ];
@@ -107,6 +107,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     if (imageFile == null) return;
     if (!mounted) return;
 
+    // NOTE: Logika `clockOut` berada di dalam provider, jadi kita panggil method yg sesuai
     if (type == 'in') {
       await attendanceProvider.clockIn(
           File(imageFile.path), authProvider.token!);
@@ -116,12 +117,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     }
 
     if (mounted) {
-      final status = attendanceProvider.status;
-      final message = attendanceProvider.message ?? "Terjadi kesalahan";
+      // NOTE: Menggunakan `attendanceStatus` dan `attendanceMessage` dari provider
+      final status = attendanceProvider.attendanceStatus;
+      final message = attendanceProvider.attendanceMessage ?? "Terjadi kesalahan";
 
-      if (status == AttendanceStatus.success) {
+      if (status == DataStatus.success) {
         showInfoSnackBar(context, message);
-      } else if (status == AttendanceStatus.error) {
+      } else if (status == DataStatus.error) {
         showErrorSnackBar(context, message);
       }
     }
@@ -170,15 +172,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             icon: Icons.work_outline,
             label: 'Datang',
             onTap: () {
-              if (attendanceProvider.status == AttendanceStatus.processing)
+              // FIX: Menambahkan kurung kurawal
+              if (attendanceProvider.attendanceStatus == DataStatus.loading) {
                 return;
+              }
 
-              // Logika Waktu untuk Absen Datang (07:00 - 23:59)
               final now = DateTime.now();
               final startTime =
                   DateTime(now.year, now.month, now.day, 7, 0); // 07:00
               final endTime = DateTime(
-                  now.year, now.month, now.day, 23, 59); // 23:59 (Tengah Malam)
+                  now.year, now.month, now.day, 23, 59); // 23:59
 
               if (now.isBefore(startTime)) {
                 showInfoSnackBar(
@@ -202,8 +205,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             icon: Icons.home_work_outlined,
             label: 'Pulang',
             onTap: () {
-              if (attendanceProvider.status == AttendanceStatus.processing)
+              // FIX: Menambahkan kurung kurawal
+              if (attendanceProvider.attendanceStatus == DataStatus.loading) {
                 return;
+              }
 
               final now = DateTime.now();
               final startTime =
@@ -281,9 +286,18 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=56'),
           ),
           const SizedBox(width: 12),
-          Text(
-            'Hello, $userName',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+               Text(
+                'Hello, $userName',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Text(
+                'Selamat datang kembali!',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ],
           ),
           const Spacer(),
           IconButton(
@@ -302,35 +316,54 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       decoration: BoxDecoration(
         color: Colors.blue[600],
         borderRadius: BorderRadius.circular(20.0),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            '16:50 WIB', // Ganti dengan data waktu live
-            style: TextStyle(
-                color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Kamis, 7 Agustus 2025', // Ganti dengan data tanggal live
-            style: TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-          SizedBox(height: 20),
-          Divider(color: Colors.white54),
-          SizedBox(height: 10),
-          Text(
-            'Jadwal Anda Hari Ini',
-            style: TextStyle(color: Colors.white, fontSize: 16),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '08:00 WIB - 16:00 WIB',
-            style: TextStyle(
-                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-          ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
         ],
       ),
+      child: StreamBuilder(
+          stream: Stream.periodic(const Duration(seconds: 1)),
+          builder: (context, snapshot) {
+            final now = DateTime.now();
+            final timeString = DateFormat('HH:mm:ss').format(now);
+            final dateString = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(now);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  timeString, // Data waktu live
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  dateString, // Data tanggal live
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white54),
+                const SizedBox(height: 10),
+                const Text(
+                  'Jadwal Anda Hari Ini',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '08:00 WIB - 17:00 WIB',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600),
+                ),
+              ],
+            );
+          }),
     );
   }
 }
@@ -343,7 +376,7 @@ class PlaceholderScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue[700],
       ),
       body: Center(
@@ -379,7 +412,6 @@ class _AnimatedMenuItemState extends State<AnimatedMenuItem> {
     setState(() => _isPressed = false);
     widget.onTap();
   }
-
   void _onTapCancel() => setState(() => _isPressed = false);
 
   @override
