@@ -42,6 +42,7 @@ class _LocationData {
 }
 // --- END DATA MODELS ---
 
+
 class DriverHistoryScreen extends StatefulWidget {
   const DriverHistoryScreen({super.key});
 
@@ -51,15 +52,7 @@ class DriverHistoryScreen extends StatefulWidget {
 
 class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   int _selectedDay = 6;
-  final List<String> _dayNames = [
-    'Sen',
-    'Sel',
-    'Rab',
-    'Kam',
-    'Jum',
-    'Sab',
-    'Min'
-  ];
+  final List<String> _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
   // --- DUMMY DATA ---
   final List<_TripData> _tripHistory = [
@@ -115,8 +108,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[200],
       appBar: AppBar(
-        title: const Text('Riwayat Perjalanan',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Riwayat Perjalanan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.teal.shade800,
         elevation: 2,
         automaticallyImplyLeading: false,
@@ -186,20 +178,10 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
 
   Widget _buildHistoryDetails() {
     final dayName = _dayNames[(_selectedDay - 1) % 7];
-    final fullDayName = {
-      'Sen': 'Senin',
-      'Sel': 'Selasa',
-      'Rab': 'Rabu',
-      'Kam': 'Kamis',
-      'Jum': 'Jumat',
-      'Sab': 'Sabtu',
-      'Min': 'Minggu'
-    }[dayName];
+    final fullDayName = {'Sen': 'Senin', 'Sel': 'Selasa', 'Rab': 'Rabu', 'Kam': 'Kamis', 'Jum': 'Jumat', 'Sab': 'Sabtu', 'Min': 'Minggu'}[dayName];
 
     if (_tripHistory.isEmpty) {
-      return const Center(
-          child: Text("Tidak ada riwayat perjalanan.",
-              style: TextStyle(fontSize: 16, color: Colors.grey)));
+      return const Center(child: Text("Tidak ada riwayat perjalanan.", style: TextStyle(fontSize: 16, color: Colors.grey)));
     }
 
     return Column(
@@ -218,8 +200,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         ),
         Expanded(
           child: ListView.builder(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             itemCount: _tripHistory.length,
             itemBuilder: (context, index) {
               final trip = _tripHistory[index];
@@ -231,6 +212,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     );
   }
 }
+
 
 class _DateCard extends StatelessWidget {
   final String day;
@@ -334,11 +316,9 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _buildInfoRow(Icons.person_outline, 'Driver',
-                            widget.trip.driverName),
+                        _buildInfoRow(Icons.person_outline, 'Driver', widget.trip.driverName),
                         const SizedBox(height: 8),
-                        _buildInfoRow(Icons.directions_car_outlined, 'NOPOL',
-                            widget.trip.nopol),
+                        _buildInfoRow(Icons.directions_car_outlined, 'NOPOL', widget.trip.nopol),
                       ],
                     ),
                   ),
@@ -360,8 +340,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
           AnimatedSize(
             duration: const Duration(milliseconds: 350),
             curve: Curves.fastOutSlowIn,
-            child:
-                _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
+            child: _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -380,15 +359,13 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
           const SizedBox(height: 10),
           _buildInfoRow(Icons.route, 'KM Tiba', widget.trip.kmTiba),
           const SizedBox(height: 10),
-          _buildInfoRow(Icons.calendar_today_outlined, 'Berangkat',
-              widget.trip.tanggalBerangkat),
+          _buildInfoRow(Icons.calendar_today_outlined, 'Berangkat', widget.trip.tanggalBerangkat),
           const SizedBox(height: 10),
-          _buildInfoRow(
-              Icons.calendar_today, 'Sampai', widget.trip.tanggalSampai),
+          _buildInfoRow(Icons.calendar_today, 'Sampai', widget.trip.tanggalSampai),
           const SizedBox(height: 10),
-          _buildInfoRow(
-              Icons.info_outline, 'Keterangan', widget.trip.keterangan),
+          _buildInfoRow(Icons.info_outline, 'Keterangan', widget.trip.keterangan),
           const SizedBox(height: 24),
+
           _buildLocationSection(widget.trip.departure),
           const SizedBox(height: 24),
           _buildLocationSection(widget.trip.arrival),
@@ -402,11 +379,9 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle(locationData.title),
-        _buildInfoRow(
-            Icons.location_on_outlined, 'Lokasi', locationData.location),
+        _buildInfoRow(Icons.location_on_outlined, 'Lokasi', locationData.location),
         const SizedBox(height: 10),
-        _buildInfoRow(Icons.map_outlined, 'Koordinat',
-            '${locationData.latitude}, ${locationData.longitude}'),
+        _buildInfoRow(Icons.map_outlined, 'Koordinat', '${locationData.latitude}, ${locationData.longitude}'),
         const SizedBox(height: 20),
         Align(
           alignment: Alignment.centerRight,
@@ -414,9 +389,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
             onPressed: () {
             },
             icon: const Icon(Icons.map, color: Colors.white, size: 18),
-            label: const Text('Lihat di Peta',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+            label: const Text('Lihat di Peta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal.shade700,
               shape: RoundedRectangleBorder(
@@ -457,10 +430,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500),
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 4),
               Text(

@@ -2,7 +2,7 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:frontend_merallin/home_screen.dart'; 
+import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/login_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
@@ -16,7 +16,7 @@ Future<void> main() async {
   await initializeDateFormatting('id_ID', null);
   await dotenv.load(fileName: ".env");
   await Hive.initFlutter();
-  
+
   final encryptionKeyString = dotenv.env['HIVE_ENCRYPTION_KEY'];
   if (encryptionKeyString == null) {
     throw Exception("HIVE_ENCRYPTION_KEY tidak ditemukan di file .env");
@@ -63,7 +63,9 @@ class AuthGate extends StatelessWidget {
       builder: (context, authProvider, child) {
         switch (authProvider.authStatus) {
           case AuthStatus.uninitialized:
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
+          case AuthStatus.updating:
           case AuthStatus.authenticated:
             return const HomeScreen(); // Sekarang akan dikenali
           case AuthStatus.authenticating:

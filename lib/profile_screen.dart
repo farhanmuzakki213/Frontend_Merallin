@@ -5,6 +5,7 @@ import 'package:frontend_merallin/edit_password.dart';
 import 'package:frontend_merallin/edit_profile.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // --- PERUBAHAN DI SINI: Tambahkan import untuk halaman baru ---
 import 'package:frontend_merallin/help_center_screen.dart';
@@ -16,7 +17,7 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-
+    final String baseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? '';
     if (user == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -38,15 +39,27 @@ class ProfilePage extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 50,
-                  backgroundColor: Color(0xFFE0E0E0),
-                  backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+                  backgroundColor: const Color(0xFFE0E0E0),
+                  // Cek jika URL tidak kosong sebelum digunakan
+                  backgroundImage: (user.profile_photo_url.isNotEmpty)
+                      ? NetworkImage('$baseUrl/${user.profile_photo_url}')
+                      : null, // Jika kosong, tidak ada background image
+                  // Tampilkan ikon jika tidak ada gambar
+                  child: (user.profile_photo_url.isEmpty)
+                      ? const Icon(
+                          Icons.person,
+                          size: 50,
+                          color: Colors.grey,
+                        )
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   user.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 18),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -83,7 +96,8 @@ class ProfilePage extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const HelpCenterScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const HelpCenterScreen()),
               );
             },
           ),

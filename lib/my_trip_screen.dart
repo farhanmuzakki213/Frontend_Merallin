@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'laporan_perjalanan_screen.dart';
+
 class MyTripScreen extends StatelessWidget {
   const MyTripScreen({super.key});
 
