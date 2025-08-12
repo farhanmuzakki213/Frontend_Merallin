@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import 'package:frontend_merallin/providers/auth_provider.dart';
-import 'package:frontend_merallin/providers/attendance_provider.dart';
+import 'package:frontend_merallin/providers/history_provider.dart';
 import 'package:frontend_merallin/models/attendance_history_model.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -14,18 +15,35 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  int _selectedDay = DateTime.now().day;
-  final String _monthName = DateFormat('MMMM yyyy', 'id_ID').format(DateTime.now());
+  // Gunakan objek DateTime untuk manajemen tanggal yang lebih fleksibel
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      final token = Provider.of<AuthProvider>(context, listen: false).token;
-      if (token != null) {
-        Provider.of<AttendanceProvider>(context, listen: false).fetchHistory(token);
-      }
+    // Panggil data untuk pertama kali saat halaman dibuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchHistoryForSelectedDate();
     });
+  }
+
+  /// Mengambil data riwayat dari API berdasarkan tanggal yang dipilih.
+  void _fetchHistoryForSelectedDate() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.token != null) {
+      // Menggunakan HistoryProvider yang benar untuk mengambil data
+      Provider.of<HistoryProvider>(context, listen: false)
+          .getHistory(authProvider.token!, _selectedDate);
+    }
+  }
+
+  /// Fungsi yang dipanggil saat pengguna memilih tanggal baru.
+  void _onDateSelected(DateTime newDate) {
+    setState(() {
+      _selectedDate = newDate;
+    });
+    // Ambil data baru dari API setiap kali tanggal diganti
+    _fetchHistoryForSelectedDate();
   }
 
   @override
@@ -41,31 +59,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
         children: [
           _buildDateSelector(),
           Expanded(
-            child: Consumer<AttendanceProvider>(
+            child: Consumer<HistoryProvider>(
               builder: (context, provider, child) {
-                if (provider.historyStatus == DataStatus.loading) {
+                // Menangani berbagai status dari provider
+                if (provider.status == DataStatus.loading) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (provider.historyStatus == DataStatus.error) {
-                  return Center(child: Text('Error: ${provider.historyMessage}'));
+                if (provider.status == DataStatus.error) {
+                  return Center(child: Text('Error: ${provider.message}'));
                 }
                 if (provider.historyList.isEmpty) {
-                  return const Center(child: Text('Tidak ada riwayat absensi.'));
+                  return Center(child: Text('Tidak ada riwayat untuk tanggal ${DateFormat('d MMMM yyyy', 'id_ID').format(_selectedDate)}.'));
                 }
-
-                final allHistoryForDay = provider.historyList.where((item) {
-                  return item.createdAt.day == _selectedDay;
-                }).toList();
-                allHistoryForDay.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-                final clockIn = allHistoryForDay.isNotEmpty ? allHistoryForDay.first : null;
-                final clockOut = allHistoryForDay.length > 1 ? allHistoryForDay.last : null;
-
-                if (clockIn == null) {
-                   return Center(child: Text('Tidak ada riwayat untuk tanggal $_selectedDay $_monthName.'));
-                }
-
-                return _buildDetailedHistoryView(clockIn, clockOut);
+                // Jika sukses, tampilkan detail riwayat
+                return _buildDetailedHistoryView(provider.historyList);
               },
             ),
           ),
@@ -74,87 +81,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildDetailedHistoryView(AttendanceHistory clockIn, AttendanceHistory? clockOut) {
-    final fullDayName = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(clockIn.createdAt.toLocal());
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: Text(
-            fullDayName,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-            ),
-          ),
-        ),
-        _HistoryDetailCard(
-          title: 'Absensi Datang',
-          time: DateFormat('HH:mm:ss').format(clockIn.createdAt.toLocal()),
-          status: 'Tepat Waktu',
-          statusColor: Colors.green.shade700,
-          locationName: 'Lokasi Tercatat',
-          latitude: clockIn.latitude,
-          longitude: clockIn.longitude,
-        ),
-        const SizedBox(height: 12),
-        if (clockOut != null)
-          _HistoryDetailCard(
-            title: 'Absensi Pulang',
-            time: DateFormat('HH:mm:ss').format(clockOut.createdAt.toLocal()),
-            status: 'Sesuai Jadwal',
-            statusColor: Colors.green.shade700,
-            locationName: 'Lokasi Tercatat',
-            latitude: clockOut.latitude,
-            longitude: clockOut.longitude,
-          ),
-      ],
-    );
-  }
-
+  /// Membangun UI untuk memilih tanggal (date selector).
   Widget _buildDateSelector() {
+    final daysInMonth = DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day;
+    final monthName = DateFormat('MMMM yyyy', 'id_ID').format(_selectedDate);
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade800,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          )
-        ]
-      ),
+      decoration: BoxDecoration(color: Colors.blue.shade800, boxShadow: [
+        BoxShadow(color: Colors.black.withOpacity(0.1), spreadRadius: 1, blurRadius: 3, offset: const Offset(0, 2))
+      ]),
       child: Column(
         children: [
-          Text(
-            _monthName,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+          Text(monthName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 16),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Row(
-              children: List.generate(31, (index) {
+              children: List.generate(daysInMonth, (index) {
                 final day = index + 1;
-                final isSelected = day == _selectedDay;
-                final dateForDayName = DateTime(DateTime.now().year, DateTime.now().month, day);
-                final dayName = DateFormat('E', 'id_ID').format(dateForDayName);
+                final date = DateTime(_selectedDate.year, _selectedDate.month, day);
+                final isSelected = day == _selectedDate.day;
+                final dayName = DateFormat('E', 'id_ID').format(date);
 
                 return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedDay = day;
-                    });
-                  },
+                  onTap: () => _onDateSelected(date),
                   child: _DateCard(
                     day: day.toString(),
                     dayName: dayName,
@@ -166,6 +118,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Membangun tampilan detail riwayat (kartu absen datang & pulang).
+  Widget _buildDetailedHistoryView(List<AttendanceHistory> history) {
+    final fullDayName = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(_selectedDate);
+
+    final clockIn = history.firstWhere((h) => h.tipeAbsensi == 'datang', orElse: () => history.first);
+    final clockOut = history.firstWhere((h) => h.tipeAbsensi == 'pulang', orElse: () => history.last);
+    final hasClockOut = history.any((h) => h.tipeAbsensi == 'pulang');
+
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Text(
+            fullDayName,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+          ),
+        ),
+        _HistoryDetailCard(
+          title: 'Absensi Datang',
+          time: DateFormat('HH:mm:ss').format(clockIn.createdAt.toLocal()),
+          status: clockIn.statusAbsensi,
+          latitude: clockIn.latitude,
+          longitude: clockIn.longitude,
+        ),
+        const SizedBox(height: 12),
+        if (hasClockOut)
+          _HistoryDetailCard(
+            title: 'Absensi Pulang',
+            time: DateFormat('HH:mm:ss').format(clockOut.createdAt.toLocal()),
+            status: clockOut.statusAbsensi,
+            latitude: clockOut.latitude,
+            longitude: clockOut.longitude,
+          ),
+      ],
     );
   }
 }
@@ -225,8 +215,6 @@ class _HistoryDetailCard extends StatelessWidget {
   final String title;
   final String time;
   final String status;
-  final Color statusColor;
-  final String locationName;
   final double latitude;
   final double longitude;
 
@@ -234,27 +222,25 @@ class _HistoryDetailCard extends StatelessWidget {
     required this.title,
     required this.time,
     required this.status,
-    required this.statusColor,
-    required this.locationName,
     required this.latitude,
     required this.longitude,
   });
 
-  // Fungsi untuk membuka URL Google Maps
+  /// Fungsi untuk membuka URL Google Maps dengan koordinat yang benar.
   Future<void> _launchMap() async {
-    final Uri googleMapsUrl = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
+    final Uri googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
 
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl);
     } else {
-      // Sebaiknya tampilkan pesan error kepada pengguna jika gagal
       debugPrint('Tidak bisa membuka peta untuk $latitude,$longitude');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = status == 'Terlambat' ? Colors.red.shade700 : Colors.green.shade700;
+
     return Card(
       elevation: 3,
       shadowColor: Colors.black.withOpacity(0.1),
@@ -266,32 +252,24 @@ class _HistoryDetailCard extends StatelessWidget {
           children: [
             Text(
               title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue.shade900,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
             ),
             const Divider(height: 20),
             _buildInfoRow(Icons.access_time_filled, 'Jam', time),
             const SizedBox(height: 12),
             _buildInfoRow(Icons.check_circle, 'Status', status, valueColor: statusColor),
             const SizedBox(height: 12),
-            _buildInfoRow(Icons.location_on, 'Lokasi', locationName),
-            const SizedBox(height: 12),
             _buildInfoRow(Icons.map_outlined, 'Koordinat', '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}'),
             const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton.icon(
-                onPressed: _launchMap, // Panggil fungsi saat tombol ditekan
+                onPressed: _launchMap,
                 icon: const Icon(Icons.map, color: Colors.white, size: 18),
                 label: const Text('Lihat di Peta', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade700,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
@@ -301,7 +279,7 @@ class _HistoryDetailCard extends StatelessWidget {
     );
   }
 
-  // Helper widget untuk membuat baris info (ikon + label + nilai)
+  /// Widget helper untuk membuat baris info (ikon + label + nilai).
   Widget _buildInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
