@@ -361,10 +361,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Widget _buildTimeCard() {
-    final now = DateTime.now();
-    final timeString = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WIB";
-    const dateString = "Selasa, 12 Agustus 2025"; 
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20.0),
       padding: const EdgeInsets.all(24.0),
