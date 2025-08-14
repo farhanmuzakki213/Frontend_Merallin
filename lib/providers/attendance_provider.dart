@@ -2,53 +2,58 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/services/attendance_service.dart';
 
-enum AttendanceStatus { idle, processing, success, error }
+enum AttendanceProcessStatus { idle, processing, success, error }
 
 class AttendanceProvider extends ChangeNotifier {
   final AttendanceService _attendanceService = AttendanceService();
 
-  AttendanceStatus _status = AttendanceStatus.idle;
+  AttendanceProcessStatus _status = AttendanceProcessStatus.idle;
   String? _message;
   bool _hasClockedIn = false;
   bool _hasClockedOut = false;
 
-  AttendanceStatus get status => _status;
+  AttendanceProcessStatus get status => _status;
   String? get message => _message;
   bool get hasClockedIn => _hasClockedIn;
   bool get hasClockedOut => _hasClockedOut;
 
-  Future<void> clockIn(File image, String token) async {
-    _status = AttendanceStatus.processing;
-    _message = 'Memproses absensi datang...';
-    notifyListeners();
-
+  Future<void> checkTodayAttendanceStatus(String token) async {
     try {
-      await _attendanceService.performAttendance(image, token);
-      _status = AttendanceStatus.success;
-      _message = 'Absensi Datang berhasil direkam!';
-      _hasClockedIn = true;
+      final statusResult = await _attendanceService.checkStatusToday(token);
+      _hasClockedIn = statusResult['has_clocked_in'] ?? false;
+      _hasClockedOut = statusResult['has_clocked_out'] ?? false;
       notifyListeners();
     } catch (e) {
-      _status = AttendanceStatus.error;
-      _message = e.toString().replaceFirst('Exception: ', '');
+      print("Gagal cek status: $e");
+    }
+  }
+
+  Future<void> performClockIn(File image, String token) async {
+    _status = AttendanceProcessStatus.processing;
+    notifyListeners();
+    try {
+      await _attendanceService.clockIn(image, token);
+      _status = AttendanceProcessStatus.success;
+      _message = 'Absensi Datang berhasil direkam!';
+      await checkTodayAttendanceStatus(token);
+    } catch (e) {
+      _status = AttendanceProcessStatus.error;
+      _message = e.toString();
       notifyListeners();
     }
   }
 
-  Future<void> clockOut(File image, String token) async {
-    _status = AttendanceStatus.processing;
-    _message = 'Memproses absensi pulang...';
+  Future<void> performClockOut(File image, String token) async {
+    _status = AttendanceProcessStatus.processing;
     notifyListeners();
-
     try {
-      await _attendanceService.performAttendance(image, token);
-      _status = AttendanceStatus.success;
+      await _attendanceService.clockOut(image, token);
+      _status = AttendanceProcessStatus.success;
       _message = 'Absensi Pulang berhasil direkam!';
-      _hasClockedOut = true;
-      notifyListeners();
+      await checkTodayAttendanceStatus(token);
     } catch (e) {
-      _status = AttendanceStatus.error;
-      _message = e.toString().replaceFirst('Exception: ', '');
+      _status = AttendanceProcessStatus.error;
+      _message = e.toString();
       notifyListeners();
     }
   }

@@ -1,20 +1,26 @@
 // lib/home_screen.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+// FIX: Mengubah 'package.' menjadi 'package:'
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+
 import 'package:frontend_merallin/profile_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/services/permission_service.dart';
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
-
 import 'driver_history_screen.dart';
 import 'lembur_screen.dart';
 
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,21 +40,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+    final String? userRole =
+        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
 
-    // FIX: Buat widget history secara dinamis berdasarkan role
     Widget historyScreen;
-    // FIX: Gunakan '==' untuk perbandingan, bukan '='
     if (userRole == 'driver') {
-      historyScreen = const DriverHistoryScreen(); // Ganti dengan halaman riwayat driver Anda
+      historyScreen = const DriverHistoryScreen();
     } else {
-      // Default untuk 'karyawan' atau role lainnya
       historyScreen = const HistoryScreen();
     }
     final List<Widget> widgetOptions = [
       const HomeScreenContent(),
-      historyScreen, // Masukkan halaman riwayat yang sudah ditentukan
-      const PlaceholderScreen(title: 'Pengaturan'),
+      historyScreen,
       const ProfilePage(),
     ];
     return Scaffold(
@@ -59,7 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Setting'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         currentIndex: _selectedIndex,
@@ -83,17 +85,53 @@ class HomeScreenContent extends StatefulWidget {
 class _HomeScreenContentState extends State<HomeScreenContent> {
   final PermissionService _permissionService = PermissionService();
 
+  @override
+  void initState() {
+    super.initState();
+    // Panggil fungsi untuk cek status saat widget pertama kali dibuat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.token != null) {
+        Provider.of<AttendanceProvider>(context, listen: false)
+            .checkTodayAttendanceStatus(authProvider.token!);
+      }
+    });
+  }
+
+  Future<File?> _compressImage(File file) async {
+    // Tentukan path untuk menyimpan file hasil kompresi
+    final tempDir = await getTemporaryDirectory();
+    final targetPath =
+        p.join(tempDir.path, '${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+    // Kompres file
+    final result = await FlutterImageCompress.compressAndGetFile(
+      file.absolute.path,
+      targetPath,
+      quality: 70, // Kualitas gambar (0-100), 70 sudah cukup bagus
+      minWidth: 1024, // Perkecil lebar gambar jika terlalu besar
+      minHeight: 1024, // Perkecil tinggi gambar jika terlalu besar
+    );
+
+    if (result == null) return null;
+
+    // Ubah XFile menjadi File
+    return File(result.path);
+  }
+
   Future<void> _startAttendance(BuildContext context, String type) async {
-    final bool permissionsGranted = await _permissionService.requestAttendancePermissions();
+    final bool permissionsGranted =
+        await _permissionService.requestAttendancePermissions();
     if (!mounted) return;
 
     if (!permissionsGranted) {
-      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
+      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
       return;
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final attendanceProvider =
+        Provider.of<AttendanceProvider>(context, listen: false);
 
     if (authProvider.token == null) {
       showErrorSnackBar(context, "Sesi tidak valid, silakan login ulang.");
@@ -108,23 +146,59 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     if (imageFile == null) return;
     if (!mounted) return;
 
-    if (type == 'in') {
-      await attendanceProvider.clockIn(
-          File(imageFile.path), authProvider.token!);
-    } else {
-      await attendanceProvider.clockOut(
-          File(imageFile.path), authProvider.token!);
-    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("Sedang memproses..."),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    try {
+      // Jalankan proses kompresi gambar
+      final compressedImageFile = await _compressImage(File(imageFile.path));
 
-    if (mounted) {
+      if (compressedImageFile == null) {
+        throw Exception("Gagal memproses gambar.");
+      }
+
+      // Jalankan proses unggah dan absensi
+      if (type == 'in') {
+        await attendanceProvider.performClockIn(
+            compressedImageFile, authProvider.token!);
+      } else {
+        await attendanceProvider.performClockOut(
+            compressedImageFile, authProvider.token!);
+      }
+
+      // Ambil status dan pesan dari provider setelah selesai
       final status = attendanceProvider.status;
       final message = attendanceProvider.message ?? "Terjadi kesalahan";
 
-      if (status == AttendanceStatus.success) {
+      // Tutup dialog loading
+      Navigator.of(context).pop();
+
+      // Tampilkan hasil akhir ke pengguna
+      if (status == AttendanceProcessStatus.success) {
         showInfoSnackBar(context, message);
-      } else if (status == AttendanceStatus.error) {
+      } else if (status == AttendanceProcessStatus.error) {
         showErrorSnackBar(context, message);
       }
+    } catch (e) {
+      // Jika terjadi error di tengah jalan (misal kompresi gagal)
+      Navigator.of(context).pop(); // Pastikan dialog loading ditutup
+      showErrorSnackBar(context, e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -132,7 +206,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   Widget build(BuildContext context) {
     final attendanceProvider = context.watch<AttendanceProvider>();
     final user = context.watch<AuthProvider>().user;
-    final String? userRole = user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+    final String? userRole =
+        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -171,27 +246,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             icon: Icons.work_outline,
             label: 'Datang',
             onTap: () {
-              if (attendanceProvider.status == AttendanceStatus.processing)
-                return;
-
-              // Logika Waktu untuk Absen Datang (07:00 - 23:59)
-              final now = DateTime.now();
-              final startTime =
-                  DateTime(now.year, now.month, now.day, 7, 0); // 07:00
-              final endTime = DateTime(
-                  now.year, now.month, now.day, 23, 59); // 23:59 (Tengah Malam)
-
-              if (now.isBefore(startTime)) {
-                showInfoSnackBar(
-                    context, 'Belum waktunya absen (mulai 07:00).');
+              if (attendanceProvider.status ==
+                  AttendanceProcessStatus.processing) {
                 return;
               }
-              if (now.isAfter(endTime)) {
-                showInfoSnackBar(
-                    context, 'Waktu absen untuk hari ini sudah habis.');
-                return;
-              }
-
               if (attendanceProvider.hasClockedIn) {
                 showInfoSnackBar(context, 'Anda sudah absen datang hari ini.');
               } else {
@@ -203,27 +261,18 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             icon: Icons.home_work_outlined,
             label: 'Pulang',
             onTap: () {
-              if (attendanceProvider.status == AttendanceStatus.processing)
+              if (attendanceProvider.status ==
+                  AttendanceProcessStatus.processing) {
                 return;
-
+              }
               final now = DateTime.now();
-              final startTime =
-                  DateTime(now.year, now.month, now.day, 17, 0); // 17:00
-              final endTime =
-                  DateTime(now.year, now.month, now.day, 23, 59); // 23:59
-
-              if (now.isBefore(startTime)) {
-                showInfoSnackBar(context, 'Belum waktunya absen pulang.');
-                return;
-              }
-              if (now.isAfter(endTime)) {
-                showInfoSnackBar(context, 'Waktu absen pulang sudah habis.');
-                return;
-              }
-
+              final clockOutTime =
+                  DateTime(now.year, now.month, now.day, 17, 0);
               if (!attendanceProvider.hasClockedIn) {
-                showErrorSnackBar(
-                    context, 'Anda harus absen datang terlebih dahulu.');
+                showErrorSnackBar(context, 'Anda harus absen datang dahulu.');
+              } else if (now.isBefore(clockOutTime)) {
+                showInfoSnackBar(
+                    context, 'Belum waktunya absen pulang (setelah 17:00).');
               } else if (attendanceProvider.hasClockedOut) {
                 showInfoSnackBar(context, 'Anda sudah absen pulang hari ini.');
               } else {
@@ -287,9 +336,19 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=56'),
           ),
           const SizedBox(width: 12),
-          Text(
-            'Hello, $userName',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hello, $userName',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Text(
+                'Selamat datang kembali!',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ],
           ),
           const Spacer(),
           IconButton(
@@ -321,40 +380,53 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         borderRadius: BorderRadius.circular(20.0),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2196F3).withOpacity(0.3),
+            color: Colors.blue.withOpacity(0.3),
+            spreadRadius: 2,
             blurRadius: 10,
             offset: const Offset(0, 5),
           )
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            timeString,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            dateString,
-            style: TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-          const SizedBox(height: 20),
-          const Divider(color: Colors.white54),
-          const SizedBox(height: 10),
-          const Text(
-            'Jadwal Anda Hari Ini',
-            style: TextStyle(color: Colors.white, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '08:00 WIB - 16:00 WIB',
-            style: TextStyle(
-                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
+      child: StreamBuilder(
+          stream: Stream.periodic(const Duration(seconds: 1)),
+          builder: (context, snapshot) {
+            final now = DateTime.now();
+            final timeString = DateFormat('HH:mm:ss').format(now);
+            final dateString =
+                DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(now);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  timeString, // Data waktu live
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  dateString, // Data tanggal live
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white54),
+                const SizedBox(height: 10),
+                const Text(
+                  'Jadwal Anda Hari Ini',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '08:00 WIB - 17:00 WIB',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600),
+                ),
+              ],
+            );
+          }),
     );
   }
 }
@@ -367,7 +439,7 @@ class PlaceholderScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue[700],
       ),
       body: Center(

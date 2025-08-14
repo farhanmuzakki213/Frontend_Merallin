@@ -101,7 +101,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final String? photoUrl = authProvider.user?.profile_photo_url;
+    final String? photoUrl = authProvider.user?.profilePhotoUrl;
     final String baseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? '';
 
     return Scaffold(

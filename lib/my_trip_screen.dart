@@ -18,43 +18,29 @@ class MyTripScreen extends StatelessWidget {
         children: [
           _buildSectionHeader(context, 'Tugas Aktif Anda'),
           const SizedBox(height: 12),
-          // --- Contoh Trip Card 1 (Dalam Perjalanan) ---
           _buildTripCard(
             context,
             tripId: 'TRIP-CGK-SUB-0825-1',
             origin: 'Jakarta (CGK)',
             destination: 'Surabaya (SUB)',
             status: 'Dalam Perjalanan',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const LaporanDriverScreen(),
-                ),
-              );
-            },
+            onTap: () {},
           ),
-          // --- Contoh Trip Card 2 (Menunggu Muatan) ---
           _buildTripCard(
             context,
             tripId: 'TRIP-BDO-DPS-0825-2',
             origin: 'Bandung (BDO)',
             destination: 'Denpasar (DPS)',
             status: 'Menunggu Muatan',
-            onTap: () {
-              // TODO: Navigasi ke halaman detail trip
-            },
+            onTap: () {},
           ),
-          // --- Contoh Trip Card 3 (Selesai) ---
           _buildTripCard(
             context,
             tripId: 'TRIP-UPG-MDC-0825-3',
             origin: 'Makassar (UPG)',
             destination: 'Manado (MDC)',
             status: 'Selesai',
-            onTap: () {
-              // TODO: Navigasi ke halaman detail trip
-            },
+            onTap: () {},
           ),
           const SizedBox(height: 24),
           _buildCreateTripButton(context),
@@ -63,7 +49,6 @@ class MyTripScreen extends StatelessWidget {
     );
   }
 
-  // Widget untuk header seksi
   Widget _buildSectionHeader(BuildContext context, String title) {
     return Text(
       title,
@@ -74,7 +59,6 @@ class MyTripScreen extends StatelessWidget {
     );
   }
 
-  // Widget untuk kartu tugas/trip
   Widget _buildTripCard(
     BuildContext context, {
     required String tripId,
@@ -154,7 +138,6 @@ class MyTripScreen extends StatelessWidget {
     );
   }
 
-  // Widget untuk menampilkan status dengan chip berwarna
   Widget _buildStatusChip(String status) {
     Color chipColor;
     String chipText;
@@ -180,7 +163,7 @@ class MyTripScreen extends StatelessWidget {
     return Chip(
       label: Text(
         chipText,
-        style: TextStyle(
+        style: const TextStyle(
             color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 12),
       ),
       backgroundColor: chipColor,
@@ -188,21 +171,17 @@ class MyTripScreen extends StatelessWidget {
     );
   }
 
-  // Widget untuk tombol "Buat Trip"
   Widget _buildCreateTripButton(BuildContext context) {
     return ElevatedButton.icon(
       icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-      label:
-          const Text('Buat Trip Baru', style: TextStyle(color: Colors.white)),
-      onPressed: () {
-        // TODO: Implementasi logika untuk membuat trip baru
-        // Contoh: menampilkan dialog atau menavigasi ke form pembuatan trip
-      },
+      label: const Text('Buat Trip Baru',
+          style: TextStyle(color: Colors.white)),
+      onPressed: () {},
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.blue[600],
         minimumSize: const Size(double.infinity, 50),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(15)),
         ),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),

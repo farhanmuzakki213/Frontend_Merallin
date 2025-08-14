@@ -386,7 +386,8 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
         Align(
           alignment: Alignment.centerRight,
           child: ElevatedButton.icon(
-            onPressed: () { /* TODO: Implement map functionality for ${locationData.title} */ },
+            onPressed: () {
+            },
             icon: const Icon(Icons.map, color: Colors.white, size: 18),
             label: const Text('Lihat di Peta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(

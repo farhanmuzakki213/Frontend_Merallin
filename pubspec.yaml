@@ -10,6 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  url_launcher: 6.1.14
 
   cupertino_icons: ^1.0.2
   provider: ^6.1.2
@@ -19,11 +20,13 @@ dependencies:
   http: ^0.13.5
   
   # --- PASTIKAN DUA BARIS INI ADA ---
-  intl: ^0.18.0           # Untuk format tanggal di main.dart
-  geolocator: ^9.0.2      # Untuk lokasi di attendance_service.dart
-
+  intl: ^0.18.0           
+  geolocator: ^9.0.2      
   image_picker: ^0.8.9      
   permission_handler: ^10.4.5 
+  flutter_image_compress: ^2.3.0
+  path_provider: ^2.1.2
+  path: ^1.8.3
 
 dev_dependencies:
   flutter_test:
