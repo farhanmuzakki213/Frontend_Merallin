@@ -13,6 +13,7 @@ import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
 
 import 'driver_history_screen.dart';
+import 'lembur_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -237,7 +238,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           AnimatedMenuItem(
               icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
           AnimatedMenuItem(
-              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
+              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LemburScreen()),
+                );
+              }),
           AnimatedMenuItem(
               icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
         ],
@@ -296,35 +302,53 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Widget _buildTimeCard() {
+    final now = DateTime.now();
+    final timeString = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WIB";
+    const dateString = "Selasa, 12 Agustus 2025"; 
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20.0),
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        color: Colors.blue[600],
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 20, 171, 247),
+            Color.fromARGB(74, 19, 171, 247),
+          ],
+        ),
         borderRadius: BorderRadius.circular(20.0),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2196F3).withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            '16:50 WIB', // Ganti dengan data waktu live
-            style: TextStyle(
+            timeString,
+            style: const TextStyle(
                 color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 4),
-          Text(
-            'Kamis, 7 Agustus 2025', // Ganti dengan data tanggal live
+          const SizedBox(height: 4),
+          const Text(
+            dateString,
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
-          SizedBox(height: 20),
-          Divider(color: Colors.white54),
-          SizedBox(height: 10),
-          Text(
+          const SizedBox(height: 20),
+          const Divider(color: Colors.white54),
+          const SizedBox(height: 10),
+          const Text(
             'Jadwal Anda Hari Ini',
             style: TextStyle(color: Colors.white, fontSize: 16),
           ),
-          SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 8),
+          const Text(
             '08:00 WIB - 16:00 WIB',
             style: TextStyle(
                 color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
