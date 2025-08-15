@@ -15,6 +15,7 @@ import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
+import 'package:frontend_merallin/leave_request_screen.dart';
 import 'driver_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -120,7 +121,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     if (mounted) {
       // NOTE: Menggunakan `attendanceStatus` dan `attendanceMessage` dari provider
       final status = attendanceProvider.attendanceStatus;
-      final message = attendanceProvider.attendanceMessage ?? "Terjadi kesalahan";
+      final message =
+          attendanceProvider.attendanceMessage ?? "Terjadi kesalahan";
 
       if (status == DataStatus.success) {
         showInfoSnackBar(context, message);
@@ -184,8 +186,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   DateTime(now.year, now.month, now.day, 7, 0); // 07:00
               final onTimeDeadline =
                   DateTime(now.year, now.month, now.day, 8, 0, 1);
-              final endTime = DateTime(
-                  now.year, now.month, now.day, 23, 59); // 23:59
+              final endTime =
+                  DateTime(now.year, now.month, now.day, 23, 59); // 23:59
 
               if (now.isBefore(startTime)) {
                 showInfoSnackBar(
@@ -250,7 +252,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               label: 'Jadwal',
               onTap: () {}),
           AnimatedMenuItem(
-              icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
+              icon: Icons.note_alt_outlined,
+              label: 'Izin',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const LeaveRequestScreen()),
+                );
+              }),
           AnimatedMenuItem(
               icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
           AnimatedMenuItem(
@@ -299,9 +309,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-               Text(
+              Text(
                 'Hello, $userName',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Text(
                 'Selamat datang kembali!',
@@ -340,7 +351,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           builder: (context, snapshot) {
             final now = DateTime.now();
             final timeString = DateFormat('HH:mm:ss').format(now);
-            final dateString = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(now);
+            final dateString =
+                DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(now);
             return Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -422,6 +434,7 @@ class _AnimatedMenuItemState extends State<AnimatedMenuItem> {
     setState(() => _isPressed = false);
     widget.onTap();
   }
+
   void _onTapCancel() => setState(() => _isPressed = false);
 
   @override

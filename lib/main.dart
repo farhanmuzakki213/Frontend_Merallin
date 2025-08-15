@@ -40,6 +40,10 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (context) => AuthProvider()),
         ChangeNotifierProvider(create: (context) => AttendanceProvider()),
+        
+        // --- PENAMBAHAN PROVIDER IZIN ---
+        ChangeNotifierProvider(create: (context) => LeaveProvider()),
+
       ],
       child: MaterialApp(
         title: 'Absensi App',
@@ -48,6 +52,16 @@ class MyApp extends StatelessWidget {
           fontFamily: 'Poppins',
         ),
         debugShowCheckedModeBanner: false,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('id', ''), // Bahasa Indonesia
+          Locale('en', ''), // Bahasa Inggris (sebagai cadangan)
+        ],
+        locale: const Locale('id', 'ID'), // Set default bahasa ke Indonesia
         home: const AuthGate(),
       ),
     );
