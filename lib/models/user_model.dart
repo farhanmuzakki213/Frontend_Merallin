@@ -1,23 +1,22 @@
-// lib/models/user_model.dart
 import 'package:flutter/foundation.dart';
 
 class User {
   final int id;
   final String name;
   final String email;
-  final String address;
-  final String phoneNumber;
+  final String? address;
+  final String? phoneNumber;
   final List<String> roles;
-  final String profile_photo_url;
+  final String profilePhotoUrl;
 
   const User({
     required this.id,
     required this.name,
     required this.email,
-    required this.address,
-    required this.phoneNumber,
+    this.address,
+    this.phoneNumber,
     required this.roles,
-    required this.profile_photo_url,
+    required this.profilePhotoUrl,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -37,7 +36,7 @@ class User {
         email: json['email'] ?? '',
         address: json['alamat'] ?? 'Alamat tidak tersedia',
         phoneNumber: json['no_telepon'] ?? 'No. telp tidak tersedia',
-        profile_photo_url: json['profile_photo_url'] ?? '',
+        profilePhotoUrl: json['profile_photo_url'] ?? '',
         roles: roleNames,
       );
     } catch (e) {
@@ -54,7 +53,7 @@ class User {
       'alamat': address,
       'no_telepon': phoneNumber,
       'roles': roles,
-      'profile_photo_url': profile_photo_url,
+      'profile_photo_url': profilePhotoUrl,
     };
   }
 }

@@ -24,23 +24,13 @@ class MyTripScreen extends StatelessWidget {
             origin: 'Jakarta (CGK)',
             destination: 'Surabaya (SUB)',
             status: 'Dalam Perjalanan',
-            onTap: () {},
-          ),
-          _buildTripCard(
-            context,
-            tripId: 'TRIP-BDO-DPS-0825-2',
-            origin: 'Bandung (BDO)',
-            destination: 'Denpasar (DPS)',
-            status: 'Menunggu Muatan',
-            onTap: () {},
-          ),
-          _buildTripCard(
-            context,
-            tripId: 'TRIP-UPG-MDC-0825-3',
-            origin: 'Makassar (UPG)',
-            destination: 'Manado (MDC)',
-            status: 'Selesai',
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const LaporanDriverScreen()),
+              );
+            },
           ),
           const SizedBox(height: 24),
           _buildCreateTripButton(context),
@@ -174,8 +164,8 @@ class MyTripScreen extends StatelessWidget {
   Widget _buildCreateTripButton(BuildContext context) {
     return ElevatedButton.icon(
       icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-      label: const Text('Buat Trip Baru',
-          style: TextStyle(color: Colors.white)),
+      label:
+          const Text('Buat Trip Baru', style: TextStyle(color: Colors.white)),
       onPressed: () {},
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.blue[600],

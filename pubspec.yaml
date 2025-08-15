@@ -28,12 +28,11 @@ dependencies:
   image_picker: ^0.8.9      
   permission_handler: ^10.4.5 
   file_picker: ^5.5.0
-
-  # Paket untuk manipulasi gambar dan path
   image: ^4.1.3
-  path_provider: ^2.0.11
 
-
+  flutter_image_compress: ^2.3.0
+  path_provider: ^2.1.2
+  path: ^1.8.3
 
 dev_dependencies:
   flutter_test:

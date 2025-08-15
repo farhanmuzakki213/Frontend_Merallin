@@ -17,6 +17,11 @@ import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
 import 'package:frontend_merallin/leave_request_screen.dart';
 import 'driver_history_screen.dart';
+import 'lembur_screen.dart';
+
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -80,15 +85,48 @@ class HomeScreenContent extends StatefulWidget {
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
   final PermissionService _permissionService = PermissionService();
-  Future<void> _startAttendance(
-      BuildContext context, String type, String attendanceStatus) async {
+
+  @override
+  void initState() {
+    super.initState();
+    // Panggil fungsi untuk cek status saat widget pertama kali dibuat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.token != null) {
+        Provider.of<AttendanceProvider>(context, listen: false)
+            .checkTodayAttendanceStatus(authProvider.token!);
+      }
+    });
+  }
+
+  Future<File?> _compressImage(File file) async {
+    // Tentukan path untuk menyimpan file hasil kompresi
+    final tempDir = await getTemporaryDirectory();
+    final targetPath =
+        p.join(tempDir.path, '${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+    // Kompres file
+    final result = await FlutterImageCompress.compressAndGetFile(
+      file.absolute.path,
+      targetPath,
+      quality: 70, // Kualitas gambar (0-100), 70 sudah cukup bagus
+      minWidth: 1024, // Perkecil lebar gambar jika terlalu besar
+      minHeight: 1024, // Perkecil tinggi gambar jika terlalu besar
+    );
+
+    if (result == null) return null;
+
+    // Ubah XFile menjadi File
+    return File(result.path);
+  }
+
+  Future<void> _startAttendance(BuildContext context, String type) async {
     final bool permissionsGranted =
         await _permissionService.requestAttendancePermissions();
     if (!mounted) return;
 
     if (!permissionsGranted) {
-      showErrorSnackBar(
-          context, 'Izin kamera dan lokasi dibutuhkan untuk absensi.');
+      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
       return;
     }
 
@@ -109,26 +147,59 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     if (imageFile == null) return;
     if (!mounted) return;
 
-    // NOTE: Logika `clockOut` berada di dalam provider, jadi kita panggil method yg sesuai
-    if (type == 'in') {
-      await attendanceProvider.clockIn(
-          File(imageFile.path), authProvider.token!, attendanceStatus);
-    } else {
-      await attendanceProvider.clockOut(
-          File(imageFile.path), authProvider.token!, attendanceStatus);
-    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("Sedang memproses..."),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    try {
+      // Jalankan proses kompresi gambar
+      final compressedImageFile = await _compressImage(File(imageFile.path));
 
-    if (mounted) {
-      // NOTE: Menggunakan `attendanceStatus` dan `attendanceMessage` dari provider
-      final status = attendanceProvider.attendanceStatus;
-      final message =
-          attendanceProvider.attendanceMessage ?? "Terjadi kesalahan";
+      if (compressedImageFile == null) {
+        throw Exception("Gagal memproses gambar.");
+      }
 
-      if (status == DataStatus.success) {
+      // Jalankan proses unggah dan absensi
+      if (type == 'in') {
+        await attendanceProvider.performClockIn(
+            compressedImageFile, authProvider.token!);
+      } else {
+        await attendanceProvider.performClockOut(
+            compressedImageFile, authProvider.token!);
+      }
+
+      // Ambil status dan pesan dari provider setelah selesai
+      final status = attendanceProvider.status;
+      final message = attendanceProvider.message ?? "Terjadi kesalahan";
+
+      // Tutup dialog loading
+      Navigator.of(context).pop();
+
+      // Tampilkan hasil akhir ke pengguna
+      if (status == AttendanceProcessStatus.success) {
         showInfoSnackBar(context, message);
-      } else if (status == DataStatus.error) {
+      } else if (status == AttendanceProcessStatus.error) {
         showErrorSnackBar(context, message);
       }
+    } catch (e) {
+      // Jika terjadi error di tengah jalan (misal kompresi gagal)
+      Navigator.of(context).pop(); // Pastikan dialog loading ditutup
+      showErrorSnackBar(context, e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -176,36 +247,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             icon: Icons.work_outline,
             label: 'Datang',
             onTap: () {
-              // FIX: Menambahkan kurung kurawal
-              if (attendanceProvider.attendanceStatus == DataStatus.loading) {
+              if (attendanceProvider.status ==
+                  AttendanceProcessStatus.processing) {
                 return;
               }
-
-              final now = DateTime.now();
-              final startTime =
-                  DateTime(now.year, now.month, now.day, 7, 0); // 07:00
-              final onTimeDeadline =
-                  DateTime(now.year, now.month, now.day, 8, 0, 1);
-              final endTime =
-                  DateTime(now.year, now.month, now.day, 23, 59); // 23:59
-
-              if (now.isBefore(startTime)) {
-                showInfoSnackBar(
-                    context, 'Belum waktunya absen (mulai 07:00).');
-                return;
-              }
-              if (now.isAfter(endTime)) {
-                showInfoSnackBar(
-                    context, 'Waktu absen untuk hari ini sudah habis.');
-                return;
-              }
-
               if (attendanceProvider.hasClockedIn) {
                 showInfoSnackBar(context, 'Anda sudah absen datang hari ini.');
               } else {
-                final String attendanceStatus =
-                    now.isAfter(onTimeDeadline) ? 'Terlambat' : 'Tepat waktu';
-                _startAttendance(context, 'in', attendanceStatus);
+                _startAttendance(context, 'in');
               }
             },
           ),
@@ -213,37 +262,22 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             icon: Icons.home_work_outlined,
             label: 'Pulang',
             onTap: () {
-              // FIX: Menambahkan kurung kurawal
-              if (attendanceProvider.attendanceStatus == DataStatus.loading) {
+              if (attendanceProvider.status ==
+                  AttendanceProcessStatus.processing) {
                 return;
               }
-
               final now = DateTime.now();
-              final scheduleEndTime =
+              final clockOutTime =
                   DateTime(now.year, now.month, now.day, 17, 0);
-              final startTime =
-                  DateTime(now.year, now.month, now.day, 17, 0); // 17:00
-              final endTime =
-                  DateTime(now.year, now.month, now.day, 23, 59); // 23:59
-
-              if (now.isBefore(startTime)) {
-                showInfoSnackBar(context, 'Belum waktunya absen pulang.');
-                return;
-              }
-              if (now.isAfter(endTime)) {
-                showInfoSnackBar(context, 'Waktu absen pulang sudah habis.');
-                return;
-              }
-
               if (!attendanceProvider.hasClockedIn) {
-                showErrorSnackBar(
-                    context, 'Anda harus absen datang terlebih dahulu.');
+                showErrorSnackBar(context, 'Anda harus absen datang dahulu.');
+              } else if (now.isBefore(clockOutTime)) {
+                showInfoSnackBar(
+                    context, 'Belum waktunya absen pulang (setelah 17:00).');
               } else if (attendanceProvider.hasClockedOut) {
                 showInfoSnackBar(context, 'Anda sudah absen pulang hari ini.');
               } else {
-                final String attendanceStatus =
-                    now.isBefore(scheduleEndTime) ? 'Terlambat' : 'Tepat waktu';
-                _startAttendance(context, 'out', attendanceStatus);
+                _startAttendance(context, 'out');
               }
             },
           ),
@@ -262,7 +296,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 );
               }),
           AnimatedMenuItem(
-              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
+              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LemburScreen()),
+                );
+              }),
           AnimatedMenuItem(
               icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
         ],
@@ -335,7 +374,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       margin: const EdgeInsets.symmetric(horizontal: 20.0),
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        color: Colors.blue[600],
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 20, 171, 247),
+            Color.fromARGB(74, 19, 171, 247),
+          ],
+        ),
         borderRadius: BorderRadius.circular(20.0),
         boxShadow: [
           BoxShadow(

@@ -17,7 +17,9 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final String baseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? '';
+    final String? photoPath = user?.profilePhotoUrl;
+    final String baseUrl =
+        dotenv.env['API_BASE_URL']?.replaceAll('/api', '') ?? '';
     if (user == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -42,17 +44,12 @@ class ProfilePage extends StatelessWidget {
                 CircleAvatar(
                   radius: 50,
                   backgroundColor: const Color(0xFFE0E0E0),
-                  // Cek jika URL tidak kosong sebelum digunakan
-                  backgroundImage: (user.profile_photo_url.isNotEmpty)
-                      ? NetworkImage('$baseUrl/${user.profile_photo_url}')
-                      : null, // Jika kosong, tidak ada background image
-                  // Tampilkan ikon jika tidak ada gambar
-                  child: (user.profile_photo_url.isEmpty)
-                      ? const Icon(
-                          Icons.person,
-                          size: 50,
-                          color: Colors.grey,
-                        )
+                  backgroundImage: (photoPath != null && photoPath.isNotEmpty)
+                      ? NetworkImage(
+                          '$baseUrl$photoPath') // Gabungkan base URL dengan path
+                      : null,
+                  child: (photoPath == null || photoPath.isEmpty)
+                      ? const Icon(Icons.person, size: 50, color: Colors.grey)
                       : null,
                 ),
                 const SizedBox(height: 12),
