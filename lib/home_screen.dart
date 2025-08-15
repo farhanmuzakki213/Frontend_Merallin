@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
 import 'driver_history_screen.dart';
+import 'lembur_screen.dart';
 
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
@@ -286,7 +287,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           AnimatedMenuItem(
               icon: Icons.note_alt_outlined, label: 'Izin', onTap: () {}),
           AnimatedMenuItem(
-              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {}),
+              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LemburScreen()),
+                );
+              }),
           AnimatedMenuItem(
               icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
         ],
@@ -359,7 +365,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       margin: const EdgeInsets.symmetric(horizontal: 20.0),
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        color: Colors.blue[600],
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 20, 171, 247),
+            Color.fromARGB(74, 19, 171, 247),
+          ],
+        ),
         borderRadius: BorderRadius.circular(20.0),
         boxShadow: [
           BoxShadow(
