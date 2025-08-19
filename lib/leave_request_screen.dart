@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend_merallin/models/izin_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/leave_provider.dart';
-import 'package:frontend_merallin/utils/image_helper.dart'; // Import helper baru
+import 'package:frontend_merallin/utils/image_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -50,7 +50,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen>
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          labelStyle:
+              const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
           indicatorColor: Colors.white,
           indicatorWeight: 3,
@@ -141,26 +142,18 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     }
   }
 
-  // PERUBAHAN: Fungsi wrapper untuk memanggil ImageHelper
   Future<void> _handleTakePhoto() async {
-    setState(() {
-      _isLoadingPhoto = true;
-    });
+    setState(() { _isLoadingPhoto = true; });
 
     final newPhoto = await ImageHelper.takeGeotaggedPhoto(context);
 
-    // Cek jika widget masih ada sebelum memanipulasi state
     if (!mounted) return;
 
     if (newPhoto != null) {
-      setState(() {
-        _pickedFile = newPhoto;
-      });
+      setState(() { _pickedFile = newPhoto; });
     }
 
-    setState(() {
-      _isLoadingPhoto = false;
-    });
+    setState(() { _isLoadingPhoto = false; });
   }
 
   Future<void> _submitLeaveNotification() async {
@@ -366,6 +359,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                     : null))
       ]);
 
+  // WIDGET FOTO DENGAN PREVIEW INTERAKTIF
   Widget _buildPhotoSection() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _buildSectionTitle('Bukti Foto (Wajib)'),
@@ -374,7 +368,6 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                 icon: Icons.camera_alt_outlined,
                 title: 'Bukti Foto',
                 value: _pickedFile != null ? 'Foto Diambil' : 'Ambil Foto',
-                // PERUBAHAN: Memanggil _handleTakePhoto
                 onTap: _handleTakePhoto)),
         if (_isLoadingPhoto)
           const Padding(
@@ -385,12 +378,25 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
           Padding(
               padding: const EdgeInsets.only(top: 16.0),
               child: Stack(alignment: Alignment.topRight, children: [
-                ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_pickedFile!,
-                        height: 250,
-                        width: double.infinity,
-                        fit: BoxFit.cover)),
+                // FIX: Dibungkus dengan GestureDetector agar bisa diklik
+                GestureDetector(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => Dialog(
+                        child: InteractiveViewer(
+                          child: Image.file(_pickedFile!),
+                        ),
+                      ),
+                    );
+                  },
+                  child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(_pickedFile!,
+                          height: 250,
+                          width: double.infinity,
+                          fit: BoxFit.cover)),
+                ),
                 IconButton(
                     icon: const CircleAvatar(
                         backgroundColor: Colors.black54,
@@ -429,6 +435,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
       ]);
 }
 
+// --- BAGIAN RIWAYAT IZIN (WIDGET TERPISAH) ---
 class LeaveHistoryList extends StatelessWidget {
   const LeaveHistoryList({super.key});
   @override
