@@ -8,6 +8,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path/path.dart' as p;
 
 class ImageHelper {
   static Future<File?> takeGeotaggedPhoto(BuildContext context) async {
@@ -49,90 +51,122 @@ class ImageHelper {
       // 2. Ambil Foto dari Kamera
       final picker = ImagePicker();
       final pickedFile =
-          await picker.pickImage(source: ImageSource.camera, imageQuality: 95);
+          await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
       if (pickedFile == null) return null;
 
-      final imageBytes = await pickedFile.readAsBytes();
+      File imageFile = File(pickedFile.path);
+
+      // 3. Kompres Gambar sebelum diproses lebih lanjut
+      final dir = await getTemporaryDirectory();
+      final targetPath = p.join(dir.path, "compressed_${DateTime.now().millisecondsSinceEpoch}.jpg");
+
+      var compressedBytes = await FlutterImageCompress.compressWithFile(
+        imageFile.absolute.path,
+        minWidth: 1080,
+        minHeight: 1920,
+        quality: 80,
+      );
+      
+      if (compressedBytes == null) {
+        throw Exception("Gagal mengkompres gambar");
+      }
+
+      final imageBytes = compressedBytes;
       final ui.Codec codec = await ui.instantiateImageCodec(imageBytes);
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
       final ui.Image image = frameInfo.image;
 
-      // 3. Siapkan Canvas untuk Menggambar
+      // 4. Siapkan Canvas untuk Menggambar
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(recorder,
           Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()));
 
-      // 4. Gambar Foto Asli sebagai Latar Belakang
+      // 5. Gambar Foto Asli sebagai Latar Belakang
       paintImage(
           canvas: canvas,
           rect: Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
           image: image,
           fit: BoxFit.cover);
 
-      // 5. Siapkan Teks dan Style
+      // 6. Siapkan Teks dan Style dengan ukuran dari referensi
       final now = DateTime.now();
       final jam = DateFormat('HH:mm').format(now);
       final tanggal = DateFormat('dd/MM/yyyy').format(now);
       final hari = DateFormat('EEEE', 'id_ID').format(now);
       
-      
-      const double margin = 100.0; // Margin dari tepi kiri
+      const double margin = 40.0;
       const shadow = [
-        Shadow(color: Colors.black87, offset: Offset(8, 8), blurRadius: 10.0)
+        Shadow(color: Colors.black87, offset: Offset(2, 2), blurRadius: 4.0)
       ];
 
-      // Definisikan semua style di sini dengan UKURAN SANGAT BESAR
+      // Menggunakan ukuran font HARDCODED dari referensi
       const timeStyle = TextStyle(
           fontFamily: 'Arial',
           fontWeight: FontWeight.bold,
-          fontSize: 300, // DIUBAH: Ukuran font lebih besar lagi
+          fontSize: 200,
           color: Colors.white,
           shadows: shadow);
 
       const dateStyle = TextStyle(
           fontFamily: 'Arial',
           fontWeight: FontWeight.bold,
-          fontSize: 160, // DIUBAH: Ukuran font lebih besar lagi
+          fontSize: 120,
           color: Colors.white,
           shadows: shadow);
 
       const addressStyle = TextStyle(
           fontFamily: 'Arial',
           fontWeight: FontWeight.normal,
-          fontSize: 120, // DIUBAH: Ukuran font lebih besar lagi
+          fontSize: 100,
           color: Colors.white,
           shadows: shadow);
 
-      // Helper untuk menggambar teks dengan posisi spesifik
-      void paintText(String text, Offset offset, TextStyle style) {
+      // Helper untuk menggambar teks
+      TextPainter createTextPainter(String text, TextStyle style) {
         final textSpan = TextSpan(text: text, style: style);
-        final textPainter =
-            TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr)
-              ..layout(maxWidth: image.width - (margin * 2)); // Beri batas lebar
-        textPainter.paint(canvas, offset);
+        return TextPainter(
+          text: textSpan,
+          textDirection: ui.TextDirection.ltr,
+          textAlign: TextAlign.left,
+        )..layout(maxWidth: image.width - (margin * 2));
       }
-      
-      // 6. Gambar Teks di atas Canvas (POSISI DI BAGIAN BAWAH)
-      // Jarak antar baris disesuaikan dengan ukuran font baru
-      final double jamY = image.height - 1100;
-      final double tanggalY = jamY + 330;
-      final double hariY = tanggalY + 190;
-      final double addressY = hariY + 190;
 
-      paintText(jam, Offset(margin, jamY), timeStyle);
-      paintText(tanggal, Offset(margin, tanggalY), dateStyle);
-      paintText(hari, Offset(margin, hariY), dateStyle);
-      paintText(addressText, Offset(margin, addressY), addressStyle);
+      final jamPainter = createTextPainter(jam, timeStyle);
+      final tanggalPainter = createTextPainter(tanggal, dateStyle);
+      final hariPainter = createTextPainter(hari, dateStyle);
+      final addressPainter = createTextPainter(addressText, addressStyle);
 
-      // 7. Simpan Hasil Canvas ke File Baru
+      // 7. Gambar Teks di atas Canvas (POSISI DI BAGIAN BAWAH - dinamis)
+      final double addressY = image.height - margin - addressPainter.height;
+      final double hariY = addressY - 10 - hariPainter.height;
+      final double tanggalY = hariY - 10 - tanggalPainter.height;
+      final double jamY = tanggalY - 15 - jamPainter.height;
+
+      jamPainter.paint(canvas, Offset(margin, jamY));
+      tanggalPainter.paint(canvas, Offset(margin, tanggalY));
+      hariPainter.paint(canvas, Offset(margin, hariY));
+      addressPainter.paint(canvas, Offset(margin, addressY));
+
+      // 8. Simpan Hasil Canvas ke File Baru
       final picture = recorder.endRecording();
       final finalImage = await picture.toImage(image.width, image.height);
-      final byteData = await finalImage.toByteData(format: ui.ImageByteFormat.png);
-      final buffer = byteData!.buffer.asUint8List();
+      final pngBytes = await finalImage.toByteData(format: ui.ImageByteFormat.png);
 
-      final dir = await getTemporaryDirectory();
-      final outputFile = File("${dir.path}/geotagged_${DateTime.now().millisecondsSinceEpoch}.jpg");
-      await outputFile.writeAsBytes(buffer);
+      if (pngBytes == null) {
+        throw Exception("Gagal mengonversi gambar ke PNG");
+      }
+
+      // Kompresi dari PNG bytes ke JPEG bytes
+      final jpegBytes = await FlutterImageCompress.compressWithList(
+        pngBytes.buffer.asUint8List(),
+        minWidth: 1080,
+        minHeight: 1920,
+        quality: 85,
+        format: CompressFormat.jpeg,
+      );
+
+      final outputFile = File(targetPath);
+      await outputFile.writeAsBytes(jpegBytes);
 
       return outputFile;
 
