@@ -426,22 +426,11 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
       finalImagePaths.add(widget.trip.bongkarPhotoPath!);
     }
 
-    final deliveryData = widget.trip.deliveryLetterPath;
+    final deliveryData = widget.trip.deliveryLetters;
 
-    if (deliveryData is Map) {
-      final dynamic initialLetters = deliveryData['initial_letters'];
-      if (initialLetters != null && initialLetters is List) {
-        initialImagePaths.addAll(initialLetters.whereType<String>());
-      }
-
-      final dynamic finalLetters = deliveryData['final_letters'];
-      if (finalLetters != null && finalLetters is List) {
-        finalImagePaths.addAll(finalLetters.whereType<String>());
-      }
-    } else if (deliveryData is List) {
-      initialImagePaths.addAll(deliveryData.whereType<String>());
-    } else if (deliveryData is String && deliveryData.isNotEmpty) {
-      initialImagePaths.add(deliveryData);
+    if (deliveryData != null) {
+      initialImagePaths.addAll(deliveryData.initialLetters);
+      finalImagePaths.addAll(deliveryData.finalLetters);
     }
 
     final initialImageUrls =
