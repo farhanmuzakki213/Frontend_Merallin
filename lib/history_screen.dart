@@ -15,25 +15,60 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  // Gunakan objek DateTime untuk manajemen tanggal yang lebih fleksibel
   DateTime _selectedDate = DateTime.now();
+
+  // PERBAIKAN: Tambahkan ScrollController dan perkiraan lebar item
+  late ScrollController _dateScrollController;
+  final double _dateCardWidth = 68.0; // Lebar 60 + margin 8
 
   @override
   void initState() {
     super.initState();
-    // Panggil data untuk pertama kali saat halaman dibuka
+    // PERBAIKAN: Inisialisasi controller
+    _dateScrollController = ScrollController();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchHistoryForSelectedDate();
+      // PERBAIKAN: Panggil fungsi scroll saat pertama kali layar dimuat
+      _scrollToSelectedDate(animate: false);
     });
+  }
+
+  // PERBAIKAN: Tambahkan dispose untuk membersihkan controller
+  @override
+  void dispose() {
+    _dateScrollController.dispose();
+    super.dispose();
   }
 
   /// Mengambil data riwayat dari API berdasarkan tanggal yang dipilih.
   void _fetchHistoryForSelectedDate() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.token != null) {
-      // Menggunakan HistoryProvider yang benar untuk mengambil data
       Provider.of<HistoryProvider>(context, listen: false)
           .getHistory(authProvider.token!, _selectedDate);
+    }
+  }
+
+  // PERBAIKAN: Fungsi untuk menggerakkan scroll agar tanggal aktif di tengah
+  void _scrollToSelectedDate({bool animate = true}) {
+    if (!_dateScrollController.hasClients) return;
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final selectedDayIndex = _selectedDate.day - 1;
+
+    double targetOffset = (selectedDayIndex * _dateCardWidth) - (screenWidth / 2) + (_dateCardWidth / 2);
+
+    targetOffset = targetOffset.clamp(0.0, _dateScrollController.position.maxScrollExtent);
+
+    if (animate) {
+      _dateScrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _dateScrollController.jumpTo(targetOffset);
     }
   }
 
@@ -42,8 +77,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() {
       _selectedDate = newDate;
     });
-    // Ambil data baru dari API setiap kali tanggal diganti
     _fetchHistoryForSelectedDate();
+    // PERBAIKAN: Panggil fungsi scroll setiap kali tanggal baru dipilih
+    _scrollToSelectedDate();
   }
 
   @override
@@ -61,7 +97,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Expanded(
             child: Consumer<HistoryProvider>(
               builder: (context, provider, child) {
-                // Menangani berbagai status dari provider
                 if (provider.status == DataStatus.loading) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -71,7 +106,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 if (provider.historyList.isEmpty) {
                   return Center(child: Text('Tidak ada riwayat untuk tanggal ${DateFormat('d MMMM yyyy', 'id_ID').format(_selectedDate)}.'));
                 }
-                // Jika sukses, tampilkan detail riwayat
                 return _buildDetailedHistoryView(provider.historyList);
               },
             ),
@@ -96,6 +130,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Text(monthName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 16),
           SingleChildScrollView(
+            // PERBAIKAN: Hubungkan scroll controller ke widget
+            controller: _dateScrollController,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Row(
@@ -123,6 +159,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   /// Membangun tampilan detail riwayat (kartu absen datang & pulang).
   Widget _buildDetailedHistoryView(List<AttendanceHistory> history) {
+    // ... Sisa kode tidak ada perubahan ...
     final fullDayName = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(_selectedDate);
 
     final clockIn = history.firstWhere((h) => h.tipeAbsensi == 'datang', orElse: () => history.first);
@@ -161,6 +198,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 class _DateCard extends StatelessWidget {
+  // ... Sisa kode tidak ada perubahan ...
   final String day;
   final String dayName;
   final bool isSelected;
@@ -212,6 +250,7 @@ class _DateCard extends StatelessWidget {
 }
 
 class _HistoryDetailCard extends StatelessWidget {
+  // ... Sisa kode tidak ada perubahan ...
   final String title;
   final String time;
   final String status;
