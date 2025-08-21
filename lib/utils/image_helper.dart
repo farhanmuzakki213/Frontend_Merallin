@@ -1,7 +1,8 @@
 // lib/utils/image_helper.dart
 
 import 'dart:io';
-import 'dart:ui' as ui; // Import penting untuk Canvas dan gambar
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
@@ -12,120 +13,64 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path/path.dart' as p;
 
 class ImageHelper {
-  static Future<File?> takeGeotaggedPhoto(BuildContext context) async {
-    if (!context.mounted) return null;
+  // ================== FUNGSI INTI (PRIVATE) UNTUK MENGGAMBAR TIMESTAMP ==================
+  static Future<File?> _processAndStampImage(
+    BuildContext context,
+    Uint8List imageBytes,
+  ) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-
     try {
-      // 1. Izin Lokasi & Ambil Koordinat
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          scaffoldMessenger.showSnackBar(
-              const SnackBar(content: Text("Izin lokasi diperlukan.")));
-          return null;
-        }
-      }
-      if (permission == LocationPermission.deniedForever) {
-        scaffoldMessenger.showSnackBar(
-            const SnackBar(content: Text("Izin lokasi ditolak permanen.")));
-        return null;
-      }
-
-      final position =
-          await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      // 1. Dapatkan Lokasi & Alamat (dijalankan untuk setiap gambar)
+      Position? position;
       String addressText = "Alamat tidak ditemukan";
       try {
-        List<Placemark> placemarks =
-            await placemarkFromCoordinates(position.latitude, position.longitude);
+        position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high, 
+            timeLimit: const Duration(seconds: 10));
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+            position.latitude, position.longitude);
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
           addressText =
-              "${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea}, ${p.postalCode}";
+              "${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea}";
         }
       } catch (e) {
-        debugPrint("Gagal dapat alamat: $e");
+        debugPrint("Gagal mendapatkan lokasi/alamat: $e");
       }
 
-      // 2. Ambil Foto dari Kamera
-      final picker = ImagePicker();
-      final pickedFile =
-          await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-      if (pickedFile == null) return null;
-
-      File imageFile = File(pickedFile.path);
-
-      // 3. Kompres Gambar sebelum diproses lebih lanjut
-      final dir = await getTemporaryDirectory();
-      final targetPath = p.join(dir.path, "compressed_${DateTime.now().millisecondsSinceEpoch}.jpg");
-
-      var compressedBytes = await FlutterImageCompress.compressWithFile(
-        imageFile.absolute.path,
-        minWidth: 1080,
-        minHeight: 1920,
-        quality: 80,
-      );
-      
-      if (compressedBytes == null) {
-        throw Exception("Gagal mengkompres gambar");
-      }
-
-      final imageBytes = compressedBytes;
+      // 2. Decode & Siapkan Canvas
       final ui.Codec codec = await ui.instantiateImageCodec(imageBytes);
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
       final ui.Image image = frameInfo.image;
 
-      // 4. Siapkan Canvas untuk Menggambar
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(recorder,
           Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()));
 
-      // 5. Gambar Foto Asli sebagai Latar Belakang
+      // 3. Gambar Foto Asli
       paintImage(
           canvas: canvas,
           rect: Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
           image: image,
           fit: BoxFit.cover);
 
-      // 6. Siapkan Teks dan Style dengan ukuran dari referensi
+      // 4. Siapkan Teks dan Style
       final now = DateTime.now();
-      final jam = DateFormat('HH:mm').format(now);
+      final jam = DateFormat('HH:mm:ss').format(now);
       final tanggal = DateFormat('dd/MM/yyyy').format(now);
       final hari = DateFormat('EEEE', 'id_ID').format(now);
-      
+
       const double margin = 40.0;
       const shadow = [
         Shadow(color: Colors.black87, offset: Offset(2, 2), blurRadius: 4.0)
       ];
+      const timeStyle = TextStyle(fontFamily: 'Arial', fontWeight: FontWeight.bold, fontSize: 150, color: Colors.white, shadows: shadow);
+      const dateStyle = TextStyle(fontFamily: 'Arial', fontWeight: FontWeight.bold, fontSize: 100, color: Colors.white, shadows: shadow);
+      const addressStyle = TextStyle(fontFamily: 'Arial', fontWeight: FontWeight.normal, fontSize: 80, color: Colors.white, shadows: shadow);
 
-      // Menggunakan ukuran font HARDCODED dari referensi
-      const timeStyle = TextStyle(
-          fontFamily: 'Arial',
-          fontWeight: FontWeight.bold,
-          fontSize: 200,
-          color: Colors.white,
-          shadows: shadow);
-
-      const dateStyle = TextStyle(
-          fontFamily: 'Arial',
-          fontWeight: FontWeight.bold,
-          fontSize: 120,
-          color: Colors.white,
-          shadows: shadow);
-
-      const addressStyle = TextStyle(
-          fontFamily: 'Arial',
-          fontWeight: FontWeight.normal,
-          fontSize: 100,
-          color: Colors.white,
-          shadows: shadow);
-
-      // Helper untuk menggambar teks
       TextPainter createTextPainter(String text, TextStyle style) {
-        final textSpan = TextSpan(text: text, style: style);
         return TextPainter(
-          text: textSpan,
+          text: TextSpan(text: text, style: style),
           textDirection: ui.TextDirection.ltr,
           textAlign: TextAlign.left,
         )..layout(maxWidth: image.width - (margin * 2));
@@ -136,7 +81,7 @@ class ImageHelper {
       final hariPainter = createTextPainter(hari, dateStyle);
       final addressPainter = createTextPainter(addressText, addressStyle);
 
-      // 7. Gambar Teks di atas Canvas (POSISI DI BAGIAN BAWAH - dinamis)
+      // 5. Gambar Teks di Canvas
       final double addressY = image.height - margin - addressPainter.height;
       final double hariY = addressY - 10 - hariPainter.height;
       final double tanggalY = hariY - 10 - tanggalPainter.height;
@@ -147,16 +92,13 @@ class ImageHelper {
       hariPainter.paint(canvas, Offset(margin, hariY));
       addressPainter.paint(canvas, Offset(margin, addressY));
 
-      // 8. Simpan Hasil Canvas ke File Baru
+      // 6. Simpan Hasil ke File Baru
       final picture = recorder.endRecording();
       final finalImage = await picture.toImage(image.width, image.height);
       final pngBytes = await finalImage.toByteData(format: ui.ImageByteFormat.png);
 
-      if (pngBytes == null) {
-        throw Exception("Gagal mengonversi gambar ke PNG");
-      }
+      if (pngBytes == null) throw Exception("Gagal mengonversi gambar ke PNG");
 
-      // Kompresi dari PNG bytes ke JPEG bytes
       final jpegBytes = await FlutterImageCompress.compressWithList(
         pngBytes.buffer.asUint8List(),
         minWidth: 1080,
@@ -165,6 +107,8 @@ class ImageHelper {
         format: CompressFormat.jpeg,
       );
 
+      final dir = await getTemporaryDirectory();
+      final targetPath = p.join(dir.path, "stamped_${DateTime.now().millisecondsSinceEpoch}.jpg");
       final outputFile = File(targetPath);
       await outputFile.writeAsBytes(jpegBytes);
 
@@ -179,5 +123,81 @@ class ImageHelper {
       }
       return null;
     }
+  }
+
+  // ================== FUNGSI PUBLIK YANG DIPERBARUI & BARU ==================
+
+  /// Mengambil satu foto dari kamera dan menambahkan timestamp.
+  static Future<File?> takePhoto(BuildContext context) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (pickedFile == null || !context.mounted) return null;
+
+    // Kompres dulu sebelum di-stamp untuk efisiensi
+    var compressedBytes = await FlutterImageCompress.compressWithFile(
+      pickedFile.path,
+      minWidth: 1080,
+      minHeight: 1920,
+      quality: 80,
+    );
+
+    if (compressedBytes == null) return null;
+
+    return await _processAndStampImage(context, compressedBytes);
+  }
+
+  /// Memilih banyak gambar dari galeri dan menambahkan timestamp ke semuanya.
+  static Future<List<File>> pickMultipleImages(BuildContext context) async {
+    final picker = ImagePicker();
+    final pickedFiles = await picker.pickMultiImage(imageQuality: 85);
+    if (pickedFiles.isEmpty || !context.mounted) return [];
+
+    List<File> processedFiles = [];
+    // Tampilkan dialog loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("Memproses gambar..."),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    try {
+      for (var file in pickedFiles) {
+        var compressedBytes = await FlutterImageCompress.compressWithFile(
+          file.path,
+          minWidth: 1080,
+          minHeight: 1920,
+          quality: 80,
+        );
+        if (compressedBytes != null) {
+          final processedFile = await _processAndStampImage(context, compressedBytes);
+          if (processedFile != null) {
+            processedFiles.add(processedFile);
+          }
+        }
+      }
+    } finally {
+      Navigator.of(context).pop(); // Tutup dialog loading
+    }
+
+    return processedFiles;
+  }
+
+  // Fungsi lama diganti untuk menggunakan helper baru, agar konsisten
+  static Future<File?> takeGeotaggedPhoto(BuildContext context) async {
+    return takePhoto(context);
   }
 }

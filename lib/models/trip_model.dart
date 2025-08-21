@@ -1,5 +1,26 @@
 // lib/models/trip_model.dart
 
+// Kelas baru untuk menampung URL surat jalan
+class DeliveryLetter {
+  final List<String> initialLetters;
+  final List<String> finalLetters;
+
+  DeliveryLetter({
+    required this.initialLetters,
+    required this.finalLetters,
+  });
+
+  factory DeliveryLetter.fromJson(Map<String, dynamic> json) {
+    final initial = json['initial_letters'];
+    final finalL = json['final_letters'];
+
+    return DeliveryLetter(
+      initialLetters: initial is List ? List<String>.from(initial.map((e) => e.toString())) : [],
+      finalLetters: finalL is List ? List<String>.from(finalL.map((e) => e.toString())) : [],
+    );
+  }
+}
+
 class Trip {
   final int id;
   final int? userId;
@@ -13,10 +34,15 @@ class Trip {
   final String? bongkarPhotoPath;
   final int? endKm;
   final String? endKmPhotoPath;
-  final String? deliveryLetterPath;
-  final String statusTrip; // 'tersedia', 'proses', 'selesai'
+  final DeliveryLetter? deliveryLetters;
+  final String statusTrip;
   final String? statusLokasi;
   final String? statusMuatan;
+
+  final String? fullStartKmPhotoUrl;
+  final String? fullMuatPhotoUrl;
+  final String? fullBongkarPhotoUrl;
+  final String? fullEndKmPhotoUrl;
 
   Trip({
     required this.id,
@@ -31,30 +57,52 @@ class Trip {
     this.bongkarPhotoPath,
     this.endKm,
     this.endKmPhotoPath,
-    this.deliveryLetterPath,
+    this.deliveryLetters,
     required this.statusTrip,
     this.statusLokasi,
     this.statusMuatan,
+    this.fullStartKmPhotoUrl,
+    this.fullMuatPhotoUrl,
+    this.fullBongkarPhotoUrl,
+    this.fullEndKmPhotoUrl,
   });
+
+  // Helper untuk parsing integer yang aman dari JSON
+  static int? _parseToInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
 
   factory Trip.fromJson(Map<String, dynamic> json) {
     return Trip(
-      id: json['id'],
-      userId: json['user_id'],
-      projectName: json['project_name'],
-      origin: json['origin'],
-      destination: json['destination'],
+      // ================== PERUBAHAN DI SINI ==================
+      id: _parseToInt(json['id']) ?? 0, // ID seharusnya tidak pernah null
+      userId: _parseToInt(json['user_id']),
+      projectName: json['project_name'] ?? '',
+      origin: json['origin'] ?? '',
+      destination: json['destination'] ?? '',
       licensePlate: json['license_plate'],
-      startKm: json['start_km'],
+      startKm: _parseToInt(json['start_km']),
       startKmPhotoPath: json['start_km_photo_path'],
       muatPhotoPath: json['muat_photo_path'],
       bongkarPhotoPath: json['bongkar_photo_path'],
-      endKm: json['end_km'],
+      endKm: _parseToInt(json['end_km']),
       endKmPhotoPath: json['end_km_photo_path'],
-      deliveryLetterPath: json['delivery_letter_path'],
-      statusTrip: json['status_trip'],
+      // ================== AKHIR PERUBAHAN ==================
+      
+      deliveryLetters: json['full_delivery_letter_urls'] != null && json['full_delivery_letter_urls'] is Map
+          ? DeliveryLetter.fromJson(json['full_delivery_letter_urls'])
+          : null,
+      statusTrip: json['status_trip'] ?? '',
       statusLokasi: json['status_lokasi'],
       statusMuatan: json['status_muatan'],
+
+      fullStartKmPhotoUrl: json['full_start_km_photo_url'],
+      fullMuatPhotoUrl: json['full_muat_photo_url'],
+      fullBongkarPhotoUrl: json['full_bongkar_photo_url'],
+      fullEndKmPhotoUrl: json['full_end_km_photo_url'],
     );
   }
 }
