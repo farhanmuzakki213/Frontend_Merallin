@@ -1,4 +1,5 @@
 // lib/models/trip_model.dart
+import 'user_model.dart';
 
 // Kelas baru untuk menampung URL surat jalan
 class DeliveryLetter {
@@ -38,6 +39,9 @@ class Trip {
   final String statusTrip;
   final String? statusLokasi;
   final String? statusMuatan;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final User? user;
 
   final String? fullStartKmPhotoUrl;
   final String? fullMuatPhotoUrl;
@@ -65,6 +69,9 @@ class Trip {
     this.fullMuatPhotoUrl,
     this.fullBongkarPhotoUrl,
     this.fullEndKmPhotoUrl,
+    this.createdAt,
+    this.updatedAt,
+    this.user,
   });
 
   // Helper untuk parsing integer yang aman dari JSON
@@ -103,6 +110,13 @@ class Trip {
       fullMuatPhotoUrl: json['full_muat_photo_url'],
       fullBongkarPhotoUrl: json['full_bongkar_photo_url'],
       fullEndKmPhotoUrl: json['full_end_km_photo_url'],
+      createdAt: json['created_at'] == null
+          ? null
+          : DateTime.parse(json['created_at']),
+      updatedAt: json['updated_at'] == null
+          ? null
+          : DateTime.parse(json['updated_at']),
+      user: json['user'] != null ? User.fromJson(json['user']) : null,
     );
   }
 }

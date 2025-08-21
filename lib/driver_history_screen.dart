@@ -1,47 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
-// --- DATA MODELS ---
-class _TripData {
-  final String projectName;
-  final String nopol;
-  final String driverName;
-  final String kmAwal;
-  final String kmTiba;
-  final String tanggalBerangkat;
-  final String tanggalSampai;
-  final String keterangan;
-  final _LocationData departure;
-  final _LocationData arrival;
-
-  _TripData({
-    required this.projectName,
-    required this.nopol,
-    required this.driverName,
-    required this.kmAwal,
-    required this.kmTiba,
-    required this.tanggalBerangkat,
-    required this.tanggalSampai,
-    required this.keterangan,
-    required this.departure,
-    required this.arrival,
-  });
-}
-
-class _LocationData {
-  final String title;
-  final String location;
-  final String latitude;
-  final String longitude;
-
-  _LocationData({
-    required this.title,
-    required this.location,
-    required this.latitude,
-    required this.longitude,
-  });
-}
-// --- END DATA MODELS ---
-
+import '../models/trip_model.dart';
+import '../providers/auth_provider.dart';
+import '../services/trip_service.dart';
 
 class DriverHistoryScreen extends StatefulWidget {
   const DriverHistoryScreen({super.key});
@@ -51,58 +15,116 @@ class DriverHistoryScreen extends StatefulWidget {
 }
 
 class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
-  int _selectedDay = 6;
-  final List<String> _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+  // --- STATE MANAGEMENT ---
+  late final TripService _tripService;
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // --- DUMMY DATA ---
-  final List<_TripData> _tripHistory = [
-    _TripData(
-      projectName: 'Proyek Pengiriman A',
-      nopol: 'B 1234 XYZ',
-      driverName: 'Budi Santoso',
-      kmAwal: '150,000 KM',
-      kmTiba: '150,500 KM',
-      tanggalBerangkat: '06 Agustus 2025, 08:00',
-      tanggalSampai: '06 Agustus 2025, 17:30',
-      keterangan: '1 Trip',
-      departure: _LocationData(
-        title: 'Lokasi Keberangkatan',
-        location: 'Gudang A, Jakarta',
-        latitude: '-6.175110',
-        longitude: '106.865036',
-      ),
-      arrival: _LocationData(
-        title: 'Lokasi Tiba',
-        location: 'Gudang B, Bandung',
-        latitude: '-6.917464',
-        longitude: '107.619125',
-      ),
-    ),
-    _TripData(
-      projectName: 'Proyek Pengiriman B',
-      nopol: 'B 5678 ABC',
-      driverName: 'Budi Santoso',
-      kmAwal: '210,000 KM',
-      kmTiba: '210,800 KM',
-      tanggalBerangkat: '06 Agustus 2025, 09:00',
-      tanggalSampai: '06 Agustus 2025, 18:30',
-      keterangan: '1 Trip',
-      departure: _LocationData(
-        title: 'Lokasi Keberangkatan',
-        location: 'Gudang C, Surabaya',
-        latitude: '-7.257472',
-        longitude: '112.752090',
-      ),
-      arrival: _LocationData(
-        title: 'Lokasi Tiba',
-        location: 'Gudang D, Semarang',
-        latitude: '-6.966667',
-        longitude: '110.416664',
-      ),
-    ),
-  ];
-  // --- END DUMMY DATA ---
+  Map<DateTime, List<Trip>> _allCompletedTripsByDate = {};
+  
+  // PERBAIKAN: Tambahkan ScrollController untuk date selector
+  late ScrollController _dateScrollController;
+  final double _dateCardWidth = 72.0; // Perkiraan lebar satu item tanggal + margin
 
+  DateTime _selectedDate = DateTime.now();
+  DateTime _currentDisplayMonth = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _tripService = TripService();
+    _dateScrollController = ScrollController(); // Inisialisasi controller
+
+    final now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
+    _currentDisplayMonth = DateTime(now.year, now.month, 1);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    _fetchAndProcessHistory(authProvider.token);
+
+    // PERBAIKAN: Panggil fungsi scroll setelah frame pertama selesai di-render
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSelectedDate(animate: false); // Langsung lompat tanpa animasi saat awal
+    });
+  }
+
+  // PERBAIKAN: Tambahkan dispose untuk controller
+  @override
+  void dispose() {
+    _dateScrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchAndProcessHistory(String? token) async {
+    if (token == null) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Sesi Anda telah berakhir. Silakan login kembali.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final allTrips = await _tripService.getTrips(token);
+      final completedTrips = allTrips.where((trip) => trip.statusTrip == 'selesai').toList();
+
+      final Map<DateTime, List<Trip>> tempGrouped = {};
+      for (var trip in completedTrips) {
+        if (trip.updatedAt == null) continue;
+        final dateKey = DateTime(trip.updatedAt!.year, trip.updatedAt!.month, trip.updatedAt!.day);
+        if (tempGrouped[dateKey] == null) {
+          tempGrouped[dateKey] = [];
+        }
+        tempGrouped[dateKey]!.add(trip);
+      }
+      
+      setState(() {
+        _allCompletedTripsByDate = tempGrouped;
+      });
+
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Gagal memuat riwayat: ${e.toString()}';
+      });
+    } finally {
+      if(mounted){
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // PERBAIKAN: Buat fungsi untuk menggerakkan scroll ke tanggal yang dipilih
+  void _scrollToSelectedDate({bool animate = true}) {
+    if (!_dateScrollController.hasClients) return;
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final selectedDayIndex = _selectedDate.day - 1;
+
+    // Hitung posisi target agar item berada di tengah
+    double targetOffset = (selectedDayIndex * _dateCardWidth) - (screenWidth / 2) + (_dateCardWidth / 2);
+
+    // Pastikan offset tidak kurang dari 0 atau melebihi batas scroll maksimum
+    targetOffset = targetOffset.clamp(0.0, _dateScrollController.position.maxScrollExtent);
+    
+    if (animate) {
+      _dateScrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _dateScrollController.jumpTo(targetOffset);
+    }
+  }
+
+  // --- UI BUILD METHODS ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -117,13 +139,13 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         children: [
           _buildDateSelector(),
           Expanded(
-            child: _buildHistoryDetails(),
+            child: _buildHistoryList(),
           ),
         ],
       ),
     );
   }
-
+  
   Widget _buildDateSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -140,31 +162,61 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       ),
       child: Column(
         children: [
-          const Text(
-            'Agustus 2025',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left, color: Colors.white),
+                  onPressed: () {
+                    setState(() {
+                      _currentDisplayMonth = DateTime(_currentDisplayMonth.year, _currentDisplayMonth.month - 1, 1);
+                    });
+                  },
+                ),
+                Text(
+                  DateFormat('MMMM yyyy', 'id_ID').format(_currentDisplayMonth),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right, color: Colors.white),
+                  onPressed: () {
+                    setState(() {
+                       _currentDisplayMonth = DateTime(_currentDisplayMonth.year, _currentDisplayMonth.month + 1, 1);
+                    });
+                  },
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
           SingleChildScrollView(
+            // PERBAIKAN: Hubungkan controller ke SingleChildScrollView
+            controller: _dateScrollController,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Row(
-              children: List.generate(31, (index) {
+              children: List.generate(DateUtils.getDaysInMonth(_currentDisplayMonth.year, _currentDisplayMonth.month), (index) {
                 final day = index + 1;
-                final isSelected = day == _selectedDay;
+                final date = DateTime(_currentDisplayMonth.year, _currentDisplayMonth.month, day);
+                final isSelected = DateUtils.isSameDay(date, _selectedDate);
+                
                 return GestureDetector(
                   onTap: () {
                     setState(() {
-                      _selectedDay = day;
+                      _selectedDate = date;
                     });
+                    // PERBAIKAN: Panggil fungsi scroll saat tanggal ditekan
+                    _scrollToSelectedDate();
                   },
                   child: _DateCard(
                     day: day.toString(),
-                    dayName: _dayNames[index % 7],
+                    dayName: DateFormat('E', 'id_ID').format(date),
                     isSelected: isSelected,
                   ),
                 );
@@ -176,45 +228,42 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     );
   }
 
-  Widget _buildHistoryDetails() {
-    final dayName = _dayNames[(_selectedDay - 1) % 7];
-    final fullDayName = {'Sen': 'Senin', 'Sel': 'Selasa', 'Rab': 'Rabu', 'Kam': 'Kamis', 'Jum': 'Jumat', 'Sab': 'Sabtu', 'Min': 'Minggu'}[dayName];
-
-    if (_tripHistory.isEmpty) {
-      return const Center(child: Text("Tidak ada riwayat perjalanan.", style: TextStyle(fontSize: 16, color: Colors.grey)));
+  Widget _buildHistoryList() {
+    // ... (Tidak ada perubahan di method ini)
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 12.0),
-          child: Text(
-            '$fullDayName, $_selectedDay Agustus 2025',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-            ),
-          ),
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
         ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            itemCount: _tripHistory.length,
-            itemBuilder: (context, index) {
-              final trip = _tripHistory[index];
-              return _ExpandableTripCard(trip: trip);
-            },
-          ),
-        ),
-      ],
+      );
+    }
+
+    final tripsOnSelectedDate = _allCompletedTripsByDate[_selectedDate] ?? [];
+
+    if (tripsOnSelectedDate.isEmpty) {
+      return const Center(child: Text("Tidak ada riwayat pada tanggal ini.", style: TextStyle(fontSize: 16, color: Colors.grey)));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      itemCount: tripsOnSelectedDate.length,
+      itemBuilder: (context, index) {
+        final trip = tripsOnSelectedDate[index];
+        return _ExpandableTripCard(trip: trip);
+      },
     );
   }
 }
 
+// --- WIDGETS PENDUKUNG ---
 
 class _DateCard extends StatelessWidget {
+  // ... (Tidak ada perubahan di widget ini)
   final String day;
   final String dayName;
   final bool isSelected;
@@ -228,6 +277,7 @@ class _DateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: 64, // PERBAIKAN: Beri lebar eksplisit agar perhitungan lebih konsisten
       margin: const EdgeInsets.symmetric(horizontal: 4.0),
       padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
       decoration: BoxDecoration(
@@ -249,6 +299,7 @@ class _DateCard extends StatelessWidget {
             : [],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             dayName,
@@ -273,17 +324,25 @@ class _DateCard extends StatelessWidget {
   }
 }
 
+// ... Sisa kode untuk _ExpandableTripCard tidak perlu diubah ...
 class _ExpandableTripCard extends StatefulWidget {
-  final _TripData trip;
-
+  final Trip trip;
   const _ExpandableTripCard({required this.trip});
-
   @override
   State<_ExpandableTripCard> createState() => _ExpandableTripCardState();
 }
 
 class _ExpandableTripCardState extends State<_ExpandableTripCard> {
   bool _isExpanded = false;
+
+  String _buildFullImageUrl(String? relativePath) {
+    if (relativePath == null || relativePath.isEmpty) return '';
+    final String baseUrl = dotenv.env['API_BASE_URL'] ?? '';
+    final String sanitizedBaseUrl = baseUrl.endsWith('/api')
+        ? baseUrl.substring(0, baseUrl.length - 4)
+        : baseUrl;
+    return '$sanitizedBaseUrl/storage/$relativePath';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -316,9 +375,11 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _buildInfoRow(Icons.person_outline, 'Driver', widget.trip.driverName),
+                        _buildInfoRow(Icons.person_outline, 'Driver',
+                            widget.trip.user?.name ?? 'Tidak diketahui'),
                         const SizedBox(height: 8),
-                        _buildInfoRow(Icons.directions_car_outlined, 'NOPOL', widget.trip.nopol),
+                        _buildInfoRow(Icons.directions_car_outlined, 'NOPOL',
+                            widget.trip.licensePlate ?? 'N/A'),
                       ],
                     ),
                   ),
@@ -340,66 +401,139 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
           AnimatedSize(
             duration: const Duration(milliseconds: 350),
             curve: Curves.fastOutSlowIn,
-            child: _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
+            child:
+                _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
           ),
         ],
       ),
     );
   }
-
+  
   Widget _buildExpandedDetails() {
+    final List<String> initialImagePaths = [];
+    final List<String> finalImagePaths = [];
+
+    if (widget.trip.startKmPhotoPath != null) {
+      initialImagePaths.add(widget.trip.startKmPhotoPath!);
+    }
+    if (widget.trip.muatPhotoPath != null) {
+      initialImagePaths.add(widget.trip.muatPhotoPath!);
+    }
+    if (widget.trip.endKmPhotoPath != null) {
+      finalImagePaths.add(widget.trip.endKmPhotoPath!);
+    }
+    if (widget.trip.bongkarPhotoPath != null) {
+      finalImagePaths.add(widget.trip.bongkarPhotoPath!);
+    }
+
+    final deliveryData = widget.trip.deliveryLetterPath;
+
+    if (deliveryData is Map) {
+      final dynamic initialLetters = deliveryData['initial_letters'];
+      if (initialLetters != null && initialLetters is List) {
+        initialImagePaths.addAll(initialLetters.whereType<String>());
+      }
+
+      final dynamic finalLetters = deliveryData['final_letters'];
+      if (finalLetters != null && finalLetters is List) {
+        finalImagePaths.addAll(finalLetters.whereType<String>());
+      }
+    } else if (deliveryData is List) {
+      initialImagePaths.addAll(deliveryData.whereType<String>());
+    } else if (deliveryData is String && deliveryData.isNotEmpty) {
+      initialImagePaths.add(deliveryData);
+    }
+
+    final initialImageUrls =
+        initialImagePaths.map((path) => _buildFullImageUrl(path)).toList();
+    final finalImageUrls =
+        finalImagePaths.map((path) => _buildFullImageUrl(path)).toList();
+
     return Container(
       color: Colors.grey[50],
       padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 20.0),
       child: Column(
         children: [
           const Divider(height: 20, thickness: 1.5),
-          _buildSectionTitle("Detail Proyek"),
-          _buildInfoRow(Icons.route_outlined, 'KM Awal', widget.trip.kmAwal),
+          _buildSectionTitle("Detail Trip"),
+          _buildInfoRow(
+              Icons.location_on_outlined, 'Origin', widget.trip.origin),
           const SizedBox(height: 10),
-          _buildInfoRow(Icons.route, 'KM Tiba', widget.trip.kmTiba),
+          _buildInfoRow(
+              Icons.flag_outlined, 'Destination', widget.trip.destination),
           const SizedBox(height: 10),
-          _buildInfoRow(Icons.calendar_today_outlined, 'Berangkat', widget.trip.tanggalBerangkat),
+          _buildInfoRow(Icons.route_outlined, 'KM Awal',
+              widget.trip.startKm?.toString() ?? 'N/A'),
           const SizedBox(height: 10),
-          _buildInfoRow(Icons.calendar_today, 'Sampai', widget.trip.tanggalSampai),
+          _buildInfoRow(
+              Icons.route, 'KM Tiba', widget.trip.endKm?.toString() ?? 'N/A'),
           const SizedBox(height: 10),
-          _buildInfoRow(Icons.info_outline, 'Keterangan', widget.trip.keterangan),
+          _buildInfoRow(
+              Icons.calendar_today_outlined,
+              'Berangkat',
+              widget.trip.createdAt != null
+                  ? DateFormat('d MMM yyyy, HH:mm', 'id_ID')
+                      .format(widget.trip.createdAt!)
+                  : 'N/A'),
+          const SizedBox(height: 10),
+          _buildInfoRow(
+              Icons.calendar_today,
+              'Selesai',
+              widget.trip.updatedAt != null
+                  ? DateFormat('d MMM yyyy, HH:mm', 'id_ID')
+                      .format(widget.trip.updatedAt!)
+                  : 'N/A'),
           const SizedBox(height: 24),
-
-          _buildLocationSection(widget.trip.departure),
-          const SizedBox(height: 24),
-          _buildLocationSection(widget.trip.arrival),
+          _buildPhotoSection("Bukti Foto Awal", initialImageUrls),
+          _buildPhotoSection("Bukti Foto Akhir", finalImageUrls),
         ],
       ),
     );
   }
 
-  Widget _buildLocationSection(_LocationData locationData) {
+  Widget _buildPhotoSection(String title, List<String> imageUrls) {
+    if (imageUrls.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(locationData.title),
-        _buildInfoRow(Icons.location_on_outlined, 'Lokasi', locationData.location),
-        const SizedBox(height: 10),
-        _buildInfoRow(Icons.map_outlined, 'Koordinat', '${locationData.latitude}, ${locationData.longitude}'),
-        const SizedBox(height: 20),
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton.icon(
-            onPressed: () {
+        _buildSectionTitle(title),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: imageUrls.length,
+            itemBuilder: (context, index) {
+              return Card(
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                margin: const EdgeInsets.only(right: 10.0),
+                child: Image.network(
+                  imageUrls[index],
+                  fit: BoxFit.cover,
+                  width: 120,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      width: 120,
+                      color: Colors.grey[200],
+                      child: const Center(child: CircularProgressIndicator()),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 120,
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.broken_image, color: Colors.grey),
+                    );
+                  },
+                ),
+              );
             },
-            icon: const Icon(Icons.map, color: Colors.white, size: 18),
-            label: const Text('Lihat di Peta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal.shade700,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              elevation: 3,
-            ),
           ),
         ),
+        const SizedBox(height: 24),
       ],
     );
   }
@@ -430,7 +564,10 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
             children: [
               Text(
                 label,
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 4),
               Text(
