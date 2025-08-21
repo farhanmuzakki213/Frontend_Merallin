@@ -1,4 +1,5 @@
 // lib/models/trip_model.dart
+import 'user_model.dart';
 
 class Trip {
   final int id;
@@ -13,10 +14,13 @@ class Trip {
   final String? bongkarPhotoPath;
   final int? endKm;
   final String? endKmPhotoPath;
-  final String? deliveryLetterPath;
+  final dynamic deliveryLetterPath;
   final String statusTrip; // 'tersedia', 'proses', 'selesai'
   final String? statusLokasi;
   final String? statusMuatan;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final User? user;
 
   Trip({
     required this.id,
@@ -35,6 +39,9 @@ class Trip {
     required this.statusTrip,
     this.statusLokasi,
     this.statusMuatan,
+    this.createdAt,
+    this.updatedAt,
+    this.user,
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
@@ -55,6 +62,13 @@ class Trip {
       statusTrip: json['status_trip'],
       statusLokasi: json['status_lokasi'],
       statusMuatan: json['status_muatan'],
+      createdAt: json['created_at'] == null
+          ? null
+          : DateTime.parse(json['created_at']),
+      updatedAt: json['updated_at'] == null
+          ? null
+          : DateTime.parse(json['updated_at']),
+      user: json['user'] != null ? User.fromJson(json['user']) : null,
     );
   }
 }
