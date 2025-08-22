@@ -328,8 +328,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   MaterialPageRoute(builder: (context) => const MyTripScreen()),
                 );
               }),
-          AnimatedMenuItem(
-              icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
+          // AnimatedMenuItem(
+          //     icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
         ],
       ),
     );

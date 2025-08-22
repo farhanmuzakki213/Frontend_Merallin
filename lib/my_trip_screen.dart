@@ -678,7 +678,9 @@ class _MyTripScreenState extends State<MyTripScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(trip.projectName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Expanded(
+                    child: Text(trip.projectName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
                   if (canEditOrDelete)
                     PopupMenuButton<String>(
                       onSelected: (String value) {

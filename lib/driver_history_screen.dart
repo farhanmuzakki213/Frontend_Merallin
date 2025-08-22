@@ -22,9 +22,8 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
 
   Map<DateTime, List<Trip>> _allCompletedTripsByDate = {};
   
-  // PERBAIKAN: Tambahkan ScrollController untuk date selector
   late ScrollController _dateScrollController;
-  final double _dateCardWidth = 72.0; // Perkiraan lebar satu item tanggal + margin
+  final double _dateCardWidth = 72.0;
 
   DateTime _selectedDate = DateTime.now();
   DateTime _currentDisplayMonth = DateTime.now();
@@ -33,7 +32,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   void initState() {
     super.initState();
     _tripService = TripService();
-    _dateScrollController = ScrollController(); // Inisialisasi controller
+    _dateScrollController = ScrollController();
 
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
@@ -42,13 +41,11 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     _fetchAndProcessHistory(authProvider.token);
 
-    // PERBAIKAN: Panggil fungsi scroll setelah frame pertama selesai di-render
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToSelectedDate(animate: false); // Langsung lompat tanpa animasi saat awal
+      _scrollToSelectedDate(animate: false);
     });
   }
 
-  // PERBAIKAN: Tambahkan dispose untuk controller
   @override
   void dispose() {
     _dateScrollController.dispose();
@@ -56,6 +53,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   }
 
   Future<void> _fetchAndProcessHistory(String? token) async {
+    if (!mounted) return;
     if (token == null) {
       setState(() {
         _isLoading = false;
@@ -71,6 +69,8 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
 
     try {
       final allTrips = await _tripService.getTrips(token);
+      if (!mounted) return;
+
       final completedTrips = allTrips.where((trip) => trip.statusTrip == 'selesai').toList();
 
       final Map<DateTime, List<Trip>> tempGrouped = {};
@@ -88,11 +88,12 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       });
 
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Gagal memuat riwayat: ${e.toString()}';
       });
     } finally {
-      if(mounted){
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
@@ -100,17 +101,14 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     }
   }
 
-  // PERBAIKAN: Buat fungsi untuk menggerakkan scroll ke tanggal yang dipilih
   void _scrollToSelectedDate({bool animate = true}) {
     if (!_dateScrollController.hasClients) return;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final selectedDayIndex = _selectedDate.day - 1;
 
-    // Hitung posisi target agar item berada di tengah
     double targetOffset = (selectedDayIndex * _dateCardWidth) - (screenWidth / 2) + (_dateCardWidth / 2);
 
-    // Pastikan offset tidak kurang dari 0 atau melebihi batas scroll maksimum
     targetOffset = targetOffset.clamp(0.0, _dateScrollController.position.maxScrollExtent);
     
     if (animate) {
@@ -124,7 +122,6 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     }
   }
 
-  // --- UI BUILD METHODS ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -196,7 +193,6 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
           ),
           const SizedBox(height: 16),
           SingleChildScrollView(
-            // PERBAIKAN: Hubungkan controller ke SingleChildScrollView
             controller: _dateScrollController,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -211,7 +207,6 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
                     setState(() {
                       _selectedDate = date;
                     });
-                    // PERBAIKAN: Panggil fungsi scroll saat tanggal ditekan
                     _scrollToSelectedDate();
                   },
                   child: _DateCard(
@@ -229,7 +224,6 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   }
 
   Widget _buildHistoryList() {
-    // ... (Tidak ada perubahan di method ini)
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -260,10 +254,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   }
 }
 
-// --- WIDGETS PENDUKUNG ---
-
 class _DateCard extends StatelessWidget {
-  // ... (Tidak ada perubahan di widget ini)
   final String day;
   final String dayName;
   final bool isSelected;
@@ -277,7 +268,7 @@ class _DateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 64, // PERBAIKAN: Beri lebar eksplisit agar perhitungan lebih konsisten
+      width: 64,
       margin: const EdgeInsets.symmetric(horizontal: 4.0),
       padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
       decoration: BoxDecoration(
@@ -324,7 +315,6 @@ class _DateCard extends StatelessWidget {
   }
 }
 
-// ... Sisa kode untuk _ExpandableTripCard tidak perlu diubah ...
 class _ExpandableTripCard extends StatefulWidget {
   final Trip trip;
   const _ExpandableTripCard({required this.trip});
@@ -342,6 +332,15 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
         ? baseUrl.substring(0, baseUrl.length - 4)
         : baseUrl;
     return '$sanitizedBaseUrl/storage/$relativePath';
+  }
+
+  void _showNetworkImagePreview(String imageUrl) {
+    if (!mounted || imageUrl.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _NetworkImagePreviewScreen(imageUrl: imageUrl),
+      ),
+    );
   }
 
   @override
@@ -373,6 +372,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                             fontWeight: FontWeight.bold,
                             color: Colors.teal.shade900,
                           ),
+                          softWrap: true,
                         ),
                         const SizedBox(height: 12),
                         _buildInfoRow(Icons.person_outline, 'Driver',
@@ -493,30 +493,34 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
             scrollDirection: Axis.horizontal,
             itemCount: imageUrls.length,
             itemBuilder: (context, index) {
-              return Card(
-                clipBehavior: Clip.antiAlias,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                margin: const EdgeInsets.only(right: 10.0),
-                child: Image.network(
-                  imageUrls[index],
-                  fit: BoxFit.cover,
-                  width: 120,
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return Container(
-                      width: 120,
-                      color: Colors.grey[200],
-                      child: const Center(child: CircularProgressIndicator()),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 120,
-                      color: Colors.grey[200],
-                      child: const Icon(Icons.broken_image, color: Colors.grey),
-                    );
-                  },
+              final imageUrl = imageUrls[index];
+              return GestureDetector(
+                onTap: () => _showNetworkImagePreview(imageUrl),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  margin: const EdgeInsets.only(right: 10.0),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    width: 120,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        width: 120,
+                        color: Colors.grey[200],
+                        child: const Center(child: CircularProgressIndicator()),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 120,
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                      );
+                    },
+                  ),
                 ),
               );
             },
@@ -572,6 +576,35 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _NetworkImagePreviewScreen extends StatelessWidget {
+  final String imageUrl;
+
+  const _NetworkImagePreviewScreen({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          panEnabled: true,
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Image.network(imageUrl),
+        ),
+      ),
     );
   }
 }
