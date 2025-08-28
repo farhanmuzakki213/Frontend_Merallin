@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart';
 import '../models/trip_model.dart';
+import 'dart:async'; // Import for TimeoutException
 
 class ApiException implements Exception {
   final String message;
@@ -16,9 +17,12 @@ class ApiException implements Exception {
   @override
   String toString() {
     if (errors != null && errors!.isNotEmpty) {
-      return errors!.values
-          .map((value) => value is List ? value.join(' ') : value)
-          .join('\n');
+      return errors!.entries.map((entry) {
+        final field = entry.key;
+        final message =
+            entry.value is List ? entry.value.join(' ') : entry.value;
+        return '$field: $message';
+      }).join('\n');
     }
     return message;
   }
@@ -29,47 +33,42 @@ class TripService {
 
   void _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
-
     Map<String, dynamic>? errorBody;
     try {
       errorBody = json.decode(response.body) as Map<String, dynamic>?;
     } catch (e) {
-      print('Server returned non-JSON response (Status ${response.statusCode}):');
-      print(response.body);
-      throw ApiException('Gagal memproses respons dari server. Status: ${response.statusCode}');
-    }
-
-    if (errorBody == null) {
-      throw ApiException('Terjadi kesalahan tidak diketahui.');
-    }
-
-    if (response.statusCode == 422 && errorBody.containsKey('errors')) {
       throw ApiException(
-        errorBody['message'] ?? 'Data yang diberikan tidak valid.',
-        errorBody['errors'] as Map<String, dynamic>,
-      );
+          'Gagal memproses respons dari server. Status: ${response.statusCode}');
     }
-
-    throw ApiException(errorBody['message'] ?? 'Terjadi kesalahan pada server.');
+    if (errorBody == null)
+      throw ApiException('Terjadi kesalahan tidak diketahui.');
+    if (response.statusCode == 422 && errorBody.containsKey('errors')) {
+      throw ApiException(errorBody['message'] ?? 'Data tidak valid.',
+          errorBody['errors'] as Map<String, dynamic>);
+    }
+    throw ApiException(
+        errorBody['message'] ?? 'Terjadi kesalahan pada server.');
   }
 
-  Future<http.Response> _multipartPostRequest(http.MultipartRequest request) async {
+  Future<http.Response> _multipartPostRequest(
+      http.MultipartRequest request) async {
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
       _handleResponse(response);
       return response;
     } on SocketException {
-      throw ApiException('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
+      throw ApiException(
+          'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<http.Response> _postRequest(String token, String endpoint, {Map<String, dynamic>? body}) async {
+  Future<http.Response> _postRequest(String token, String endpoint,
+      {Map<String, dynamic>? body}) async {
     if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
     final url = Uri.parse('$_baseUrl/driver/trips/$endpoint');
-
     try {
       final response = await http.post(
         url,
@@ -83,7 +82,8 @@ class TripService {
       _handleResponse(response);
       return response;
     } on SocketException {
-      throw ApiException('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
+      throw ApiException(
+          'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
     } catch (e) {
       rethrow;
     }
@@ -93,32 +93,37 @@ class TripService {
     if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
     final url = Uri.parse('$_baseUrl/driver/trips');
     try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        if (response.body.trim() == '[]') return [];
-        if (!response.headers['content-type']!.contains('application/json')) {
-          print('Server returned non-JSON response for getTrips:');
-          print(response.body);
-          throw ApiException('Server tidak memberikan respons JSON yang valid.');
-        }
-        List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Trip.fromJson(json)).toList();
-      } else {
-        _handleResponse(response);
-        return [];
-      }
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json'
+      });
+      _handleResponse(response);
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Trip.fromJson(json)).toList();
     } on SocketException {
-      throw ApiException('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
-    } on FormatException catch (e) {
-      print('Failed to decode JSON: $e');
-      throw ApiException('Gagal mem-parsing data dari server.');
+      throw ApiException(
+          'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Trip> getTripDetails(String token, int tripId) async {
+    if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
+    final url = Uri.parse('$_baseUrl/trips/$tripId');
+    try {
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json'
+      }).timeout(const Duration(seconds: 20));
+      _handleResponse(response);
+      return Trip.fromJson(json.decode(response.body));
+    } on SocketException {
+      throw ApiException(
+          'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
+    } on TimeoutException {
+      throw ApiException(
+          'Server tidak merespons tepat waktu. Silakan coba lagi.');
     } catch (e) {
       rethrow;
     }
@@ -129,185 +134,142 @@ class TripService {
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> createTrip({
-    required String token,
-    required String projectName,
-    required String origin,
-    required String destination,
-  }) async {
-    final response = await _postRequest(
-      token,
-      '',
-      body: {
-        'project_name': projectName,
-        'origin': origin,
-        'destination': destination,
-      },
-    );
-    return Trip.fromJson(json.decode(response.body)['data']);
-  }
-
-  Future<Trip> updateTrip({
-    required String token,
-    required int tripId,
-    required String projectName,
-    required String origin,
-    required String destination,
-  }) async {
-    if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
-    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/update');
-    try {
-      final response = await http.put(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'project_name': projectName,
-          'origin': origin,
-          'destination': destination,
-        }),
-      );
-      _handleResponse(response);
-      return Trip.fromJson(json.decode(response.body)['data']);
-    } on SocketException {
-      throw ApiException('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> deleteTrip(String token, int tripId) async {
-    if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
-    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/delete');
-    try {
-      final response = await http.delete(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      _handleResponse(response);
-    } on SocketException {
-      throw ApiException('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<Trip> updateStartTrip({
-    required String token,
-    required int tripId,
-    required String licensePlate,
-    required String startKm,
-    required File startKmPhoto,
-  }) async {
-    if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
+  Future<Trip> updateStartTrip(
+      {required String token,
+      required int tripId,
+      String? licensePlate,
+      String? startKm,
+      File? startKmPhoto}) async {
     final url = Uri.parse('$_baseUrl/driver/trips/$tripId/start');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
-      ..headers['Accept'] = 'application/json'
-      ..fields['license_plate'] = licensePlate
-      ..fields['start_km'] = startKm;
+      ..headers['Accept'] = 'application/json';
 
-    request.files.add(await http.MultipartFile.fromPath(
-      'start_km_photo',
-      startKmPhoto.path,
-      filename: basename(startKmPhoto.path),
-    ));
+    if (licensePlate != null) request.fields['license_plate'] = licensePlate;
+    if (startKm != null) request.fields['start_km'] = startKm;
 
+    if (startKmPhoto != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+          'start_km_photo', startKmPhoto.path,
+          filename: basename(startKmPhoto.path)));
+    }
     final response = await _multipartPostRequest(request);
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> updateToLoadingPoint({required String token, required int tripId}) async {
+  Future<Trip> updateToLoadingPoint(
+      {required String token, required int tripId}) async {
     final response = await _postRequest(token, '$tripId/at-loading');
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> finishLoading({required String token, required int tripId}) async {
+  Future<Trip> finishLoading(
+      {required String token, required int tripId}) async {
     final response = await _postRequest(token, '$tripId/finish-loading');
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> updateAfterLoading({
-    required String token,
-    required int tripId,
-    required File muatPhoto,
-    required List<File> deliveryLetters,
-  }) async {
-    if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
+  Future<Trip> updateAfterLoading(
+      {required String token,
+      required int tripId,
+      File? muatPhoto,
+      List<File>? deliveryLetters}) async {
     final url = Uri.parse('$_baseUrl/driver/trips/$tripId/after-loading');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
 
-    request.files.add(await http.MultipartFile.fromPath(
-      'muat_photo',
-      muatPhoto.path,
-      filename: basename(muatPhoto.path),
-    ));
-
-    for (var file in deliveryLetters) {
+    if (muatPhoto != null) {
       request.files.add(await http.MultipartFile.fromPath(
-        'delivery_letters[]',
-        file.path,
-        filename: basename(file.path),
-      ));
+          'muat_photo', muatPhoto.path,
+          filename: basename(muatPhoto.path)));
     }
-
+    if (deliveryLetters != null) {
+      for (var file in deliveryLetters) {
+        request.files.add(await http.MultipartFile.fromPath(
+            'delivery_letters[]', file.path,
+            filename: basename(file.path)));
+      }
+    }
     final response = await _multipartPostRequest(request);
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> updateToUnloadingPoint({required String token, required int tripId}) async {
+  Future<Trip> uploadTripDocuments(
+      {required String token,
+      required int tripId,
+      File? deliveryOrder,
+      File? segelPhoto,
+      File? timbanganPhoto}) async {
+    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/upload-documents');
+    final request = http.MultipartRequest('POST', url)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json';
+
+    if (deliveryOrder != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+          'delivery_order', deliveryOrder.path,
+          filename: basename(deliveryOrder.path)));
+    }
+    if (segelPhoto != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+          'segel_photo', segelPhoto.path,
+          filename: basename(segelPhoto.path)));
+    }
+    if (timbanganPhoto != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+          'timbangan_kendaraan_photo', timbanganPhoto.path,
+          filename: basename(timbanganPhoto.path)));
+    }
+    final response = await _multipartPostRequest(request);
+    return Trip.fromJson(json.decode(response.body)['data']);
+  }
+
+  Future<Trip> updateToUnloadingPoint(
+      {required String token, required int tripId}) async {
     final response = await _postRequest(token, '$tripId/at-unloading');
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> finishUnloading({required String token, required int tripId}) async {
+  Future<Trip> finishUnloading(
+      {required String token, required int tripId}) async {
     final response = await _postRequest(token, '$tripId/finish-unloading');
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> updateFinishTrip({
-    required String token,
-    required int tripId,
-    required String endKm,
-    required File endKmPhoto,
-    required File bongkarPhoto,
-    required List<File> deliveryLetters,
-  }) async {
-    if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
+  Future<Trip> updateFinishTrip(
+      {required String token,
+      required int tripId,
+      String? endKm,
+      File? endKmPhoto,
+      List<File>? bongkarPhoto,
+      List<File>? deliveryLetters}) async {
     final url = Uri.parse('$_baseUrl/driver/trips/$tripId/finish');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
-      ..headers['Accept'] = 'application/json'
-      ..fields['end_km'] = endKm;
+      ..headers['Accept'] = 'application/json';
 
-    request.files.add(await http.MultipartFile.fromPath(
-      'bongkar_photo',
-      bongkarPhoto.path,
-      filename: basename(bongkarPhoto.path),
-    ));
+    if (endKm != null) request.fields['end_km'] = endKm;
 
-    request.files.add(await http.MultipartFile.fromPath(
-      'end_km_photo',
-      endKmPhoto.path,
-      filename: basename(endKmPhoto.path),
-    ));
-
-    for (var file in deliveryLetters) {
+    if (endKmPhoto != null) {
       request.files.add(await http.MultipartFile.fromPath(
-        'delivery_letters[]',
-        file.path,
-        filename: basename(file.path),
-      ));
+          'end_km_photo', endKmPhoto.path,
+          filename: basename(endKmPhoto.path)));
     }
-
+    if (bongkarPhoto != null) {
+      for (var file in bongkarPhoto) {
+        request.files.add(await http.MultipartFile.fromPath(
+            'bongkar_photo[]', file.path,
+            filename: basename(file.path)));
+      }
+    }
+    if (deliveryLetters != null) {
+      for (var file in deliveryLetters) {
+        request.files.add(await http.MultipartFile.fromPath(
+            'delivery_letters[]', file.path,
+            filename: basename(file.path)));
+      }
+    }
     final response = await _multipartPostRequest(request);
     return Trip.fromJson(json.decode(response.body)['data']);
   }

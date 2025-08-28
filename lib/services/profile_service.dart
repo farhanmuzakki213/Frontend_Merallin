@@ -9,6 +9,31 @@ import '../models/user_model.dart';
 class ProfileService {
   final String _baseUrl = dotenv.env['API_BASE_URL'] ?? '';
 
+  Future<User> getProfile({required String token}) async {
+    final url = Uri.parse('$_baseUrl/user/profile');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final decoded = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return User.fromJson(decoded['user'] ?? decoded);
+      } else {
+        throw Exception(decoded['message'] ?? 'Gagal mengambil data profil');
+      }
+    } on SocketException {
+      throw Exception('Tidak dapat terhubung ke server.');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<User> updateProfile({
     required String token,
     required String name,

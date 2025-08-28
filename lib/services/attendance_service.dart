@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -36,6 +37,37 @@ class AttendanceService {
     await _uploadAttendance(url, image, token);
   }
 
+  Future<void> clockInWithLocation(
+      File image, String token, double latitude, double longitude) async {
+    final url = Uri.parse('$_baseUrl/attendance/clock-in');
+    await _uploadAttendanceWithLocation(url, image, token, latitude, longitude);
+  }
+
+  Future<void> _uploadAttendanceWithLocation(Uri url, File image, String token,
+      double latitude, double longitude) async {
+    try {
+      var request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+      request.fields['latitude'] = latitude.toString();
+      request.fields['longitude'] = longitude.toString();
+      request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode >= 400) {
+        final responseBody = json.decode(response.body);
+        throw Exception(
+            responseBody['message'] ?? 'Gagal mengirim data absensi.');
+      }
+    } on SocketException {
+      throw Exception('Gagal mengirim data. Periksa koneksi Anda.');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> _uploadAttendance(Uri url, File image, String token) async {
     try {
       final Position position = await _getLocation();
@@ -51,7 +83,8 @@ class AttendanceService {
 
       if (response.statusCode >= 400) {
         final responseBody = json.decode(response.body);
-        throw Exception(responseBody['message'] ?? 'Gagal mengirim data absensi.');
+        throw Exception(
+            responseBody['message'] ?? 'Gagal mengirim data absensi.');
       }
     } on SocketException {
       throw Exception('Gagal mengirim data. Periksa koneksi Anda.');
@@ -60,36 +93,27 @@ class AttendanceService {
     }
   }
 
-
-  /// Fungsi privat untuk mendapatkan lokasi GPS pengguna.
   Future<Position> _getLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // 1. Cek apakah layanan lokasi di ponsel aktif.
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      // Jika tidak aktif, lempar error untuk menghentikan proses.
       throw Exception('Layanan lokasi tidak aktif. Mohon aktifkan GPS Anda.');
     }
 
-    // 2. Cek apakah aplikasi memiliki izin untuk mengakses lokasi.
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      // Jika izin ditolak, minta izin kepada pengguna.
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        // Jika pengguna tetap menolak, lempar error.
         throw Exception('Izin lokasi ditolak.');
       }
     }
 
-    // 3. Cek jika izin ditolak secara permanen.
     if (permission == LocationPermission.deniedForever) {
       throw Exception('Izin lokasi ditolak permanen, Anda tidak dapat absen.');
     }
 
-    // 4. Jika semua izin sudah diberikan, ambil posisi saat ini.
     return await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );

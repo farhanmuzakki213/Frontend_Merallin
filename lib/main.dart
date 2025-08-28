@@ -4,8 +4,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/home_screen.dart'; 
 import 'package:frontend_merallin/login_screen.dart';
+import 'package:frontend_merallin/models/trip_model.dart';
+import 'package:frontend_merallin/models/user_model.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/providers/trip_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -20,6 +23,9 @@ Future<void> main() async {
   await dotenv.load(fileName: ".env");
   await Hive.initFlutter();
   
+  await Hive.initFlutter();
+  Hive.registerAdapter(UserAdapter());
+
   final encryptionKeyString = dotenv.env['HIVE_ENCRYPTION_KEY'];
   if (encryptionKeyString == null) {
     throw Exception("HIVE_ENCRYPTION_KEY tidak ditemukan di file .env");
@@ -30,6 +36,10 @@ Future<void> main() async {
     'authBox',
     encryptionCipher: HiveAesCipher(encryptionKey),
   );
+
+  // await Hive.openBox<Trip>('tripsBox', encryptionCipher: HiveAesCipher(encryptionKey));
+  // await Hive.openBox('performanceBox', encryptionCipher: HiveAesCipher(encryptionKey));
+  // await Hive.openBox('historyBox', encryptionCipher: HiveAesCipher(encryptionKey));
 
   runApp(const MyApp());
 }
@@ -43,10 +53,8 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (context) => AuthProvider()),
         ChangeNotifierProvider(create: (context) => AttendanceProvider()),
-        
-        // --- PENAMBAHAN PROVIDER IZIN ---
         ChangeNotifierProvider(create: (context) => LeaveProvider()),
-
+        ChangeNotifierProvider(create: (context) => TripProvider()),
         ChangeNotifierProvider(create: (context) => HistoryProvider()),
       ],
       child: MaterialApp(
@@ -62,10 +70,10 @@ class MyApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: const [
-          Locale('id', ''), // Bahasa Indonesia
-          Locale('en', ''), // Bahasa Inggris (sebagai cadangan)
+          Locale('id', ''),
+          Locale('en', ''),
         ],
-        locale: const Locale('id', 'ID'), // Set default bahasa ke Indonesia
+        locale: const Locale('id', 'ID'),
         home: const AuthGate(),
       ),
     );
@@ -84,7 +92,7 @@ class AuthGate extends StatelessWidget {
             return const Scaffold(body: Center(child: CircularProgressIndicator()));
           case AuthStatus.updating:
           case AuthStatus.authenticated:            
-            return const HomeScreen(); // Sekarang akan dikenali
+            return const HomeScreen(); // Selalu arahkan ke HomeScreen
           case AuthStatus.authenticating:
           case AuthStatus.unauthenticated:
             return const LoginScreen();

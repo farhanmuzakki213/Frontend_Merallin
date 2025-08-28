@@ -1,3 +1,5 @@
+// lib/providers/auth_provider.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -24,7 +26,10 @@ class AuthProvider extends ChangeNotifier {
   String? _token;
   String? _errorMessage;
   AuthStatus _authStatus = AuthStatus.uninitialized;
+  int? _pendingTripId;
+
   bool get isUpdating => _isUpdating;
+  int? get pendingTripId => _pendingTripId;
 
   User? get user => _user;
   String? get token => _token;
@@ -45,10 +50,28 @@ class AuthProvider extends ChangeNotifier {
       return;
     }
 
-    _token = storedToken;
-    _user = User.fromJson(json.decode(storedUser));
-    _authStatus = AuthStatus.authenticated;
-    notifyListeners();
+    try {
+      // PERBAIKAN UTAMA: Muat semua data dari cache terlebih dahulu
+      _token = storedToken as String;
+      _user = User.fromJson(json.decode(storedUser as String));
+
+      final storedPendingTripId = _authBox.get('pendingTripId');
+      if (storedPendingTripId != null) {
+        _pendingTripId = storedPendingTripId as int;
+        debugPrint(
+            'AuthProvider: Pending tripId $storedPendingTripId dimuat dari cache.');
+      }
+
+      // Setelah semua data sesi (termasuk pendingTripId) siap, baru set status dan beritahu aplikasi
+      _authStatus = AuthStatus.authenticated;
+      notifyListeners();
+
+      // Sinkronkan profil di background setelah UI utama muncul
+      syncUserProfile();
+    } catch (e) {
+      debugPrint("Gagal memuat sesi dari Hive: $e. Sesi dibersihkan.");
+      await logout();
+    }
   }
 
   Future<String?> login(String email, String password) async {
@@ -72,6 +95,28 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return _errorMessage;
     }
+  }
+
+  Future<void> logout() async {
+    _user = null;
+    _token = null;
+    await _authBox.clear();
+    _authStatus = AuthStatus.unauthenticated;
+    await clearPendingTripForVerification();
+    notifyListeners();
+  }
+
+  Future<void> setPendingTripForVerification(int tripId) async {
+    _pendingTripId = tripId;
+    await _authBox.put('pendingTripId', tripId);
+    debugPrint('AuthProvider: Set pending trip: $tripId (tersimpan di cache)');
+    notifyListeners();
+  }
+
+  Future<void> clearPendingTripForVerification() async {
+    _pendingTripId = null;
+    await _authBox.delete('pendingTripId');
+    notifyListeners();
   }
 
   Future<bool> register({
@@ -122,10 +167,10 @@ class AuthProvider extends ChangeNotifier {
         newPassword: newPassword,
         newPasswordConfirmation: newPasswordConfirmation,
       );
-      return null; // Sukses
+      return null;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      return _errorMessage; // Gagal, kembalikan pesan error
+      return _errorMessage;
     } finally {
       _isUpdating = false;
       notifyListeners();
@@ -165,11 +210,20 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
-    _user = null;
-    _token = null;
-    await _authBox.clear();
-    _authStatus = AuthStatus.unauthenticated;
-    notifyListeners();
+  Future<void> syncUserProfile() async {
+    if (token == null) {
+      debugPrint("Tidak ada token, sinkronisasi profil dibatalkan.");
+      return;
+    }
+
+    try {
+      final freshUser = await _profileService.getProfile(token: token!);
+      _user = freshUser;
+      await _authBox.put('user', json.encode(_user!.toJson()));
+      notifyListeners();
+      debugPrint("Profil pengguna berhasil disinkronkan dan di-cache.");
+    } catch (e) {
+      debugPrint("Gagal sinkronisasi profil: $e");
+    }
   }
 }
