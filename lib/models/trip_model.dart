@@ -1,19 +1,13 @@
-// import 'package:hive/hive.dart';
-import 'user_model.dart';
+// lib/models/trip_model.dart
 
-// part 'trip_model.g.dart';
+import 'user_model.dart';
 
 enum TripDerivedStatus { tersedia, proses, verifikasiGambar, revisiGambar, selesai, tidakDiketahui }
 
-
 class PhotoVerificationStatus {
-
   final String? status;
-  // //(1)
   final int? verifiedBy;
-  // //(2)
   final DateTime? verifiedAt;
-  // //(3)
   final String? rejectionReason;
 
   PhotoVerificationStatus({ this.status, this.verifiedBy, this.verifiedAt, this.rejectionReason });
@@ -26,6 +20,16 @@ class PhotoVerificationStatus {
       rejectionReason: json['${fieldPrefix}_rejection_reason'],
     );
   }
+  
+  bool get isApproved => status?.toLowerCase() == 'approved';
+}
+
+class DocumentInfo {
+  final String type;
+  final String name;
+  final PhotoVerificationStatus verificationStatus;
+  final String? url;
+  DocumentInfo(this.type, this.name, this.verificationStatus, this.url);
 }
 
 class DocumentRevisionInfo {
@@ -35,90 +39,45 @@ class DocumentRevisionInfo {
 }
 
 class Trip {
-  // //(0)
   final int id;
-  //(1)
   final int? userId;
-  //(2)
   final String projectName;
-  //(3)
   final String origin;
-  //(4)
   final String destination;
-  //(5)
   final String? licensePlate;
-  //(6)
   final int? startKm;
-  //(7)
   final int? endKm;
-  
-  //(8)
   final String? startKmPhotoPath;
-  //(9)
   final String? muatPhotoPath;
-  //(10)
   final List<String> bongkarPhotoPath;
-  //(11)
   final String? endKmPhotoPath;
-  //(12)
   final Map<String, List<String>> deliveryLetterPath;
-  //(13)
   final String? deliveryOrderPath;
-  //(14)
   final String? timbanganKendaraanPhotoPath;
-  //(15)
   final String? segelPhotoPath;
-
-  //(16)
   final String statusTrip;
-  //(17)
   final String? jenisTrip;
-  //(18)
   final String? statusLokasi;
-  //(19)
   final String? statusMuatan;
-
-  //(20)
   final PhotoVerificationStatus startKmPhotoStatus;
-  //(21)
   final PhotoVerificationStatus muatPhotoStatus;
-  //(22)
   final PhotoVerificationStatus bongkarPhotoStatus;
-  //(23)
   final PhotoVerificationStatus endKmPhotoStatus;
-  //(24)
   final PhotoVerificationStatus deliveryLetterInitialStatus;
-  //(25)
   final PhotoVerificationStatus deliveryLetterFinalStatus;
-  //(26)
   final PhotoVerificationStatus deliveryOrderStatus;
-  //(27)
   final PhotoVerificationStatus timbanganKendaraanPhotoStatus;
-  //(28)
   final PhotoVerificationStatus segelPhotoStatus;
-
-  //(29)
   final String? fullStartKmPhotoUrl;
-  //(30)
   final String? fullMuatPhotoUrl;
-  //(31)
   final List<String> fullBongkarPhotoUrl;
-  //(32)
   final String? fullEndKmPhotoUrl;
-  //(33)
   final List<String> fullDeliveryLetterUrls;
-  //(34)
   final String? fullDeliveryOrderUrl;
-  //(35)
   final String? fullTimbanganKendaraanPhotoUrl;
-  //(36)
   final String? fullSegelPhotoUrl;
-
-  //(37)
   final DateTime? createdAt;
-  //(38)
   final DateTime? updatedAt;
-  //(39)
   final User? user;
 
   Trip({
@@ -135,40 +94,31 @@ class Trip {
     this.fullTimbanganKendaraanPhotoUrl, this.fullSegelPhotoUrl, this.createdAt, this.updatedAt, this.user,
   });
 
+  bool get isFullyCompleted {
+    final finalLetters = deliveryLetterPath['final_letters'];
+    
+    return endKmPhotoPath != null && endKmPhotoStatus.isApproved &&
+           bongkarPhotoPath.isNotEmpty && bongkarPhotoStatus.isApproved &&
+           (finalLetters != null && finalLetters.isNotEmpty) && deliveryLetterFinalStatus.isApproved;
+  }
+
   TripDerivedStatus get derivedStatus {
-    // Priority 1: Check for rejection. A trip needs revision if any photo
-    // has a 'rejected' status OR a non-empty rejection reason.
-    if (getAllVerificationStatuses().any((s) =>
-        s.status?.toLowerCase() == 'rejected' ||
-        (s.rejectionReason != null && s.rejectionReason!.isNotEmpty))) {
+    if (getAllVerificationStatuses().any((s) => s.status?.toLowerCase() == 'rejected' || (s.rejectionReason != null && s.rejectionReason!.isNotEmpty))) {
       return TripDerivedStatus.revisiGambar;
     }
-
-    // Priority 2: Check for explicit backend states that indicate waiting or completion.
-    switch (statusTrip) {
-      case 'revisi gambar':
-        return TripDerivedStatus.revisiGambar;
-      case 'verifikasi gambar':
-        return TripDerivedStatus.verifikasiGambar;
-      case 'selesai':
-        return TripDerivedStatus.selesai;
-    }
-
-    // Priority 3: If no explicit state & no rejections, determine if trip is finished
-    // based on all photos being approved (for the final step).
-    if (endKmPhotoPath != null &&
-        getAllVerificationStatuses().every((s) => s.status == 'approved')) {
+    
+    if (isFullyCompleted || statusTrip == 'selesai') {
       return TripDerivedStatus.selesai;
     }
 
-    // Priority 4: Fallback for all other ongoing cases ('tersedia', 'proses', etc.)
+    if (statusTrip == 'verifikasi gambar') {
+      return TripDerivedStatus.verifikasiGambar;
+    }
+
     switch (statusTrip) {
-      case 'tersedia':
-        return TripDerivedStatus.tersedia;
-      case 'proses':
-        return TripDerivedStatus.proses;
-      default:
-        return TripDerivedStatus.proses; // Safe default
+      case 'tersedia': return TripDerivedStatus.tersedia;
+      case 'proses': return TripDerivedStatus.proses;
+      default: return TripDerivedStatus.proses;
     }
   }
 
@@ -186,22 +136,14 @@ class Trip {
     return statuses;
   }
 
-  // CORRECTED: Re-ordered to match the page flow of the UI
   List<DocumentInfo> get allDocuments {
     return [
-      // Page 0
       if (startKmPhotoPath != null) DocumentInfo('start_km_photo', 'Foto KM Awal', startKmPhotoStatus, fullStartKmPhotoUrl),
-      
-      // Page 3
       if (muatPhotoPath != null) DocumentInfo('muat_photo', 'Foto Muat Barang', muatPhotoStatus, fullMuatPhotoUrl),
       if (deliveryLetterPath['initial_letters']?.isNotEmpty ?? false) DocumentInfo('initial_delivery_letters', 'Surat Jalan Awal', deliveryLetterInitialStatus, fullDeliveryLetterUrls.join(', ')),
-      
-      // Page 4
       if (deliveryOrderPath != null) DocumentInfo('delivery_order', 'Delivery Order', deliveryOrderStatus, fullDeliveryOrderUrl),
       if (timbanganKendaraanPhotoPath != null) DocumentInfo('timbangan_kendaraan_photo', 'Foto Timbangan', timbanganKendaraanPhotoStatus, fullTimbanganKendaraanPhotoUrl),
       if (segelPhotoPath != null) DocumentInfo('segel_photo', 'Foto Segel', segelPhotoStatus, fullSegelPhotoUrl),
-      
-      // Page 7
       if (bongkarPhotoPath.isNotEmpty) DocumentInfo('bongkar_photo', 'Foto Bongkar', bongkarPhotoStatus, fullBongkarPhotoUrl.join(', ')),
       if (endKmPhotoPath != null) DocumentInfo('end_km_photo', 'Foto KM Akhir', endKmPhotoStatus, fullEndKmPhotoUrl),
       if (deliveryLetterPath['final_letters']?.isNotEmpty ?? false) DocumentInfo('final_delivery_letters', 'Surat Jalan Akhir', deliveryLetterFinalStatus, fullDeliveryLetterUrls.join(', ')),
@@ -210,30 +152,20 @@ class Trip {
   
   DocumentRevisionInfo? get firstRejectedDocumentInfo {
     for (final doc in allDocuments) {
-      // CORRECTED: Using the same robust rejection check as in derivedStatus
       if (doc.verificationStatus.status?.toLowerCase() == 'rejected' ||
           (doc.verificationStatus.rejectionReason != null && doc.verificationStatus.rejectionReason!.isNotEmpty)) {
         int pageIndex;
         switch (doc.type) {
-          case 'start_km_photo': 
-            pageIndex = 0; 
-            break;
+          case 'start_km_photo': pageIndex = 0; break;
           case 'muat_photo':
-          case 'initial_delivery_letters': 
-            pageIndex = 3; 
-            break;
+          case 'initial_delivery_letters': pageIndex = 3; break;
           case 'delivery_order':
           case 'timbangan_kendaraan_photo':
-          case 'segel_photo': 
-            pageIndex = 4; 
-            break;
+          case 'segel_photo': pageIndex = 4; break;
           case 'bongkar_photo':
           case 'end_km_photo':
-          case 'final_delivery_letters': 
-            pageIndex = 7; 
-            break;
-          default: 
-            pageIndex = 0; // Should not happen
+          case 'final_delivery_letters': pageIndex = 7; break;
+          default: pageIndex = 0;
         }
         return DocumentRevisionInfo(doc, pageIndex);
       }
@@ -251,7 +183,7 @@ class Trip {
       .toList();
 
     if (reasons.isEmpty) return null;
-    return reasons.join('');
+    return reasons.join('\n');
   }
 
   static int? _parseToInt(dynamic value) {
@@ -320,12 +252,4 @@ class Trip {
       user: json['user'] != null ? User.fromJson(json['user']) : null,
     );
   }
-}
-
-class DocumentInfo {
-  final String type;
-  final String name;
-  final PhotoVerificationStatus verificationStatus;
-  final String? url;
-  DocumentInfo(this.type, this.name, this.verificationStatus, this.url);
 }

@@ -27,11 +27,9 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   AuthStatus _authStatus = AuthStatus.uninitialized;
   int? _pendingTripId;
-  // int? _pendingTripInitialPage; // <-- HAPUS
 
   bool get isUpdating => _isUpdating;
   int? get pendingTripId => _pendingTripId;
-  // int? get pendingTripInitialPage => _pendingTripInitialPage; // <-- HAPUS
 
   User? get user => _user;
   String? get token => _token;
@@ -40,6 +38,40 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider() {
     tryAutoLogin();
+  }
+
+  Future<void> tryAutoLogin() async {
+    final storedToken = _authBox.get('token');
+    final storedUser = _authBox.get('user');
+
+    if (storedToken == null || storedUser == null) {
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      // PERBAIKAN UTAMA: Muat semua data dari cache terlebih dahulu
+      _token = storedToken as String;
+      _user = User.fromJson(json.decode(storedUser as String));
+
+      final storedPendingTripId = _authBox.get('pendingTripId');
+      if (storedPendingTripId != null) {
+        _pendingTripId = storedPendingTripId as int;
+        debugPrint(
+            'AuthProvider: Pending tripId $storedPendingTripId dimuat dari cache.');
+      }
+
+      // Setelah semua data sesi (termasuk pendingTripId) siap, baru set status dan beritahu aplikasi
+      _authStatus = AuthStatus.authenticated;
+      notifyListeners();
+
+      // Sinkronkan profil di background setelah UI utama muncul
+      syncUserProfile();
+    } catch (e) {
+      debugPrint("Gagal memuat sesi dari Hive: $e. Sesi dibersihkan.");
+      await logout();
+    }
   }
 
   Future<String?> login(String email, String password) async {
@@ -63,6 +95,28 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return _errorMessage;
     }
+  }
+
+  Future<void> logout() async {
+    _user = null;
+    _token = null;
+    await _authBox.clear();
+    _authStatus = AuthStatus.unauthenticated;
+    await clearPendingTripForVerification();
+    notifyListeners();
+  }
+
+  Future<void> setPendingTripForVerification(int tripId) async {
+    _pendingTripId = tripId;
+    await _authBox.put('pendingTripId', tripId);
+    debugPrint('AuthProvider: Set pending trip: $tripId (tersimpan di cache)');
+    notifyListeners();
+  }
+
+  Future<void> clearPendingTripForVerification() async {
+    _pendingTripId = null;
+    await _authBox.delete('pendingTripId');
+    notifyListeners();
   }
 
   Future<bool> register({
@@ -170,63 +224,6 @@ class AuthProvider extends ChangeNotifier {
       debugPrint("Profil pengguna berhasil disinkronkan dan di-cache.");
     } catch (e) {
       debugPrint("Gagal sinkronisasi profil: $e");
-    }
-  }
-
-  Future<void> logout() async {
-    _user = null;
-    _token = null;
-    await _authBox.clear();
-    _authStatus = AuthStatus.unauthenticated;
-    clearPendingTripForVerification();
-    notifyListeners();
-  }
-
-  Future<void> setPendingTripForVerification(int tripId) async { // <-- Sederhanakan parameter
-    _pendingTripId = tripId;
-    await _authBox.put('pendingTripId', tripId);
-    debugPrint('AuthProvider: Set pending trip: $tripId');
-    notifyListeners();
-  }
-
-  Future<void> clearPendingTripForVerification() async {
-    _pendingTripId = null;
-    await _authBox.delete('pendingTripId');
-    await _authBox.delete('pendingTripInitialPage'); // Jaga-jaga jika masih ada sisa data lama
-    notifyListeners();
-  }
-
-
-Future<void> tryAutoLogin() async {
-    final storedToken = _authBox.get('token');
-    final storedUser = _authBox.get('user');
-
-    if (storedToken == null || storedUser == null) {
-      _authStatus = AuthStatus.unauthenticated;
-      notifyListeners();
-      return;
-    }
-
-    // TAMBAHKAN BLOK TRY-CATCH DI SINI
-    try {
-      _token = storedToken as String;
-      _user = User.fromJson(json.decode(storedUser as String));
-      _authStatus = AuthStatus.authenticated;
-
-      final storedPendingTripId = _authBox.get('pendingTripId');
-      if (storedPendingTripId != null) {
-        _pendingTripId = storedPendingTripId as int;
-      }
-      
-      notifyListeners();
-      // Sinkronkan profil di background untuk memastikan data selalu baru
-      syncUserProfile(); 
-
-    } catch (e) {
-      // Jika terjadi error saat memproses data, anggap sesi tidak valid.
-      debugPrint("Gagal memuat sesi dari Hive: $e. Sesi dibersihkan.");
-      // Panggil logout untuk membersihkan semua data yang salah
-      await logout(); 
     }
   }
 }

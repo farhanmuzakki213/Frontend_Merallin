@@ -37,14 +37,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    
-    // ================== PERBAIKAN DI SINI (BAGIAN 1) ==================
-    // Mengganti logika kompleks dengan blok if yang aman untuk _HomeScreenState
+
     String? userRole;
     if (user != null && user.roles.isNotEmpty) {
       userRole = user.roles.first;
     }
-    // =================================================================
 
     Widget historyScreen;
     if (userRole == 'driver') {
@@ -99,7 +96,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         Provider.of<AttendanceProvider>(context, listen: false)
             .checkTodayAttendanceStatus(authProvider.token!);
         if (authProvider.user?.roles.contains('driver') ?? false) {
-          Provider.of<TripProvider>(context, listen: false).fetchMonthlyTrips(authProvider.token!);
+          // Ganti fetchMonthlyTrips menjadi fetchTrips
+          Provider.of<TripProvider>(context, listen: false)
+              .fetchTrips(authProvider.token!);
         }
       }
     });
@@ -107,12 +106,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
   void _checkPendingTrip() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     if (authProvider.pendingTripId != null) {
       final tripId = authProvider.pendingTripId!;
-      
+
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => LaporanDriverScreen(tripId: tripId),
+        builder: (_) => LaporanDriverScreen(
+          tripId: tripId,
+          resumeVerification: true,
+        ),
       ));
     }
   }
@@ -142,7 +144,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     if (!mounted) return;
 
     if (imageResult.position == null) {
-      showErrorSnackBar(context, "Gagal mendapatkan data lokasi. Mohon coba lagi.");
+      showErrorSnackBar(
+          context, "Gagal mendapatkan data lokasi. Mohon coba lagi.");
       return;
     }
 
@@ -169,7 +172,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     try {
       await attendanceProvider.performClockInWithLocation(
           imageResult.file, authProvider.token!, imageResult.position!);
-      
+
       if (!mounted) return;
       final status = attendanceProvider.status;
       final message = attendanceProvider.message ?? "Terjadi kesalahan";
@@ -257,14 +260,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    
-    // ================== PERBAIKAN DI SINI (BAGIAN 2) ==================
-    // Mengganti logika kompleks dengan blok if yang aman untuk _HomeScreenContentState
+
     String? userRole;
     if (user != null && user.roles.isNotEmpty) {
       userRole = user.roles.first;
     }
-    // =================================================================
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -353,7 +353,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 );
               }),
           AnimatedMenuItem(
-              icon: Icons.timer_outlined, label: 'Lembur', onTap: () {
+              icon: Icons.timer_outlined,
+              label: 'Lembur',
+              onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const LemburScreen()),
@@ -402,9 +404,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               );
 
               if (result == true && mounted) {
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final authProvider =
+                    Provider.of<AuthProvider>(context, listen: false);
                 if (authProvider.token != null) {
-                  Provider.of<TripProvider>(context, listen: false).fetchMonthlyTrips(authProvider.token!);
+                  Provider.of<TripProvider>(context, listen: false)
+                      .fetchTrips(authProvider.token!);
                 }
               }
             },
@@ -518,7 +522,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 class _TripCalculatorCard extends StatelessWidget {
   const _TripCalculatorCard();
 
-  void _showTripDetails(BuildContext context, int companyTrips, int driverTrips) {
+  void _showTripDetails(
+      BuildContext context, int companyTrips, int driverTrips) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -533,12 +538,17 @@ class _TripCalculatorCard extends StatelessWidget {
             children: [
               Text(
                 'Detail Trip Bulan Ini',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-              _buildDetailRow(Icons.business, 'Muatan Perusahaan', '$companyTrips Trip'),
+              _buildDetailRow(
+                  Icons.business, 'Muatan Perusahaan', '$companyTrips Trip'),
               const SizedBox(height: 12),
-              _buildDetailRow(Icons.person, 'Muatan Driver', '$driverTrips Trip'),
+              _buildDetailRow(
+                  Icons.person, 'Muatan Driver', '$driverTrips Trip'),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -561,7 +571,8 @@ class _TripCalculatorCard extends StatelessWidget {
         const SizedBox(width: 16),
         Text(label, style: const TextStyle(fontSize: 16)),
         const Spacer(),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -590,20 +601,24 @@ class _TripCalculatorCard extends StatelessWidget {
           final isWarningPeriod = (lastDayOfMonth - now.day) <= 3;
           final needsAttention = totalTrips < minTrips && isWarningPeriod;
 
-          final Color progressColor = needsAttention ? Colors.red.shade700 : Colors.green.shade600;
+          final Color progressColor =
+              needsAttention ? Colors.red.shade700 : Colors.green.shade600;
 
           return GestureDetector(
             onTap: () => _showTripDetails(context, companyTrips, driverTrips),
             child: Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   gradient: LinearGradient(
                     colors: [
-                      needsAttention ? Colors.red.shade100 : Colors.green.shade50,
+                      needsAttention
+                          ? Colors.red.shade100
+                          : Colors.green.shade50,
                       Colors.white,
                     ],
                     begin: Alignment.topLeft,
@@ -619,7 +634,8 @@ class _TripCalculatorCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         const Text(
                           'Performa Trip Bulanan',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -641,7 +657,9 @@ class _TripCalculatorCard extends StatelessWidget {
                             const Text('Target Minimum'),
                             Text(
                               '$minTrips Trip',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[700]),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[700]),
                             ),
                           ],
                         ),
@@ -654,7 +672,8 @@ class _TripCalculatorCard extends StatelessWidget {
                         value: totalTrips / maxTrips,
                         minHeight: 12,
                         backgroundColor: Colors.grey[300],
-                        valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(progressColor),
                       ),
                     ),
                     const SizedBox(height: 8),

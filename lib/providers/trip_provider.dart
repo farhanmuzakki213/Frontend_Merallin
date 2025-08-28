@@ -1,103 +1,112 @@
-// lib/providers/trip_provider.dart
-
 import 'package:flutter/material.dart';
 import '../models/trip_model.dart';
 import '../services/trip_service.dart';
 import 'dart:io';
 import 'dart:async';
+// HAPUS IMPORT AUTH_PROVIDER DARI SINI JIKA ADA
 
 class TripProvider with ChangeNotifier {
   final TripService _tripService = TripService();
 
   bool _isLoading = false;
   String? _errorMessage;
-  
-  // State sekarang hanya disimpan di memori, bukan Hive
-  List<Trip> _allTrips = []; 
-  List<Trip> get myTrips => _allTrips;
+
+  List<Trip> _allTrips = [];
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  
-  // Kalkulasi performa sekarang berdasarkan state di memori
+
+  List<Trip> get activeTrips => _allTrips
+      .where((trip) =>
+          trip.derivedStatus != TripDerivedStatus.selesai &&
+          trip.derivedStatus != TripDerivedStatus.tersedia)
+      .toList();
+
+  List<Trip> get availableTrips => _allTrips
+      .where((trip) => trip.derivedStatus == TripDerivedStatus.tersedia)
+      .toList();
+
+  // ... (Sisa kode di file ini tidak perlu diubah, biarkan seperti versi terakhir yang saya berikan)
   int get totalTrips {
-      final now = DateTime.now();
-      return _allTrips.where((trip) =>
-          trip.statusTrip == 'selesai' &&
-          trip.updatedAt != null &&
-          trip.updatedAt!.month == now.month &&
-          trip.updatedAt!.year == now.year
-      ).length;
-  }
-  
-  int get companyTrips {
-      final now = DateTime.now();
-      return _allTrips.where((trip) =>
-          trip.statusTrip == 'selesai' &&
-          trip.jenisTrip == 'muatan perusahan' &&
-          trip.updatedAt != null &&
-          trip.updatedAt!.month == now.month &&
-          trip.updatedAt!.year == now.year
-      ).length;
-  }
-  
-  int get driverTrips {
-      final now = DateTime.now();
-      return _allTrips.where((trip) =>
-          trip.statusTrip == 'selesai' &&
-          trip.jenisTrip == 'muatan driver' &&
-          trip.updatedAt != null &&
-          trip.updatedAt!.month == now.month &&
-          trip.updatedAt!.year == now.year
-      ).length;
+    final now = DateTime.now();
+    return _allTrips
+        .where((trip) =>
+            trip.statusTrip == 'selesai' &&
+            trip.updatedAt != null &&
+            trip.updatedAt!.month == now.month &&
+            trip.updatedAt!.year == now.year)
+        .length;
   }
 
-  // Fungsi fetch diganti menjadi lebih sederhana
-  Future<void> fetchMyTrips(String token) async {
+  int get companyTrips {
+    final now = DateTime.now();
+    return _allTrips
+        .where((trip) =>
+            trip.statusTrip == 'selesai' &&
+            trip.jenisTrip == 'muatan perusahan' &&
+            trip.updatedAt != null &&
+            trip.updatedAt!.month == now.month &&
+            trip.updatedAt!.year == now.year)
+        .length;
+  }
+
+  int get driverTrips {
+    final now = DateTime.now();
+    return _allTrips
+        .where((trip) =>
+            trip.statusTrip == 'selesai' &&
+            trip.jenisTrip == 'muatan driver' &&
+            trip.updatedAt != null &&
+            trip.updatedAt!.month == now.month &&
+            trip.updatedAt!.year == now.year)
+        .length;
+  }
+
+  Future<void> fetchTrips(String token) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      // Langsung panggil service, tidak ada lagi interaksi dengan cache
       _allTrips = await _tripService.getTrips(token);
       _errorMessage = null;
     } on ApiException catch (e) {
       _errorMessage = e.toString();
-      _allTrips = []; // Kosongkan list jika gagal
+      _allTrips = [];
     } catch (e) {
       _errorMessage = 'Terjadi kesalahan tidak terduga: ${e.toString()}';
-      _allTrips = []; // Kosongkan list jika gagal
+      _allTrips = [];
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Fungsi fetchMonthlyTrips bisa digabung atau memanggil fetchMyTrips
-  Future<void> fetchMonthlyTrips(String token) async {
-    // Cukup panggil fetchMyTrips karena data performa (totalTrips, dll)
-    // sudah otomatis dihitung dari _allTrips
-    await fetchMyTrips(token);
+  Future<bool> acceptTrip(String token, int tripId) async {
+    try {
+      await _tripService.acceptTrip(token, tripId);
+      await fetchTrips(token);
+      return true;
+    } catch (e) {
+      _errorMessage = 'Gagal memulai tugas: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
   }
 
-  // Fungsi lainnya tetap sama karena hanya meneruskan panggilan ke service
   Future<Trip?> getTripDetails(String token, int tripId) async {
     try {
       return await _tripService.getTripDetails(token, tripId);
     } catch (e) {
-      // Anda bisa menangani error di sini jika perlu
       rethrow;
     }
   }
-  
-  // ... (Semua fungsi lain seperti updateStartTrip, updateAfterLoading, dll. TIDAK PERLU DIUBAH)
-  // ... karena mereka sudah benar, yaitu hanya meneruskan panggilan ke TripService.
+
   Future<Trip?> updateStartTrip({
     required String token,
     required int tripId,
-    required String licensePlate,
-    required String startKm,
+    String? licensePlate,
+    String? startKm,
     File? startKmPhoto,
   }) async {
     try {
@@ -112,29 +121,36 @@ class TripProvider with ChangeNotifier {
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan saat update start trip: ${e.toString()}');
+      throw Exception(
+          'Terjadi kesalahan saat update start trip: ${e.toString()}');
     }
   }
 
-  Future<Trip?> updateToLoadingPoint({required String token, required int tripId}) async {
+  Future<Trip?> updateToLoadingPoint(
+      {required String token, required int tripId}) async {
     try {
-      final trip = await _tripService.updateToLoadingPoint(token: token, tripId: tripId);
+      final trip =
+          await _tripService.updateToLoadingPoint(token: token, tripId: tripId);
       return trip;
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan saat update ke lokasi muat: ${e.toString()}');
+      throw Exception(
+          'Terjadi kesalahan saat update ke lokasi muat: ${e.toString()}');
     }
   }
 
-  Future<Trip?> finishLoading({required String token, required int tripId}) async {
+  Future<Trip?> finishLoading(
+      {required String token, required int tripId}) async {
     try {
-      final trip = await _tripService.finishLoading(token: token, tripId: tripId);
+      final trip =
+          await _tripService.finishLoading(token: token, tripId: tripId);
       return trip;
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan saat menyelesaikan muat: ${e.toString()}');
+      throw Exception(
+          'Terjadi kesalahan saat menyelesaikan muat: ${e.toString()}');
     }
   }
 
@@ -155,7 +171,8 @@ class TripProvider with ChangeNotifier {
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan saat update setelah muat: ${e.toString()}');
+      throw Exception(
+          'Terjadi kesalahan saat update setelah muat: ${e.toString()}');
     }
   }
 
@@ -178,36 +195,43 @@ class TripProvider with ChangeNotifier {
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan saat upload dokumen tambahan: ${e.toString()}');
+      throw Exception(
+          'Terjadi kesalahan saat upload dokumen tambahan: ${e.toString()}');
     }
   }
 
-  Future<Trip?> updateToUnloadingPoint({required String token, required int tripId}) async {
+  Future<Trip?> updateToUnloadingPoint(
+      {required String token, required int tripId}) async {
     try {
-      final trip = await _tripService.updateToUnloadingPoint(token: token, tripId: tripId);
+      final trip = await _tripService.updateToUnloadingPoint(
+          token: token, tripId: tripId);
       return trip;
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan saat update ke lokasi muat: ${e.toString()}');
+      throw Exception(
+          'Terjadi kesalahan saat update ke lokasi muat: ${e.toString()}');
     }
   }
 
-  Future<Trip?> finishUnloading({required String token, required int tripId}) async {
+  Future<Trip?> finishUnloading(
+      {required String token, required int tripId}) async {
     try {
-      final trip = await _tripService.finishUnloading(token: token, tripId: tripId);
+      final trip =
+          await _tripService.finishUnloading(token: token, tripId: tripId);
       return trip;
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan saat menyelesaikan bongkar: ${e.toString()}');
+      throw Exception(
+          'Terjadi kesalahan saat menyelesaikan bongkar: ${e.toString()}');
     }
   }
 
   Future<Trip?> updateFinishTrip({
     required String token,
     required int tripId,
-    required String endKm,
+    String? endKm,
     File? endKmPhoto,
     List<File>? bongkarPhoto,
     List<File>? deliveryLetters,
@@ -225,7 +249,8 @@ class TripProvider with ChangeNotifier {
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan saat update finish trip: ${e.toString()}');
+      throw Exception(
+          'Terjadi kesalahan saat update finish trip: ${e.toString()}');
     }
   }
 }

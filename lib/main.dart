@@ -23,9 +23,8 @@ Future<void> main() async {
   await dotenv.load(fileName: ".env");
   await Hive.initFlutter();
   
+  await Hive.initFlutter();
   Hive.registerAdapter(UserAdapter());
-  // Hive.registerAdapter(PhotoVerificationStatusAdapter());
-  // Hive.registerAdapter(TripAdapter());
 
   final encryptionKeyString = dotenv.env['HIVE_ENCRYPTION_KEY'];
   if (encryptionKeyString == null) {

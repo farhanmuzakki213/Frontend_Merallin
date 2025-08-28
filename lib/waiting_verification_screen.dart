@@ -47,6 +47,7 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
   Timer? _pollingTimer;
   Timer? _timeoutTimer;
   bool _showTimeoutMessage = false;
+  int _pollingCount = 0;
 
   @override
   void initState() {
@@ -67,11 +68,15 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
   }
 
   void _startPolling() {
-    // Perform the first check immediately.
     Future.microtask(() => _checkTripStatus(isFirstCheck: true));
 
-    // Start polling the server after a short delay to get subsequent updates.
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      // <-- PERUBAHAN 2: Tambahkan setState untuk update counter -->
+      if (mounted) {
+        setState(() {
+          _pollingCount++;
+        });
+      }
       _checkTripStatus();
     });
   }
@@ -215,9 +220,10 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Data Anda sedang diperiksa oleh admin. Mohon tunggu sebentar.',
-                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                // <-- PERUBAHAN 3: Perbarui teks untuk menampilkan counter -->
+                Text(
+                  'Data Anda sedang diperiksa oleh admin. Mohon tunggu sebentar.\n\n(Mengecek status ke server: #${_pollingCount + 1})',
+                  style: const TextStyle(fontSize: 16, color: Colors.black54),
                   textAlign: TextAlign.center,
                 ),
                 if (_showTimeoutMessage)
