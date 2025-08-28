@@ -325,6 +325,18 @@ class _ExpandableTripCard extends StatefulWidget {
 class _ExpandableTripCardState extends State<_ExpandableTripCard> {
   bool _isExpanded = false;
 
+  String _capitalizeWords(String text) {
+    if (text.trim().isEmpty) {
+      return text;
+    }
+    return text
+        .split(' ')
+        .map((word) => word.isNotEmpty
+            ? '${word[0].toUpperCase()}${word.substring(1)}'
+            : '')
+        .join(' ');
+  }
+
   String _buildFullImageUrl(String? relativePath) {
     if (relativePath == null || relativePath.isEmpty) return '';
     final String baseUrl = dotenv.env['API_BASE_URL'] ?? '';
@@ -413,24 +425,41 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
     final List<String> initialImagePaths = [];
     final List<String> finalImagePaths = [];
 
+    // --- Initial Photos ---
     if (widget.trip.startKmPhotoPath != null) {
       initialImagePaths.add(widget.trip.startKmPhotoPath!);
     }
     if (widget.trip.muatPhotoPath != null) {
       initialImagePaths.add(widget.trip.muatPhotoPath!);
     }
+    // Add initial delivery letters from the map
+    final initialLetters = widget.trip.deliveryLetterPath['initial_letters'];
+    if (initialLetters != null) {
+        initialImagePaths.addAll(initialLetters);
+    }
+    
+    // Tambahkan foto-foto dokumen awal lainnya jika ada
+    if (widget.trip.timbanganKendaraanPhotoPath != null) {
+      initialImagePaths.add(widget.trip.timbanganKendaraanPhotoPath!);
+    }
+    if (widget.trip.segelPhotoPath != null) {
+      initialImagePaths.add(widget.trip.segelPhotoPath!);
+    }
+    if (widget.trip.deliveryOrderPath != null) {
+      initialImagePaths.add(widget.trip.deliveryOrderPath!);
+    }
+
+    // --- Final Photos ---
     if (widget.trip.endKmPhotoPath != null) {
       finalImagePaths.add(widget.trip.endKmPhotoPath!);
     }
-    if (widget.trip.bongkarPhotoPath != null) {
-      finalImagePaths.add(widget.trip.bongkarPhotoPath!);
-    }
-
-    final deliveryData = widget.trip.deliveryLetters;
-
-    if (deliveryData != null) {
-      initialImagePaths.addAll(deliveryData.initialLetters);
-      finalImagePaths.addAll(deliveryData.finalLetters);
+    // Add bongkar photos (which is a list)
+    finalImagePaths.addAll(widget.trip.bongkarPhotoPath);
+    
+    // Add final delivery letters from the map
+    final finalLetters = widget.trip.deliveryLetterPath['final_letters'];
+    if (finalLetters != null) {
+        finalImagePaths.addAll(finalLetters);
     }
 
     final initialImageUrls =
@@ -445,6 +474,9 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
         children: [
           const Divider(height: 20, thickness: 1.5),
           _buildSectionTitle("Detail Trip"),
+          _buildInfoRow(
+              Icons.local_shipping_outlined, 'Tipe Trip', _capitalizeWords(widget.trip.jenisTrip ?? 'Tidak Diketahui')), // DIPERBAIKI
+          const SizedBox(height: 10),
           _buildInfoRow(
               Icons.location_on_outlined, 'Origin', widget.trip.origin),
           const SizedBox(height: 10),

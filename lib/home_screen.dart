@@ -1,10 +1,10 @@
 // lib/home_screen.dart
 
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
-// FIX: Mengubah 'package.' menjadi 'package:'
-import 'package:image_picker/image_picker.dart';
+import 'package:frontend_merallin/laporan_perjalanan_screen.dart';
+import 'package:frontend_merallin/providers/trip_provider.dart';
+import 'package:frontend_merallin/utils/image_absen_helper.dart';
 import 'package:intl/intl.dart';
 
 import 'package:frontend_merallin/profile_screen.dart';
@@ -18,10 +18,6 @@ import 'package:frontend_merallin/history_screen.dart';
 import 'package:frontend_merallin/leave_request_screen.dart';
 import 'driver_history_screen.dart';
 import 'lembur_screen.dart';
-
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,8 +37,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final String? userRole =
-        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+    
+    // ================== PERBAIKAN DI SINI (BAGIAN 1) ==================
+    // Mengganti logika kompleks dengan blok if yang aman untuk _HomeScreenState
+    String? userRole;
+    if (user != null && user.roles.isNotEmpty) {
+      userRole = user.roles.first;
+    }
+    // =================================================================
 
     Widget historyScreen;
     if (userRole == 'driver') {
@@ -89,38 +91,33 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   @override
   void initState() {
     super.initState();
-    // Panggil fungsi untuk cek status saat widget pertama kali dibuat
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPendingTrip();
+
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (authProvider.token != null) {
         Provider.of<AttendanceProvider>(context, listen: false)
             .checkTodayAttendanceStatus(authProvider.token!);
+        if (authProvider.user?.roles.contains('driver') ?? false) {
+          Provider.of<TripProvider>(context, listen: false).fetchMonthlyTrips(authProvider.token!);
+        }
       }
     });
   }
 
-  Future<File?> _compressImage(File file) async {
-    // Tentukan path untuk menyimpan file hasil kompresi
-    final tempDir = await getTemporaryDirectory();
-    final targetPath =
-        p.join(tempDir.path, '${DateTime.now().millisecondsSinceEpoch}.jpg');
-
-    // Kompres file
-    final result = await FlutterImageCompress.compressAndGetFile(
-      file.absolute.path,
-      targetPath,
-      quality: 70, // Kualitas gambar (0-100), 70 sudah cukup bagus
-      minWidth: 1024, // Perkecil lebar gambar jika terlalu besar
-      minHeight: 1024, // Perkecil tinggi gambar jika terlalu besar
-    );
-
-    if (result == null) return null;
-
-    // Ubah XFile menjadi File
-    return File(result.path);
+  void _checkPendingTrip() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    if (authProvider.pendingTripId != null) {
+      final tripId = authProvider.pendingTripId!;
+      
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => LaporanDriverScreen(tripId: tripId),
+      ));
+    }
   }
 
-  Future<void> _startAttendance(BuildContext context, String type) async {
+  Future<void> _startStampedClockIn(BuildContext context) async {
     final bool permissionsGranted =
         await _permissionService.requestAttendancePermissions();
     if (!mounted) return;
@@ -139,12 +136,80 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       return;
     }
 
-    final imageFile = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
+    final imageResult = await ImageHelper.takePhotoWithLocation(context);
+
+    if (imageResult == null) return;
+    if (!mounted) return;
+
+    if (imageResult.position == null) {
+      showErrorSnackBar(context, "Gagal mendapatkan data lokasi. Mohon coba lagi.");
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("Sedang memproses..."),
+              ],
+            ),
+          ),
+        );
+      },
     );
 
-    if (imageFile == null) return;
+    try {
+      await attendanceProvider.performClockInWithLocation(
+          imageResult.file, authProvider.token!, imageResult.position!);
+      
+      if (!mounted) return;
+      final status = attendanceProvider.status;
+      final message = attendanceProvider.message ?? "Terjadi kesalahan";
+
+      Navigator.of(context).pop();
+
+      if (status == AttendanceProcessStatus.success) {
+        showInfoSnackBar(context, message);
+      } else if (status == AttendanceProcessStatus.error) {
+        showErrorSnackBar(context, message);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showErrorSnackBar(context, e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _startStampedClockOut(BuildContext context) async {
+    final bool permissionsGranted =
+        await _permissionService.requestAttendancePermissions();
+    if (!mounted) return;
+
+    if (!permissionsGranted) {
+      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final attendanceProvider =
+        Provider.of<AttendanceProvider>(context, listen: false);
+
+    if (authProvider.token == null) {
+      showErrorSnackBar(context, "Sesi tidak valid, silakan login ulang.");
+      return;
+    }
+
+    final imageResult = await ImageHelper.takePhotoWithLocation(context);
+
+    if (imageResult == null) return;
     if (!mounted) return;
 
     showDialog(
@@ -166,49 +231,40 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         );
       },
     );
+
     try {
-      // Jalankan proses kompresi gambar
-      final compressedImageFile = await _compressImage(File(imageFile.path));
+      await attendanceProvider.performClockOut(
+          imageResult.file, authProvider.token!);
 
-      if (compressedImageFile == null) {
-        throw Exception("Gagal memproses gambar.");
-      }
-
-      // Jalankan proses unggah dan absensi
-      if (type == 'in') {
-        await attendanceProvider.performClockIn(
-            compressedImageFile, authProvider.token!);
-      } else {
-        await attendanceProvider.performClockOut(
-            compressedImageFile, authProvider.token!);
-      }
-
-      // Ambil status dan pesan dari provider setelah selesai
+      if (!mounted) return;
       final status = attendanceProvider.status;
       final message = attendanceProvider.message ?? "Terjadi kesalahan";
 
-      // Tutup dialog loading
       Navigator.of(context).pop();
 
-      // Tampilkan hasil akhir ke pengguna
       if (status == AttendanceProcessStatus.success) {
         showInfoSnackBar(context, message);
       } else if (status == AttendanceProcessStatus.error) {
         showErrorSnackBar(context, message);
       }
     } catch (e) {
-      // Jika terjadi error di tengah jalan (misal kompresi gagal)
-      Navigator.of(context).pop(); // Pastikan dialog loading ditutup
+      if (!mounted) return;
+      Navigator.of(context).pop();
       showErrorSnackBar(context, e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final attendanceProvider = context.watch<AttendanceProvider>();
     final user = context.watch<AuthProvider>().user;
-    final String? userRole =
-        user?.roles.isNotEmpty ?? false ? user!.roles.first : null;
+    
+    // ================== PERBAIKAN DI SINI (BAGIAN 2) ==================
+    // Mengganti logika kompleks dengan blok if yang aman untuk _HomeScreenContentState
+    String? userRole;
+    if (user != null && user.roles.isNotEmpty) {
+      userRole = user.roles.first;
+    }
+    // =================================================================
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -216,7 +272,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           children: [
             _buildHeader(user?.name ?? 'User'),
             _buildTimeCard(),
-            _buildMenuGrid(context, userRole, attendanceProvider),
+            if (userRole == 'driver') const _TripCalculatorCard(),
+            _buildMenuGrid(context, userRole),
             const SizedBox(height: 20),
           ],
         ),
@@ -224,10 +281,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
   }
 
-  Widget _buildMenuGrid(BuildContext context, String? role,
-      AttendanceProvider attendanceProvider) {
+  Widget _buildMenuGrid(BuildContext context, String? role) {
+    final attendanceProvider = context.watch<AttendanceProvider>();
     if (role == 'driver') {
-      return _buildDriverMenuGrid();
+      return _buildDriverMenuGrid(context, attendanceProvider);
     }
     return _buildEmployeeMenuGrid(context, attendanceProvider);
   }
@@ -254,7 +311,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               if (attendanceProvider.hasClockedIn) {
                 showInfoSnackBar(context, 'Anda sudah absen datang hari ini.');
               } else {
-                _startAttendance(context, 'in');
+                _startStampedClockIn(context);
               }
             },
           ),
@@ -277,7 +334,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               } else if (attendanceProvider.hasClockedOut) {
                 showInfoSnackBar(context, 'Anda sudah absen pulang hari ini.');
               } else {
-                _startAttendance(context, 'out');
+                _startStampedClockOut(context);
               }
             },
           ),
@@ -309,7 +366,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
   }
 
-  Widget _buildDriverMenuGrid() {
+  Widget _buildDriverMenuGrid(
+      BuildContext context, AttendanceProvider attendanceProvider) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: GridView.count(
@@ -320,16 +378,37 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         mainAxisSpacing: 16,
         children: [
           AnimatedMenuItem(
-              icon: Icons.local_shipping_outlined,
-              label: 'Mulai Trip',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MyTripScreen()),
-                );
-              }),
-          // AnimatedMenuItem(
-          //     icon: Icons.flag_outlined, label: 'Selesai Trip', onTap: () {}),
+            icon: Icons.work_outline,
+            label: 'Absensi',
+            onTap: () {
+              if (attendanceProvider.status ==
+                  AttendanceProcessStatus.processing) {
+                return;
+              }
+              if (attendanceProvider.hasClockedIn) {
+                showInfoSnackBar(context, 'Anda sudah absen datang hari ini.');
+              } else {
+                _startStampedClockIn(context);
+              }
+            },
+          ),
+          AnimatedMenuItem(
+            icon: Icons.local_shipping_outlined,
+            label: 'Mulai Trip',
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MyTripScreen()),
+              );
+
+              if (result == true && mounted) {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                if (authProvider.token != null) {
+                  Provider.of<TripProvider>(context, listen: false).fetchMonthlyTrips(authProvider.token!);
+                }
+              }
+            },
+          ),
         ],
       ),
     );
@@ -403,7 +482,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  timeString, // Data waktu live
+                  timeString,
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 36,
@@ -411,7 +490,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  dateString, // Data tanggal live
+                  dateString,
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 20),
@@ -432,6 +511,165 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               ],
             );
           }),
+    );
+  }
+}
+
+class _TripCalculatorCard extends StatelessWidget {
+  const _TripCalculatorCard();
+
+  void _showTripDetails(BuildContext context, int companyTrips, int driverTrips) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Detail Trip Bulan Ini',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              _buildDetailRow(Icons.business, 'Muatan Perusahaan', '$companyTrips Trip'),
+              const SizedBox(height: 12),
+              _buildDetailRow(Icons.person, 'Muatan Driver', '$driverTrips Trip'),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Tutup'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.grey[600]),
+        const SizedBox(width: 16),
+        Text(label, style: const TextStyle(fontSize: 16)),
+        const Spacer(),
+        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Consumer<TripProvider>(
+        builder: (context, tripProvider, child) {
+          if (tripProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (tripProvider.errorMessage != null) {
+            return Center(child: Text(tripProvider.errorMessage!));
+          }
+
+          final int totalTrips = tripProvider.totalTrips;
+          final int companyTrips = tripProvider.companyTrips;
+          final int driverTrips = tripProvider.driverTrips;
+          const int minTrips = 30;
+          const int maxTrips = 90;
+
+          final now = DateTime.now();
+          final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
+          final isWarningPeriod = (lastDayOfMonth - now.day) <= 3;
+          final needsAttention = totalTrips < minTrips && isWarningPeriod;
+
+          final Color progressColor = needsAttention ? Colors.red.shade700 : Colors.green.shade600;
+
+          return GestureDetector(
+            onTap: () => _showTripDetails(context, companyTrips, driverTrips),
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [
+                      needsAttention ? Colors.red.shade100 : Colors.green.shade50,
+                      Colors.white,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.show_chart, color: progressColor),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Performa Trip Bulanan',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '$totalTrips/$maxTrips',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: progressColor,
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text('Target Minimum'),
+                            Text(
+                              '$minTrips Trip',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[700]),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: totalTrips / maxTrips,
+                        minHeight: 12,
+                        backgroundColor: Colors.grey[300],
+                        valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (needsAttention)
+                      const Text(
+                        'Performa di bawah target! Sisa 3 hari.',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

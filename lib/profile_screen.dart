@@ -11,8 +11,21 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:frontend_merallin/help_center_screen.dart';
 import 'package:frontend_merallin/about_app_screen.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  @override
+  void initState() {
+    super.initState();
+    // Trigger profile sync when the screen is initialized
+    // Using listen: false because this is a one-time action in initState
+    Provider.of<AuthProvider>(context, listen: false).syncUserProfile();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,13 +57,28 @@ class ProfilePage extends StatelessWidget {
                 CircleAvatar(
                   radius: 50,
                   backgroundColor: const Color(0xFFE0E0E0),
-                  backgroundImage: (photoPath != null && photoPath.isNotEmpty)
-                      ? NetworkImage(
-                          '$baseUrl$photoPath') // Gabungkan base URL dengan path
-                      : null,
-                  child: (photoPath == null || photoPath.isEmpty)
-                      ? const Icon(Icons.person, size: 50, color: Colors.grey)
-                      : null,
+                  child: (photoPath != null && photoPath.isNotEmpty)
+                      ? ClipOval(
+                          child: Image.network(
+                            photoPath.startsWith('http')
+                                ? photoPath
+                                : '$baseUrl$photoPath',
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.person,
+                                  size: 50, color: Colors.grey);
+                            },
+                          ),
+                        )
+                      : const Icon(Icons.person, size: 50, color: Colors.grey),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -89,7 +117,6 @@ class ProfilePage extends StatelessWidget {
           _ProfileOption(
             icon: Icons.help_outline,
             title: 'Pusat Bantuan',
-            // --- PERUBAHAN DI SINI ---
             onTap: () {
               Navigator.push(
                 context,
@@ -101,7 +128,6 @@ class ProfilePage extends StatelessWidget {
           _ProfileOption(
             icon: Icons.info_outline,
             title: 'Tentang Aplikasi',
-            // --- PERUBAHAN DI SINI ---
             onTap: () {
               Navigator.push(
                 context,

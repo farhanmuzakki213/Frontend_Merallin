@@ -1,3 +1,5 @@
+// lib/providers/auth_provider.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -24,7 +26,12 @@ class AuthProvider extends ChangeNotifier {
   String? _token;
   String? _errorMessage;
   AuthStatus _authStatus = AuthStatus.uninitialized;
+  int? _pendingTripId;
+  // int? _pendingTripInitialPage; // <-- HAPUS
+
   bool get isUpdating => _isUpdating;
+  int? get pendingTripId => _pendingTripId;
+  // int? get pendingTripInitialPage => _pendingTripInitialPage; // <-- HAPUS
 
   User? get user => _user;
   String? get token => _token;
@@ -33,22 +40,6 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider() {
     tryAutoLogin();
-  }
-
-  Future<void> tryAutoLogin() async {
-    final storedToken = _authBox.get('token');
-    final storedUser = _authBox.get('user');
-
-    if (storedToken == null || storedUser == null) {
-      _authStatus = AuthStatus.unauthenticated;
-      notifyListeners();
-      return;
-    }
-
-    _token = storedToken;
-    _user = User.fromJson(json.decode(storedUser));
-    _authStatus = AuthStatus.authenticated;
-    notifyListeners();
   }
 
   Future<String?> login(String email, String password) async {
@@ -122,10 +113,10 @@ class AuthProvider extends ChangeNotifier {
         newPassword: newPassword,
         newPasswordConfirmation: newPasswordConfirmation,
       );
-      return null; // Sukses
+      return null;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      return _errorMessage; // Gagal, kembalikan pesan error
+      return _errorMessage;
     } finally {
       _isUpdating = false;
       notifyListeners();
@@ -165,11 +156,77 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> syncUserProfile() async {
+    if (token == null) {
+      debugPrint("Tidak ada token, sinkronisasi profil dibatalkan.");
+      return;
+    }
+
+    try {
+      final freshUser = await _profileService.getProfile(token: token!);
+      _user = freshUser;
+      await _authBox.put('user', json.encode(_user!.toJson()));
+      notifyListeners();
+      debugPrint("Profil pengguna berhasil disinkronkan dan di-cache.");
+    } catch (e) {
+      debugPrint("Gagal sinkronisasi profil: $e");
+    }
+  }
+
   Future<void> logout() async {
     _user = null;
     _token = null;
     await _authBox.clear();
     _authStatus = AuthStatus.unauthenticated;
+    clearPendingTripForVerification();
     notifyListeners();
+  }
+
+  Future<void> setPendingTripForVerification(int tripId) async { // <-- Sederhanakan parameter
+    _pendingTripId = tripId;
+    await _authBox.put('pendingTripId', tripId);
+    debugPrint('AuthProvider: Set pending trip: $tripId');
+    notifyListeners();
+  }
+
+  Future<void> clearPendingTripForVerification() async {
+    _pendingTripId = null;
+    await _authBox.delete('pendingTripId');
+    await _authBox.delete('pendingTripInitialPage'); // Jaga-jaga jika masih ada sisa data lama
+    notifyListeners();
+  }
+
+
+Future<void> tryAutoLogin() async {
+    final storedToken = _authBox.get('token');
+    final storedUser = _authBox.get('user');
+
+    if (storedToken == null || storedUser == null) {
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+      return;
+    }
+
+    // TAMBAHKAN BLOK TRY-CATCH DI SINI
+    try {
+      _token = storedToken as String;
+      _user = User.fromJson(json.decode(storedUser as String));
+      _authStatus = AuthStatus.authenticated;
+
+      final storedPendingTripId = _authBox.get('pendingTripId');
+      if (storedPendingTripId != null) {
+        _pendingTripId = storedPendingTripId as int;
+      }
+      
+      notifyListeners();
+      // Sinkronkan profil di background untuk memastikan data selalu baru
+      syncUserProfile(); 
+
+    } catch (e) {
+      // Jika terjadi error saat memproses data, anggap sesi tidak valid.
+      debugPrint("Gagal memuat sesi dari Hive: $e. Sesi dibersihkan.");
+      // Panggil logout untuk membersihkan semua data yang salah
+      await logout(); 
+    }
   }
 }

@@ -203,33 +203,42 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   /// Widget untuk membangun tampilan foto profil dengan pratinjau.
   Widget _buildProfilePicture(String? photoUrl, String baseUrl) {
-    ImageProvider backgroundImage;
-
-    if (_imageFile != null) {
-      backgroundImage = FileImage(_imageFile!);
-    } else if (photoUrl != null && photoUrl.isNotEmpty) {
-      // Membersihkan kemungkinan adanya garis miring ganda
-      final cleanBaseUrl = baseUrl.endsWith('/')
-          ? baseUrl.substring(0, baseUrl.length - 1)
-          : baseUrl;
-      final cleanPhotoUrl =
-          photoUrl.startsWith('/') ? photoUrl.substring(1) : photoUrl;
-
-      final fullUrl = '$cleanBaseUrl/$cleanPhotoUrl';
-
-      backgroundImage = NetworkImage(fullUrl);
-    } else {
-      backgroundImage = const NetworkImage(
-          'https://ui-avatars.com/api/?name=User&color=7F9CF5&background=EBF4FF');
-    }
-
     return Center(
       child: Stack(
         alignment: Alignment.center,
         children: [
           CircleAvatar(
             radius: 60,
-            backgroundImage: backgroundImage,
+            backgroundColor: const Color(0xFFE0E0E0),
+            child: ClipOval(
+              child: _imageFile != null
+                  ? Image.file(
+                      _imageFile!,
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
+                    )
+                  : (photoUrl != null && photoUrl.isNotEmpty)
+                      ? Image.network(
+                          photoUrl.startsWith('http')
+                              ? photoUrl
+                              : '$baseUrl$photoUrl',
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.person,
+                                size: 60, color: Colors.grey);
+                          },
+                        )
+                      : const Icon(Icons.person, size: 60, color: Colors.grey),
+            ),
           ),
           Positioned(
             bottom: 0,
