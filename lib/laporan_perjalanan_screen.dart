@@ -181,26 +181,62 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
     }
 
     if (trip.derivedStatus == TripDerivedStatus.verifikasiGambar) {
-      if (!_isStringNullOrEmpty(trip.startKmPhotoPath) && trip.startKmPhotoStatus.status?.toLowerCase() == 'pending') return 0;
-      if (!_isStringNullOrEmpty(trip.muatPhotoPath) && (trip.muatPhotoStatus.status?.toLowerCase() == 'pending' || trip.deliveryLetterInitialStatus.status?.toLowerCase() == 'pending')) return 3;
-      if (!_isStringNullOrEmpty(trip.deliveryOrderPath) && (trip.deliveryOrderStatus.status?.toLowerCase() == 'pending' || trip.segelPhotoStatus.status?.toLowerCase() == 'pending' || trip.timbanganKendaraanPhotoStatus.status?.toLowerCase() == 'pending')) return 4;
-      if (!_isStringNullOrEmpty(trip.endKmPhotoPath) && (trip.endKmPhotoStatus.status?.toLowerCase() == 'pending' || trip.bongkarPhotoStatus.status?.toLowerCase() == 'pending' || trip.deliveryLetterFinalStatus.status?.toLowerCase() == 'pending')) return 7;
+      if (!_isStringNullOrEmpty(trip.startKmPhotoPath) &&
+          trip.startKmPhotoStatus.status?.toLowerCase() == 'pending') return 0;
+      if (!_isStringNullOrEmpty(trip.muatPhotoPath) &&
+          (trip.muatPhotoStatus.status?.toLowerCase() == 'pending' ||
+              trip.deliveryLetterInitialStatus.status?.toLowerCase() ==
+                  'pending')) return 3;
+      if (!_isStringNullOrEmpty(trip.deliveryOrderPath) &&
+          (trip.deliveryOrderStatus.status?.toLowerCase() == 'pending' ||
+              trip.segelPhotoStatus.status?.toLowerCase() == 'pending' ||
+              trip.timbanganKendaraanPhotoStatus.status?.toLowerCase() ==
+                  'pending')) return 4;
+      if (!_isStringNullOrEmpty(trip.endKmPhotoPath) &&
+          (trip.endKmPhotoStatus.status?.toLowerCase() == 'pending' ||
+              trip.bongkarPhotoStatus.status?.toLowerCase() == 'pending' ||
+              trip.deliveryLetterFinalStatus.status?.toLowerCase() ==
+                  'pending')) return 7;
     }
 
     if (_isStringNullOrEmpty(trip.startKmPhotoPath)) return 0;
     if (trip.startKmPhotoStatus.status?.toLowerCase() != 'approved') return 0;
-    if (trip.statusLokasi == 'menuju lokasi muat') return 1;
-    if (trip.statusLokasi == 'di lokasi muat' && trip.statusMuatan != 'selesai muat') return 2;
+    if (trip.startKmPhotoStatus.status?.toLowerCase() == 'approved' &&
+        trip.statusLokasi == 'menuju lokasi muat' &&
+        trip.statusMuatan == 'kosong' &&
+        trip.muatPhotoStatus.status?.toLowerCase() != 'approved') return 1;
+    if (trip.statusLokasi == 'di lokasi muat' &&
+        trip.statusMuatan != 'selesai muat' &&
+        trip.muatPhotoStatus.status?.toLowerCase() != 'approved') return 2;
     if (_isStringNullOrEmpty(trip.muatPhotoPath)) return 3;
-    if (trip.muatPhotoStatus.status?.toLowerCase() != 'approved' || trip.deliveryLetterInitialStatus.status?.toLowerCase() != 'approved') return 3;
+    if (trip.muatPhotoStatus.status?.toLowerCase() != 'approved' ||
+        trip.deliveryLetterInitialStatus.status?.toLowerCase() != 'approved')
+      return 3;
     if (_isStringNullOrEmpty(trip.deliveryOrderPath)) return 4;
-    if (trip.deliveryOrderStatus.status?.toLowerCase() != 'approved' || trip.segelPhotoStatus.status?.toLowerCase() != 'approved' || trip.timbanganKendaraanPhotoStatus.status?.toLowerCase() != 'approved') return 4;
-    if (trip.statusLokasi == 'menuju lokasi bongkar') return 5;
-    if (trip.statusLokasi == 'di lokasi bongkar' && trip.statusMuatan != 'selesai bongkar') return 6;
+    if (trip.muatPhotoStatus.status?.toLowerCase() == 'approved' &&
+        trip.deliveryOrderStatus.status?.toLowerCase() == 'approved' &&
+        trip.statusLokasi == 'menuju lokasi bongkar' &&
+        trip.statusMuatan == 'termuat' &&
+        trip.deliveryOrderStatus.status?.toLowerCase() != 'approved') return 4;
+    if (trip.deliveryOrderStatus.status?.toLowerCase() == 'approved' &&
+        trip.segelPhotoStatus.status?.toLowerCase() == 'approved' &&
+        trip.timbanganKendaraanPhotoStatus.status?.toLowerCase() ==
+            'approved' &&
+        trip.statusLokasi == 'menuju lokasi bongkar' &&
+        trip.statusMuatan == 'termuat' &&
+        trip.endKmPhotoStatus.status?.toLowerCase() != 'approved') return 5;
+    if (trip.statusLokasi == 'di lokasi bongkar' &&
+        trip.statusMuatan != 'selesai bongkar' &&
+        trip.endKmPhotoStatus.status?.toLowerCase() != 'approved') return 6;
     if (_isStringNullOrEmpty(trip.endKmPhotoPath)) return 7;
-    if (trip.endKmPhotoStatus.status?.toLowerCase() != 'approved' || trip.bongkarPhotoStatus.status?.toLowerCase() != 'approved' || trip.deliveryLetterFinalStatus.status?.toLowerCase() != 'approved') return 7;
+    if (trip.statusLokasi == 'di lokasi bongkar' &&
+        trip.statusMuatan == 'selesai bongkar' &&
+        trip.endKmPhotoStatus.status?.toLowerCase() != 'approved' ||
+        trip.bongkarPhotoStatus.status?.toLowerCase() != 'approved' ||
+        trip.deliveryLetterFinalStatus.status?.toLowerCase() != 'approved')
+      return 7;
     if (trip.derivedStatus == TripDerivedStatus.selesai) return 7;
-    
+
     return _currentPage;
   }
 
