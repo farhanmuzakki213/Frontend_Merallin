@@ -238,8 +238,6 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
     if (trip.derivedStatus == TripDerivedStatus.selesai) return 7;
 
     return _currentPage;
-    
-    return _currentPage;
   }
 
   @override
