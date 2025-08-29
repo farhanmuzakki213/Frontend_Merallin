@@ -15,9 +15,6 @@ class MyTripScreen extends StatefulWidget {
 }
 
 class _MyTripScreenState extends State<MyTripScreen> {
-  // <-- SEMUA STATE LOKAL DIHAPUS (isLoading, error, trips, _tripService) -->
-  bool _dataWasChanged = false;
-
   @override
   void initState() {
     super.initState();
@@ -51,9 +48,6 @@ class _MyTripScreenState extends State<MyTripScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Tugas berhasil dimulai!'),
           backgroundColor: Colors.green));
-      setState(() {
-        _dataWasChanged = true;
-      });
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(tripProvider.errorMessage ?? 'Gagal memulai tugas'),
@@ -88,55 +82,48 @@ class _MyTripScreenState extends State<MyTripScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.pop(context, _dataWasChanged);
-        return true;
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Tugas Perjalanan Saya'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context, _dataWasChanged),
-          ),
-          actions: [
-            IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _reloadData,
-                tooltip: 'Muat Ulang')
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tugas Perjalanan Saya'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context, true),
         ),
-        // <-- Gunakan Consumer untuk listen ke perubahan di TripProvider -->
-        body: Consumer<TripProvider>(
-          builder: (context, tripProvider, child) {
-            if (tripProvider.isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _reloadData,
+              tooltip: 'Muat Ulang')
+        ],
+      ),
+      // <-- Gunakan Consumer untuk listen ke perubahan di TripProvider -->
+      body: Consumer<TripProvider>(
+        builder: (context, tripProvider, child) {
+          if (tripProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            if (tripProvider.errorMessage != null) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: ${tripProvider.errorMessage}',
-                          textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                          onPressed: _reloadData,
-                          child: const Text('Coba Lagi'))
-                    ],
-                  ),
+          if (tripProvider.errorMessage != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Error: ${tripProvider.errorMessage}',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                        onPressed: _reloadData, child: const Text('Coba Lagi'))
+                  ],
                 ),
-              );
-            }
+              ),
+            );
+          }
 
-            return RefreshIndicator(
-                onRefresh: _reloadData, child: _buildTripList(tripProvider));
-          },
-        ),
+          return RefreshIndicator(
+              onRefresh: _reloadData, child: _buildTripList(tripProvider));
+        },
       ),
     );
   }
@@ -226,18 +213,11 @@ class _MyTripScreenState extends State<MyTripScreen> {
               _showStartTripConfirmation(trip);
             }
           } else {
-            // Jika trip aktif
-            final result = await Navigator.push(
+            await Navigator.push(
                 context,
                 MaterialPageRoute(
                     builder: (context) =>
                         LaporanDriverScreen(tripId: trip.id)));
-            if (result == true) {
-              setState(() {
-                _dataWasChanged = true;
-              });
-              _reloadData();
-            }
           }
         },
         borderRadius: BorderRadius.circular(12),
