@@ -11,10 +11,70 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path/path.dart' as p;
 
 class ImageHelper {
+  /// Compresses the given image bytes until the size is below the target size.
+  /// This function will loop and reduce quality until the target is met.
+  static Future<Uint8List> _compressImageEfficiently(
+    Uint8List imageBytes, {
+    int targetSizeInBytes = 3 * 1024, // 3 MB
+    int initialQuality = 90,
+  }) async {
+    // Jika ukuran gambar sudah di bawah 3 MB, tidak perlu kompresi
+    if (imageBytes.lengthInBytes <= targetSizeInBytes) {
+      // Kita tetap mengonversinya ke JPEG dengan kualitas tinggi jika format asli bukan JPEG.
+      if (imageBytes.lengthInBytes < 2 || !(imageBytes[0] == 0xFF && imageBytes[1] == 0xD8)) {
+        return await FlutterImageCompress.compressWithList(
+          imageBytes,
+          quality: initialQuality,
+          format: CompressFormat.jpeg,
+        );
+      }
+      return imageBytes;
+    }
+
+    // Jika ukuran gambar melebihi 3 MB, lakukan kompresi
+    int quality = initialQuality;
+    Uint8List result = imageBytes;
+    int size = result.lengthInBytes;
+
+    // Lakukan kompresi awal untuk mendapatkan baseline.
+    result = await FlutterImageCompress.compressWithList(
+      imageBytes,
+      minWidth: 1080,
+      minHeight: 1920,
+      quality: quality,
+      format: CompressFormat.jpeg,
+    );
+    size = result.lengthInBytes;
+
+    // Sesuaikan kualitas secara cerdas, bukan dengan loop ekstrem.
+    if (size > targetSizeInBytes) {
+      double compressionFactor = targetSizeInBytes / size;
+      int newQuality = (quality * compressionFactor).round();
+      
+      if (newQuality < 20) {
+        newQuality = 20;
+      }
+      
+      debugPrint("Initial compression is too large. New estimated quality: $newQuality");
+      
+      result = await FlutterImageCompress.compressWithList(
+        imageBytes,
+        minWidth: 1080,
+        minHeight: 1920,
+        quality: newQuality,
+        format: CompressFormat.jpeg,
+      );
+    }
+
+    debugPrint(
+        "Final compressed size: ${result.lengthInBytes / 1024 / 1024} MB");
+    return result;
+  }
+
   // ================== FUNGSI INTI (PRIVATE) UNTUK MENGGAMBAR TIMESTAMP ==================
   static Future<File?> _processAndStampImage(
     BuildContext context,
-    Uint8List imageBytes,
+    Uint8List compressedImageBytes,
   ) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
@@ -23,7 +83,7 @@ class ImageHelper {
       String addressText = "Alamat tidak ditemukan";
       try {
         position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high, 
+            desiredAccuracy: LocationAccuracy.high,
             timeLimit: const Duration(seconds: 10));
         List<Placemark> placemarks = await placemarkFromCoordinates(
             position.latitude, position.longitude);
@@ -37,7 +97,7 @@ class ImageHelper {
       }
 
       // 2. Decode & Siapkan Canvas
-      final ui.Codec codec = await ui.instantiateImageCodec(imageBytes);
+      final ui.Codec codec = await ui.instantiateImageCodec(compressedImageBytes);
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
       final ui.Image image = frameInfo.image;
 
@@ -48,7 +108,8 @@ class ImageHelper {
       // 3. Gambar Foto Asli
       paintImage(
           canvas: canvas,
-          rect: Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+          rect: Rect.fromLTWH(
+              0, 0, image.width.toDouble(), image.height.toDouble()),
           image: image,
           fit: BoxFit.cover);
 
@@ -62,9 +123,24 @@ class ImageHelper {
       const shadow = [
         Shadow(color: Colors.black87, offset: Offset(2, 2), blurRadius: 4.0)
       ];
-      const timeStyle = TextStyle(fontFamily: 'Arial', fontWeight: FontWeight.bold, fontSize: 150, color: Colors.white, shadows: shadow);
-      const dateStyle = TextStyle(fontFamily: 'Arial', fontWeight: FontWeight.bold, fontSize: 100, color: Colors.white, shadows: shadow);
-      const addressStyle = TextStyle(fontFamily: 'Arial', fontWeight: FontWeight.normal, fontSize: 80, color: Colors.white, shadows: shadow);
+      const timeStyle = TextStyle(
+          fontFamily: 'Arial',
+          fontWeight: FontWeight.bold,
+          fontSize: 150,
+          color: Colors.white,
+          shadows: shadow);
+      const dateStyle = TextStyle(
+          fontFamily: 'Arial',
+          fontWeight: FontWeight.bold,
+          fontSize: 100,
+          color: Colors.white,
+          shadows: shadow);
+      const addressStyle = TextStyle(
+          fontFamily: 'Arial',
+          fontWeight: FontWeight.normal,
+          fontSize: 80,
+          color: Colors.white,
+          shadows: shadow);
 
       TextPainter createTextPainter(String text, TextStyle style) {
         return TextPainter(
@@ -99,19 +175,16 @@ class ImageHelper {
 
       final jpegBytes = await FlutterImageCompress.compressWithList(
         pngBytes.buffer.asUint8List(),
-        minWidth: 1080,
-        minHeight: 1920,
-        quality: 70,
-        format: CompressFormat.jpeg,
+        quality: 90,
       );
 
       final dir = await getTemporaryDirectory();
-      final targetPath = p.join(dir.path, "stamped_${DateTime.now().millisecondsSinceEpoch}.jpg");
+      final targetPath = p.join(
+          dir.path, "stamped_${DateTime.now().millisecondsSinceEpoch}.jpg");
       final outputFile = File(targetPath);
       await outputFile.writeAsBytes(jpegBytes);
 
       return outputFile;
-
     } catch (e) {
       debugPrint("Error saat memproses foto: $e");
       if (context.mounted) {
@@ -128,26 +201,24 @@ class ImageHelper {
   /// Mengambil satu foto dari kamera dan menambahkan timestamp.
   static Future<File?> takePhoto(BuildContext context) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+    // Ambil gambar dengan kualitas setinggi mungkin untuk diolah
+    final pickedFile =
+        await picker.pickImage(source: ImageSource.camera, imageQuality: 100);
     if (pickedFile == null || !context.mounted) return null;
 
-    // Kompres dulu sebelum di-stamp untuk efisiensi
-    var compressedBytes = await FlutterImageCompress.compressWithFile(
-      pickedFile.path,
-      minWidth: 1080,
-      minHeight: 1920,
-      quality: 70,
-    );
+    // Langsung baca bytes dari file asli dan serahkan ke prosesor
+    final imageBytes = await pickedFile.readAsBytes();
 
-    if (compressedBytes == null) return null;
+    final compressedBytes = await _compressImageEfficiently(imageBytes);
 
+    // Lalu, serahkan bytes yang sudah dikompresi ke prosesor
     return await _processAndStampImage(context, compressedBytes);
   }
 
   /// Memilih banyak gambar dari galeri dan menambahkan timestamp ke semuanya.
   static Future<List<File>> pickMultipleImages(BuildContext context) async {
     final picker = ImagePicker();
-    final pickedFiles = await picker.pickMultiImage(imageQuality: 70);
+    final pickedFiles = await picker.pickMultiImage(imageQuality: 100);
     if (pickedFiles.isEmpty || !context.mounted) return [];
 
     List<File> processedFiles = [];
@@ -174,21 +245,18 @@ class ImageHelper {
 
     try {
       for (var file in pickedFiles) {
-        var compressedBytes = await FlutterImageCompress.compressWithFile(
-          file.path,
-          minWidth: 1080,
-          minHeight: 1920,
-          quality: 70,
-        );
-        if (compressedBytes != null) {
-          final processedFile = await _processAndStampImage(context, compressedBytes);
-          if (processedFile != null) {
-            processedFiles.add(processedFile);
-          }
+        final imageBytes = await file.readAsBytes();
+        final compressedBytes = await _compressImageEfficiently(imageBytes);
+        
+        final processedFile = await _processAndStampImage(context, compressedBytes);
+        if (processedFile != null) {
+          processedFiles.add(processedFile);
         }
       }
     } finally {
-      Navigator.of(context).pop(); // Tutup dialog loading
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      } // Tutup dialog loading
     }
 
     return processedFiles;

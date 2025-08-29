@@ -2,6 +2,7 @@
 
 import 'dart:async'; // <-- PERBAIKAN DI SINI
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
@@ -212,8 +213,13 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                SvgPicture.asset(
+                  'assets/MERALLIN_LOGO_WAITING.svg',
+                  height: 70,
+                ),
+                const SizedBox(height: 32),
                 const CircularProgressIndicator(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 const Text(
                   'Menunggu Verifikasi Admin',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -221,9 +227,10 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                 ),
                 const SizedBox(height: 12),
                 // <-- PERUBAHAN 3: Perbarui teks untuk menampilkan counter -->
-                Text(
-                  'Data Anda sedang diperiksa oleh admin. Mohon tunggu sebentar.\n\n(Mengecek status ke server: #${_pollingCount + 1})',
-                  style: const TextStyle(fontSize: 16, color: Colors.black54),
+                const Text(
+                  'Data Anda sedang diperiksa oleh admin. Mohon tunggu sebentar.',
+                  // \n\n(Mengecek status ke server: #${_pollingCount + 1})',
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
                   textAlign: TextAlign.center,
                 ),
                 if (_showTimeoutMessage)
