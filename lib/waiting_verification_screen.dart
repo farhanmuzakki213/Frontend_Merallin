@@ -143,17 +143,40 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
   }
 
   List<PhotoVerificationStatus> _getRelevantStatuses(Trip trip) {
-    // Check the approval status only for the documents relevant to the page we came from.
+    // Logika ini diperbarui untuk mencocokkan dokumen di setiap halaman
     switch (widget.initialPage) {
-      case 0: // From 'Mulai Perjalanan'
+      // Tahap 0: Mulai Perjalanan
+      case 0:
         return [trip.startKmPhotoStatus];
-      case 3: // From 'Surat Jalan Awal'
-        return [trip.muatPhotoStatus, trip.deliveryLetterInitialStatus];
-      case 4: // From 'Dokumen Tambahan'
-        return [trip.deliveryOrderStatus, trip.segelPhotoStatus, trip.timbanganKendaraanPhotoStatus];
-      case 7: // From 'Bukti Akhir'
-        return [trip.endKmPhotoStatus, trip.bongkarPhotoStatus, trip.deliveryLetterFinalStatus];
+      
+      // Tahap 3: Bukti Tiba & Muat
+      case 3:
+        return [
+          trip.kmMuatPhotoStatus,
+          trip.kedatanganMuatPhotoStatus,
+          trip.deliveryOrderStatus,
+          trip.muatPhotoStatus,
+        ];
+
+      // Tahap 4: Dokumen Perjalanan
+      case 4:
+        return [
+          trip.deliveryLetterInitialStatus,
+          trip.segelPhotoStatus,
+          trip.timbanganKendaraanPhotoStatus,
+        ];
+
+      // Tahap 7: Bukti Akhir & Selesai
+      case 7:
+        return [
+          trip.endKmPhotoStatus,
+          trip.kedatanganBongkarPhotoStatus,
+          trip.bongkarPhotoStatus,
+          trip.deliveryLetterFinalStatus,
+        ];
+        
       default:
+        // Halaman info tidak memerlukan pengecekan status
         return [];
     }
   }

@@ -134,19 +134,20 @@ class TripService {
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> updateStartTrip(
-      {required String token,
-      required int tripId,
-      String? licensePlate,
-      String? startKm,
-      File? startKmPhoto}) async {
+  Future<Trip> updateStartTrip({
+    required String token,
+    required int tripId,
+    required int vehicleId, // Diubah dari licensePlate
+    required String startKm,
+    File? startKmPhoto,
+  }) async {
     final url = Uri.parse('$_baseUrl/driver/trips/$tripId/start');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
 
-    if (licensePlate != null) request.fields['license_plate'] = licensePlate;
-    if (startKm != null) request.fields['start_km'] = startKm;
+    request.fields['vehicle_id'] = vehicleId.toString(); // Kirim ID
+    request.fields['start_km'] = startKm;
 
     if (startKmPhoto != null) {
       request.files.add(await http.MultipartFile.fromPath(
@@ -169,47 +170,64 @@ class TripService {
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> updateAfterLoading(
-      {required String token,
-      required int tripId,
-      File? muatPhoto,
-      List<File>? deliveryLetters}) async {
+  Future<Trip> updateAfterLoading({
+    required String token,
+    required int tripId,
+    File? kmMuatPhoto,
+    File? kedatanganMuatPhoto,
+    File? deliveryOrderPhoto,
+    List<File>? muatPhotos,
+  }) async {
     final url = Uri.parse('$_baseUrl/driver/trips/$tripId/after-loading');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
 
-    if (muatPhoto != null) {
+    if (kmMuatPhoto != null) {
       request.files.add(await http.MultipartFile.fromPath(
-          'muat_photo', muatPhoto.path,
-          filename: basename(muatPhoto.path)));
+          'km_muat_photo', kmMuatPhoto.path,
+          filename: basename(kmMuatPhoto.path)));
     }
+    if (kedatanganMuatPhoto != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+          'kedatangan_muat_photo', kedatanganMuatPhoto.path,
+          filename: basename(kedatanganMuatPhoto.path)));
+    }
+    if (deliveryOrderPhoto != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+          'delivery_order_photo', deliveryOrderPhoto.path,
+          filename: basename(deliveryOrderPhoto.path)));
+    }
+    if (muatPhotos != null) {
+      for (var file in muatPhotos) {
+        request.files.add(await http.MultipartFile.fromPath(
+            'muat_photo[]', file.path,
+            filename: basename(file.path)));
+      }
+    }
+
+    final response = await _multipartPostRequest(request);
+    return Trip.fromJson(json.decode(response.body)['data']);
+  }
+
+  Future<Trip> uploadTripDocuments({
+    required String token,
+    required int tripId,
+    List<File>? deliveryLetters,
+    File? segelPhoto,
+    File? timbanganPhoto,
+  }) async {
+    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/upload-documents');
+    final request = http.MultipartRequest('POST', url)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json';
+
     if (deliveryLetters != null) {
       for (var file in deliveryLetters) {
         request.files.add(await http.MultipartFile.fromPath(
             'delivery_letters[]', file.path,
             filename: basename(file.path)));
       }
-    }
-    final response = await _multipartPostRequest(request);
-    return Trip.fromJson(json.decode(response.body)['data']);
-  }
-
-  Future<Trip> uploadTripDocuments(
-      {required String token,
-      required int tripId,
-      File? deliveryOrder,
-      File? segelPhoto,
-      File? timbanganPhoto}) async {
-    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/upload-documents');
-    final request = http.MultipartRequest('POST', url)
-      ..headers['Authorization'] = 'Bearer $token'
-      ..headers['Accept'] = 'application/json';
-
-    if (deliveryOrder != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-          'delivery_order', deliveryOrder.path,
-          filename: basename(deliveryOrder.path)));
     }
     if (segelPhoto != null) {
       request.files.add(await http.MultipartFile.fromPath(
@@ -225,6 +243,7 @@ class TripService {
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
+
   Future<Trip> updateToUnloadingPoint(
       {required String token, required int tripId}) async {
     final response = await _postRequest(token, '$tripId/at-unloading');
@@ -237,13 +256,15 @@ class TripService {
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> updateFinishTrip(
-      {required String token,
-      required int tripId,
-      String? endKm,
-      File? endKmPhoto,
-      List<File>? bongkarPhoto,
-      List<File>? deliveryLetters}) async {
+  Future<Trip> updateFinishTrip({
+    required String token,
+    required int tripId,
+    String? endKm,
+    File? endKmPhoto,
+    File? kedatanganBongkarPhoto,
+    List<File>? bongkarPhotos,
+    List<File>? deliveryLetters,
+  }) async {
     final url = Uri.parse('$_baseUrl/driver/trips/$tripId/finish');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
@@ -256,8 +277,13 @@ class TripService {
           'end_km_photo', endKmPhoto.path,
           filename: basename(endKmPhoto.path)));
     }
-    if (bongkarPhoto != null) {
-      for (var file in bongkarPhoto) {
+    if (kedatanganBongkarPhoto != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+          'kedatangan_bongkar_photo', kedatanganBongkarPhoto.path,
+          filename: basename(kedatanganBongkarPhoto.path)));
+    }
+    if (bongkarPhotos != null) {
+      for (var file in bongkarPhotos) {
         request.files.add(await http.MultipartFile.fromPath(
             'bongkar_photo[]', file.path,
             filename: basename(file.path)));

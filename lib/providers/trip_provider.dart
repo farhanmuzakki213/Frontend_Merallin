@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import '../models/trip_model.dart';
 import '../services/trip_service.dart';
+import '../models/vehicle_model.dart';
+import '../services/vehicle_service.dart';
 import 'dart:io';
 import 'dart:async';
 // HAPUS IMPORT AUTH_PROVIDER DARI SINI JIKA ADA
 
 class TripProvider with ChangeNotifier {
   final TripService _tripService = TripService();
+  final VehicleService _vehicleService = VehicleService();
 
   bool _isLoading = false;
   String? _errorMessage;
 
   List<Trip> _allTrips = [];
+  List<Vehicle> _vehicles = [];
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  List<Vehicle> get vehicles => _vehicles;
+
+  List<Trip> get allTrips => _allTrips;
 
   List<Trip> get activeTrips => _allTrips
       .where((trip) =>
@@ -26,7 +33,6 @@ class TripProvider with ChangeNotifier {
       .where((trip) => trip.derivedStatus == TripDerivedStatus.tersedia)
       .toList();
 
-  // ... (Sisa kode di file ini tidak perlu diubah, biarkan seperti versi terakhir yang saya berikan)
   int get totalTrips {
     final now = DateTime.now();
     return _allTrips
@@ -60,6 +66,19 @@ class TripProvider with ChangeNotifier {
             trip.updatedAt!.month == now.month &&
             trip.updatedAt!.year == now.year)
         .length;
+  }
+
+  Future<void> fetchVehicles(String token) async {
+    try {
+      debugPrint('[TripProvider] Memulai fetchVehicles...'); // Lacak pemanggilan
+      _vehicles = await _vehicleService.getVehicles(token);
+      debugPrint('[TripProvider] Berhasil. Ditemukan ${_vehicles.length} kendaraan.'); // Lacak jumlah data
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[TripProvider] Gagal memuat kendaraan: ${e.toString()}'); // Lacak jika ada error
+      _errorMessage = "Gagal memuat data kendaraan: ${e.toString()}";
+      notifyListeners();
+    }
   }
 
   Future<void> fetchTrips(String token) async {
@@ -105,19 +124,18 @@ class TripProvider with ChangeNotifier {
   Future<Trip?> updateStartTrip({
     required String token,
     required int tripId,
-    String? licensePlate,
-    String? startKm,
+    required int vehicleId,
+    required String startKm,
     File? startKmPhoto,
   }) async {
     try {
-      final trip = await _tripService.updateStartTrip(
+      return await _tripService.updateStartTrip(
         token: token,
         tripId: tripId,
-        licensePlate: licensePlate,
+        vehicleId: vehicleId,
         startKm: startKm,
         startKmPhoto: startKmPhoto,
       );
-      return trip;
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -157,17 +175,20 @@ class TripProvider with ChangeNotifier {
   Future<Trip?> updateAfterLoading({
     required String token,
     required int tripId,
-    List<File>? deliveryLetters,
-    File? muatPhoto,
+    File? kmMuatPhoto,
+    File? kedatanganMuatPhoto,
+    File? deliveryOrderPhoto,
+    List<File>? muatPhotos,
   }) async {
     try {
-      final trip = await _tripService.updateAfterLoading(
+      return await _tripService.updateAfterLoading(
         token: token,
         tripId: tripId,
-        deliveryLetters: deliveryLetters,
-        muatPhoto: muatPhoto,
+        kmMuatPhoto: kmMuatPhoto,
+        kedatanganMuatPhoto: kedatanganMuatPhoto,
+        deliveryOrderPhoto: deliveryOrderPhoto,
+        muatPhotos: muatPhotos,
       );
-      return trip;
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -179,19 +200,18 @@ class TripProvider with ChangeNotifier {
   Future<Trip?> uploadTripDocuments({
     required String token,
     required int tripId,
-    File? deliveryOrder,
+    List<File>? deliveryLetters,
     File? segelPhoto,
     File? timbanganPhoto,
   }) async {
     try {
-      final trip = await _tripService.uploadTripDocuments(
+      return await _tripService.uploadTripDocuments(
         token: token,
         tripId: tripId,
-        deliveryOrder: deliveryOrder,
+        deliveryLetters: deliveryLetters,
         segelPhoto: segelPhoto,
         timbanganPhoto: timbanganPhoto,
       );
-      return trip;
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -233,19 +253,20 @@ class TripProvider with ChangeNotifier {
     required int tripId,
     String? endKm,
     File? endKmPhoto,
-    List<File>? bongkarPhoto,
+    File? kedatanganBongkarPhoto,
+    List<File>? bongkarPhotos,
     List<File>? deliveryLetters,
   }) async {
     try {
-      final trip = await _tripService.updateFinishTrip(
+      return await _tripService.updateFinishTrip(
         token: token,
         tripId: tripId,
         endKm: endKm,
         endKmPhoto: endKmPhoto,
-        bongkarPhoto: bongkarPhoto,
+        kedatanganBongkarPhoto: kedatanganBongkarPhoto,
+        bongkarPhotos: bongkarPhotos,
         deliveryLetters: deliveryLetters,
       );
-      return trip;
     } on ApiException {
       rethrow;
     } catch (e) {

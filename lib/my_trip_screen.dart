@@ -62,7 +62,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
         return AlertDialog(
           title: const Text('Konfirmasi Memulai Tugas'),
           content: Text(
-              'Anda akan memulai perjalanan ke ${trip.destination}. Lanjutkan?'),
+              'Anda akan memulai perjalanan ke ${trip.destinationAddress}. Lanjutkan?'),
           actions: <Widget>[
             TextButton(
                 child: const Text('Batal'),
@@ -233,7 +233,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
               Row(children: [
                 const Icon(Icons.my_location, color: Colors.blue, size: 20),
                 const SizedBox(width: 8),
-                Expanded(child: Text(trip.origin))
+                Expanded(child: Text(trip.originAddress))
               ]),
               const Padding(
                   padding: EdgeInsets.only(left: 10.0),
@@ -242,9 +242,36 @@ class _MyTripScreenState extends State<MyTripScreen> {
               Row(children: [
                 const Icon(Icons.location_on, color: Colors.red, size: 20),
                 const SizedBox(width: 8),
-                Expanded(child: Text(trip.destination))
+                Expanded(child: Text(trip.destinationAddress))
               ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  // Slot Time
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.schedule_outlined,
+                            color: Colors.grey, size: 20),
+                        const SizedBox(width: 8),
+                        Flexible(child: Text(trip.slotTime ?? 'N/A')),
+                      ],
+                    ),
+                  ),
+                  // Jenis Berat
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.scale_outlined,
+                            color: Colors.grey, size: 20),
+                        const SizedBox(width: 8),
+                        Flexible(child: Text(trip.jenisBerat ?? 'N/A')),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
               if (derivedStatus == TripDerivedStatus.revisiGambar &&
                   trip.allRejectionReasons != null) ...[
                 Container(
