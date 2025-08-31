@@ -8,6 +8,7 @@ import 'package:frontend_merallin/models/trip_model.dart';
 import 'package:frontend_merallin/models/user_model.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/providers/bbm_provider.dart';
 import 'package:frontend_merallin/providers/trip_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -56,6 +57,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => LeaveProvider()),
         ChangeNotifierProvider(create: (context) => TripProvider()),
         ChangeNotifierProvider(create: (context) => HistoryProvider()),
+        ChangeNotifierProvider(create: (context) => BbmProvider()),
       ],
       child: MaterialApp(
         title: 'Absensi App',

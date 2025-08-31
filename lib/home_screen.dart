@@ -2,6 +2,8 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/bbm_list_screen.dart';
+import 'package:frontend_merallin/bbm_progress_screen.dart';
 import 'package:frontend_merallin/laporan_perjalanan_screen.dart';
 import 'package:frontend_merallin/providers/trip_provider.dart';
 import 'package:frontend_merallin/utils/image_absen_helper.dart';
@@ -89,7 +91,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkPendingTrip();
+      // _checkPendingTrip();
+      _checkPendingTasks();
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (authProvider.token != null) {
@@ -104,17 +107,39 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     });
   }
 
-  void _checkPendingTrip() {
+  // void _checkPendingTrip() {
+  //   final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+  //   if (authProvider.pendingTripId != null) {
+  //     final tripId = authProvider.pendingTripId!;
+
+  //     Navigator.of(context).push(MaterialPageRoute(
+  //       builder: (_) => LaporanDriverScreen(
+  //         tripId: tripId,
+  //         resumeVerification: true,
+  //       ),
+  //     ));
+  //   }
+  // }
+
+  void _checkPendingTasks() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
+    // Cek untuk Trip (logika lama tetap ada)
     if (authProvider.pendingTripId != null) {
       final tripId = authProvider.pendingTripId!;
-
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => LaporanDriverScreen(
           tripId: tripId,
           resumeVerification: true,
         ),
+      ));
+    } 
+    // Cek untuk BBM (logika baru)
+    else if (authProvider.pendingBbmId != null) {
+      final bbmId = authProvider.pendingBbmId!;
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => BbmProgressScreen(bbmId: bbmId, resumeVerification: true),
       ));
     }
   }
@@ -402,7 +427,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 context,
                 MaterialPageRoute(builder: (context) => const MyTripScreen()),
               );
-
               if (result == true && mounted) {
                 final authProvider =
                     Provider.of<AuthProvider>(context, listen: false);
@@ -411,6 +435,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       .fetchTrips(authProvider.token!);
                 }
               }
+            },
+          ),
+          AnimatedMenuItem(
+            icon: Icons.local_gas_station_outlined,
+            label: 'Isi BBM',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BbmListScreen()),
+              );
             },
           ),
         ],

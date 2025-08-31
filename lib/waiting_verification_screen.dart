@@ -227,10 +227,9 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                 ),
                 const SizedBox(height: 12),
                 // <-- PERUBAHAN 3: Perbarui teks untuk menampilkan counter -->
-                const Text(
-                  'Data Anda sedang diperiksa oleh admin. Mohon tunggu sebentar.',
-                  // \n\n(Mengecek status ke server: #${_pollingCount + 1})',
-                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                Text(
+                  'Data Anda sedang diperiksa oleh admin. Mohon tunggu sebentar.\n\n(Mengecek status ke server: #${_pollingCount + 1})',
+                  style: const TextStyle(fontSize: 16, color: Colors.black54),
                   textAlign: TextAlign.center,
                 ),
                 if (_showTimeoutMessage)
