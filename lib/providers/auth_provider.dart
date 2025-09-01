@@ -28,10 +28,12 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _authStatus = AuthStatus.uninitialized;
   int? _pendingTripId;
   int? _pendingBbmId;
+  int? _pendingVehicleLocationId;
 
   bool get isUpdating => _isUpdating;
   int? get pendingTripId => _pendingTripId;
   int? get pendingBbmId => _pendingBbmId;
+  int? get pendingVehicleLocationId => _pendingVehicleLocationId;
 
   User? get user => _user;
   String? get token => _token;
@@ -67,6 +69,13 @@ class AuthProvider extends ChangeNotifier {
       final storedPendingBbmId = _authBox.get('pendingBbmId');
       if (storedPendingBbmId != null) {
         _pendingBbmId = storedPendingBbmId as int;
+        debugPrint(
+            'AuthProvider: Pending bbmId $storedPendingBbmId dimuat dari cache.');
+      }
+
+      final storedPendingLocationId = _authBox.get('pendingVehicleLocationId');
+      if (storedPendingLocationId != null) {
+        _pendingVehicleLocationId = storedPendingLocationId as int;
         debugPrint(
             'AuthProvider: Pending bbmId $storedPendingBbmId dimuat dari cache.');
       }
@@ -113,6 +122,7 @@ class AuthProvider extends ChangeNotifier {
     _authStatus = AuthStatus.unauthenticated;
     await clearPendingTripForVerification();
     await clearPendingBbmForVerification();
+    await clearPendingVehicleLocationForVerification();
     notifyListeners();
   }
 
@@ -130,6 +140,12 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setPendingVehicleLocationForVerification(int locationId) async {
+    _pendingVehicleLocationId = locationId;
+    await _authBox.put('pendingVehicleLocationId', locationId);
+    notifyListeners();
+  }
+
   Future<void> clearPendingTripForVerification() async {
     _pendingTripId = null;
     await _authBox.delete('pendingTripId');
@@ -139,6 +155,12 @@ class AuthProvider extends ChangeNotifier {
   Future<void> clearPendingBbmForVerification() async {
     _pendingBbmId = null;
     await _authBox.delete('pendingBbmId');
+    notifyListeners();
+  }
+
+  Future<void> clearPendingVehicleLocationForVerification() async {
+    _pendingVehicleLocationId = null;
+    await _authBox.delete('pendingVehicleLocationId');
     notifyListeners();
   }
 

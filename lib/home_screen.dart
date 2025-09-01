@@ -7,6 +7,8 @@ import 'package:frontend_merallin/bbm_progress_screen.dart';
 import 'package:frontend_merallin/laporan_perjalanan_screen.dart';
 import 'package:frontend_merallin/providers/trip_provider.dart';
 import 'package:frontend_merallin/utils/image_absen_helper.dart';
+import 'package:frontend_merallin/vehicle_location_list_screen.dart';
+import 'package:frontend_merallin/vehicle_location_progress_screen.dart';
 import 'package:intl/intl.dart';
 
 import 'package:frontend_merallin/profile_screen.dart';
@@ -140,6 +142,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final bbmId = authProvider.pendingBbmId!;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => BbmProgressScreen(bbmId: bbmId, resumeVerification: true),
+      ));
+    }
+    else if (authProvider.pendingVehicleLocationId != null) {
+      final locationId = authProvider.pendingVehicleLocationId!;
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => VehicleLocationProgressScreen(
+          locationId: locationId,
+          resumeVerification: true,
+        ),
       ));
     }
   }
@@ -444,6 +455,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const BbmListScreen()),
+              );
+            },
+          ),
+          AnimatedMenuItem(
+            icon: Icons.alt_route, // Ikon alternatif
+            label: 'Trip Geser',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const VehicleLocationListScreen()),
               );
             },
           ),

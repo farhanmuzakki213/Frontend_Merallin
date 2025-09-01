@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'models/bbm_model.dart';
-import 'models/trip_model.dart'; // Dibutuhkan untuk extension .isRejected
 import 'providers/auth_provider.dart';
 import 'providers/bbm_provider.dart';
 
