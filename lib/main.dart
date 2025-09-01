@@ -17,10 +17,14 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:frontend_merallin/providers/history_provider.dart';
 import 'package:frontend_merallin/providers/leave_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
+  tz.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
   await dotenv.load(fileName: ".env");
   await Hive.initFlutter();
   

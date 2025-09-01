@@ -82,6 +82,15 @@ class _VehicleLocationProgressScreenState
         return;
       }
 
+      if (location.isFullyCompleted || location.statusVehicleLocation == 'selesai') {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Tugas Trip Geser ini sudah selesai.'),
+          backgroundColor: Colors.green,
+        ));
+        Navigator.of(context).pop(true);
+        return; // Hentikan eksekusi fungsi agar tidak lanjut ke bawah
+      }
+
       int determinedPage = _determineInitialPage(location);
 
       if (_pageController == null) {

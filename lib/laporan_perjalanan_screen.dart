@@ -190,7 +190,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
 
         if (result.updatedTrip.isFullyCompleted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Pengisian BBM telah selesai!'),
+              content: Text('Trip telah selesai!'),
               backgroundColor: Colors.blue));
           Navigator.of(context).pop(true);
           return;
@@ -225,8 +225,10 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
         trip.muatPhotoStatus.isApproved;
 
     if (!isAfterLoadingComplete) {
-      if (trip.statusLokasi == 'menuju lokasi muat' && trip.statusMuatan == 'kosong') return 1; // Halaman info
-      if (trip.statusLokasi == 'di lokasi muat' && trip.statusMuatan == 'proses muat') return 2; // Halaman info
+      if (trip.statusLokasi == 'menuju lokasi muat' &&
+          trip.statusMuatan == 'kosong') return 1; // Halaman info
+      if (trip.statusLokasi == 'di lokasi muat' &&
+          trip.statusMuatan == 'proses muat') return 2; // Halaman info
       return 3; // Halaman form upload
     }
 
@@ -244,9 +246,10 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
         trip.deliveryLetterFinalStatus.isApproved;
 
     if (!isFinishComplete) {
-      if (trip.statusLokasi == 'menuju lokasi bongkar' && trip.statusMuatan == 'termuat')
-        return 5; // Halaman info
-      if (trip.statusLokasi == 'di lokasi bongkar' && trip.statusMuatan == 'proses bongkar') return 6; // Halaman info
+      if (trip.statusLokasi == 'menuju lokasi bongkar' &&
+          trip.statusMuatan == 'termuat') return 5; // Halaman info
+      if (trip.statusLokasi == 'di lokasi bongkar' &&
+          trip.statusMuatan == 'proses bongkar') return 6; // Halaman info
       return 7; // Halaman form upload
     }
     return _currentPage;
@@ -459,13 +462,13 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
                         end: Alignment.bottomCenter))),
             SafeArea(
               child: _isLoading
-                  ? Center(
+                  ? const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const CircularProgressIndicator(),
-                          const SizedBox(height: 20),
-                          const Text(
+                          CircularProgressIndicator(),
+                          SizedBox(height: 20),
+                          Text(
                             'Memuat detail perjalanan dari server, silahkan coba mulai ulang aplikasi...',
                             textAlign: TextAlign.center,
                             style:

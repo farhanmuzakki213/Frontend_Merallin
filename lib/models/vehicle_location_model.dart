@@ -4,6 +4,7 @@ import 'user_model.dart';
 import 'vehicle_model.dart';
 import 'trip_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class VehicleLocation {
   final int id;
@@ -137,6 +138,7 @@ class VehicleLocation {
 
   factory VehicleLocation.fromJson(Map<String, dynamic> json) {
     final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
+    final wib = tz.getLocation('Asia/Jakarta');
     String buildFullUrl(String? relativePath) {
       if (relativePath == null || relativePath.isEmpty) return '';
       final String sanitizedBaseUrl = imageBaseUrl.endsWith('/api')
@@ -145,6 +147,12 @@ class VehicleLocation {
       if (relativePath.startsWith('/')) return '$sanitizedBaseUrl$relativePath';
       return '$sanitizedBaseUrl/$relativePath';
     }
+
+    DateTime parseToWib(String dateString) {
+        final utcDate = DateTime.parse(dateString);
+        return tz.TZDateTime.from(utcDate, wib);
+    }
+
     return VehicleLocation(
       id: json['id'],
       userId: json['user_id'],
@@ -161,8 +169,8 @@ class VehicleLocation {
       endLocation: json['end_location']?.toString(),
       statusVehicleLocation: json['status_vehicle_location'] ?? 'proses',
       statusLokasi: json['status_lokasi'],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: parseToWib(json['created_at']),
+      updatedAt: parseToWib(json['updated_at']),
       user: json['user'] != null ? User.fromJson(json['user']) : null,
       vehicle: json['vehicle'] != null ? Vehicle.fromJson(json['vehicle']) : null,
       fullStandbyPhotoUrl: buildFullUrl(json['full_standby_photo_url']),

@@ -7,7 +7,6 @@ import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../providers/trip_provider.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 // Helper class to pass result back from the waiting screen
 enum TripStatus { approved, rejected }

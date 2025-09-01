@@ -1,6 +1,7 @@
 // lib/models/bbm_model.dart
 import 'vehicle_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class BbmPhotoVerificationStatus {
   final String? status;
@@ -157,6 +158,8 @@ class BbmKendaraan {
 
   factory BbmKendaraan.fromJson(Map<String, dynamic> json) {
     final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
+    final wib = tz.getLocation('Asia/Jakarta');
+    final utcDate = DateTime.parse(json['created_at']);
     
     String buildFullUrl(String? relativePath) {
       if (relativePath == null || relativePath.isEmpty) return '';
@@ -183,7 +186,7 @@ class BbmKendaraan {
       fullEndKmPhotoUrl: buildFullUrl(json['full_end_km_photo_url']),
       fullNotaPengisianPhotoUrl: buildFullUrl(json['full_nota_pengisian_photo_url']),
       vehicle: json['vehicle'] != null ? Vehicle.fromJson(json['vehicle']) : null,
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: tz.TZDateTime.from(utcDate, wib),
     );
   }
 }

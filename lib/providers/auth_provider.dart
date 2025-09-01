@@ -77,7 +77,7 @@ class AuthProvider extends ChangeNotifier {
       if (storedPendingLocationId != null) {
         _pendingVehicleLocationId = storedPendingLocationId as int;
         debugPrint(
-            'AuthProvider: Pending bbmId $storedPendingBbmId dimuat dari cache.');
+            'AuthProvider: Pending bbmId $storedPendingLocationId dimuat dari cache.');
       }
 
       // Setelah semua data sesi (termasuk pendingTripId) siap, baru set status dan beritahu aplikasi

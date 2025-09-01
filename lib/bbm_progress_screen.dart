@@ -77,6 +77,15 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
         return;
       }
 
+      if (bbm.isFullyCompleted || bbm.statusBbmKendaraan == 'selesai') {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Tugas ini sudah selesai.'),
+          backgroundColor: Colors.green,
+        ));
+        Navigator.of(context).pop(true);
+        return; // Hentikan eksekusi lebih lanjut
+      }
+
       int determinedPage = _determineInitialPage(bbm);
 
       if (_pageController == null) {
@@ -168,7 +177,7 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
         ));
         if (result.updatedBbm.isFullyCompleted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Tugas telah selesai sepenuhnya!'),
+            content: Text('Pengisian BBM telah selesai sepenuhnya!'),
             backgroundColor: Colors.blue));
         
         Navigator.of(context).pop(true);

@@ -124,34 +124,45 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   //   }
   // }
 
-  void _checkPendingTasks() {
+  Future<void> _checkPendingTasks() async {
+    // Gunakan 'listen: false' karena ini adalah aksi satu kali di dalam initState
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Cek untuk Trip (logika lama tetap ada)
+    // Gunakan if-else if untuk memastikan hanya satu tugas pending yang dijalankan
     if (authProvider.pendingTripId != null) {
       final tripId = authProvider.pendingTripId!;
-      Navigator.of(context).push(MaterialPageRoute(
+      
+      // Tunggu (await) sampai halaman LaporanDriverScreen ditutup
+      final result = await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => LaporanDriverScreen(
           tripId: tripId,
           resumeVerification: true,
         ),
       ));
-    } 
-    // Cek untuk BBM (logika baru)
-    else if (authProvider.pendingBbmId != null) {
+
+      // Jika hasilnya 'true' (menandakan proses selesai/ada perubahan), hapus ID
+      if (result == true) {
+        await authProvider.clearPendingTripForVerification();
+      }
+    } else if (authProvider.pendingBbmId != null) {
       final bbmId = authProvider.pendingBbmId!;
-      Navigator.of(context).push(MaterialPageRoute(
+      final result = await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => BbmProgressScreen(bbmId: bbmId, resumeVerification: true),
       ));
-    }
-    else if (authProvider.pendingVehicleLocationId != null) {
+      if (result == true) {
+        await authProvider.clearPendingBbmForVerification();
+      }
+    } else if (authProvider.pendingVehicleLocationId != null) {
       final locationId = authProvider.pendingVehicleLocationId!;
-      Navigator.of(context).push(MaterialPageRoute(
+      final result = await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => VehicleLocationProgressScreen(
           locationId: locationId,
           resumeVerification: true,
         ),
       ));
+      if (result == true) {
+        await authProvider.clearPendingVehicleLocationForVerification();
+      }
     }
   }
 

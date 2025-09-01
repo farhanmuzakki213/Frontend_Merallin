@@ -3,6 +3,7 @@
 import 'user_model.dart';
 import 'vehicle_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 enum TripDerivedStatus {
   tersedia,
@@ -331,6 +332,7 @@ class Trip {
 
   factory Trip.fromJson(Map<String, dynamic> json) {
     final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
+    final wib = tz.getLocation('Asia/Jakarta');
     String buildFullUrl(String? relativePath) {
       if (relativePath == null || relativePath.isEmpty) {
         return '';
@@ -344,6 +346,14 @@ class Trip {
         return '$sanitizedBaseUrl$relativePath';
       }
       return '$sanitizedBaseUrl/$relativePath';
+    }
+
+    DateTime? parseToWib(String? dateString) {
+      if (dateString == null) return null;
+      // 1. Parse string menjadi DateTime (masih dalam UTC)
+      final utcDate = DateTime.parse(dateString);
+      // 2. Konversi ke TZDateTime dengan zona waktu WIB
+      return tz.TZDateTime.from(utcDate, wib);
     }
 
     List<String> buildFullUrlList(dynamic pathList) {
@@ -406,12 +416,8 @@ class Trip {
       jenisTrip: json['jenis_trip'],
       statusLokasi: json['status_lokasi'],
       statusMuatan: json['status_muatan'],
-      createdAt: json['created_at'] == null
-          ? null
-          : DateTime.parse(json['created_at']),
-      updatedAt: json['updated_at'] == null
-          ? null
-          : DateTime.parse(json['updated_at']),
+      createdAt: parseToWib(json['created_at']),
+      updatedAt: parseToWib(json['updated_at']),
       user: json['user'] != null ? User.fromJson(json['user']) : null,
       vehicle:
           json['vehicle'] != null ? Vehicle.fromJson(json['vehicle']) : null,
