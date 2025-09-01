@@ -7,6 +7,7 @@ import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../providers/trip_provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // Helper class to pass result back from the waiting screen
 enum TripStatus { approved, rejected }
@@ -143,17 +144,40 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
   }
 
   List<PhotoVerificationStatus> _getRelevantStatuses(Trip trip) {
-    // Check the approval status only for the documents relevant to the page we came from.
+    // Logika ini diperbarui untuk mencocokkan dokumen di setiap halaman
     switch (widget.initialPage) {
-      case 0: // From 'Mulai Perjalanan'
+      // Tahap 0: Mulai Perjalanan
+      case 0:
         return [trip.startKmPhotoStatus];
-      case 3: // From 'Surat Jalan Awal'
-        return [trip.muatPhotoStatus, trip.deliveryLetterInitialStatus];
-      case 4: // From 'Dokumen Tambahan'
-        return [trip.deliveryOrderStatus, trip.segelPhotoStatus, trip.timbanganKendaraanPhotoStatus];
-      case 7: // From 'Bukti Akhir'
-        return [trip.endKmPhotoStatus, trip.bongkarPhotoStatus, trip.deliveryLetterFinalStatus];
+      
+      // Tahap 3: Bukti Tiba & Muat
+      case 3:
+        return [
+          trip.kmMuatPhotoStatus,
+          trip.kedatanganMuatPhotoStatus,
+          trip.deliveryOrderStatus,
+          trip.muatPhotoStatus,
+        ];
+
+      // Tahap 4: Dokumen Perjalanan
+      case 4:
+        return [
+          trip.deliveryLetterInitialStatus,
+          trip.segelPhotoStatus,
+          trip.timbanganKendaraanPhotoStatus,
+        ];
+
+      // Tahap 7: Bukti Akhir & Selesai
+      case 7:
+        return [
+          trip.endKmPhotoStatus,
+          trip.kedatanganBongkarPhotoStatus,
+          trip.bongkarPhotoStatus,
+          trip.deliveryLetterFinalStatus,
+        ];
+        
       default:
+        // Halaman info tidak memerlukan pengecekan status
         return [];
     }
   }
@@ -217,7 +241,6 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                   'assets/MERALLIN_LOGO_WAITING.svg',
                   height: 70,
                 ),
-                const SizedBox(height: 32),
                 const CircularProgressIndicator(),
                 const SizedBox(height: 32),
                 const Text(
@@ -227,8 +250,9 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                 ),
                 const SizedBox(height: 12),
                 // <-- PERUBAHAN 3: Perbarui teks untuk menampilkan counter -->
-                Text(
-                  'Data Anda sedang diperiksa oleh admin. Mohon tunggu sebentar.\n\n(Mengecek status ke server: #${_pollingCount + 1})',
+                const Text(
+                  'Data Anda sedang diperiksa oleh admin. Mohon tunggu sebentar.',
+                  // \n\n(Mengecek status ke server: #${_pollingCount + 1})'
                   style: const TextStyle(fontSize: 16, color: Colors.black54),
                   textAlign: TextAlign.center,
                 ),
