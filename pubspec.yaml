@@ -34,6 +34,7 @@ dependencies:
   flutter_image_compress: ^2.3.0
   path_provider: ^2.1.2
   path: ^1.8.3
+  flutter_svg: ^2.0.9
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +49,7 @@ flutter:
   assets:
     - .env
     - assets/logo_meralin_besar.jpeg
+    - assets/MERALLIN_LOGO_WAITING.svg
 
   # ===== BAGIAN FONT YANG DITAMBAHKAN =====
   fonts:

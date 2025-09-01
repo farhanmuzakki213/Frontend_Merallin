@@ -1,8 +1,17 @@
 // lib/models/trip_model.dart
 
 import 'user_model.dart';
+import 'vehicle_model.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-enum TripDerivedStatus { tersedia, proses, verifikasiGambar, revisiGambar, selesai, tidakDiketahui }
+enum TripDerivedStatus {
+  tersedia,
+  proses,
+  verifikasiGambar,
+  revisiGambar,
+  selesai,
+  tidakDiketahui
+}
 
 class PhotoVerificationStatus {
   final String? status;
@@ -10,26 +19,31 @@ class PhotoVerificationStatus {
   final DateTime? verifiedAt;
   final String? rejectionReason;
 
-  PhotoVerificationStatus({ this.status, this.verifiedBy, this.verifiedAt, this.rejectionReason });
+  PhotoVerificationStatus(
+      {this.status, this.verifiedBy, this.verifiedAt, this.rejectionReason});
 
-  factory PhotoVerificationStatus.fromJson(Map<String, dynamic> json, String fieldPrefix) {
+  factory PhotoVerificationStatus.fromJson(
+      Map<String, dynamic> json, String fieldPrefix) {
     return PhotoVerificationStatus(
       status: json['${fieldPrefix}_status'],
       verifiedBy: Trip._parseToInt(json['${fieldPrefix}_verified_by']),
-      verifiedAt: json['${fieldPrefix}_verified_at'] == null ? null : DateTime.parse(json['${fieldPrefix}_verified_at']),
+      verifiedAt: json['${fieldPrefix}_verified_at'] == null
+          ? null
+          : DateTime.parse(json['${fieldPrefix}_verified_at']),
       rejectionReason: json['${fieldPrefix}_rejection_reason'],
     );
   }
-  
+
   bool get isApproved => status?.toLowerCase() == 'approved';
+  bool get isRejected => status?.toLowerCase() == 'rejected';
 }
 
 class DocumentInfo {
   final String type;
   final String name;
   final PhotoVerificationStatus verificationStatus;
-  final String? url;
-  DocumentInfo(this.type, this.name, this.verificationStatus, this.url);
+  final List<String> urls;
+  DocumentInfo(this.type, this.name, this.verificationStatus, this.urls);
 }
 
 class DocumentRevisionInfo {
@@ -42,130 +56,247 @@ class Trip {
   final int id;
   final int? userId;
   final String projectName;
-  final String origin;
-  final String destination;
-  final String? licensePlate;
+  final String originAddress;
+  final String originLink;
+  final String destinationAddress;
+  final String destinationLink;
+  final int? vehicleId;
+  final String? slotTime;
+  final String? jenisBerat;
   final int? startKm;
   final int? endKm;
-  final String? startKmPhotoPath;
-  final String? muatPhotoPath;
-  final List<String> bongkarPhotoPath;
-  final String? endKmPhotoPath;
-  final Map<String, List<String>> deliveryLetterPath;
-  final String? deliveryOrderPath;
-  final String? timbanganKendaraanPhotoPath;
-  final String? segelPhotoPath;
-  final String statusTrip;
+  final String? statusTrip;
   final String? jenisTrip;
   final String? statusLokasi;
   final String? statusMuatan;
-  final PhotoVerificationStatus startKmPhotoStatus;
-  final PhotoVerificationStatus muatPhotoStatus;
-  final PhotoVerificationStatus bongkarPhotoStatus;
-  final PhotoVerificationStatus endKmPhotoStatus;
-  final PhotoVerificationStatus deliveryLetterInitialStatus;
-  final PhotoVerificationStatus deliveryLetterFinalStatus;
-  final PhotoVerificationStatus deliveryOrderStatus;
-  final PhotoVerificationStatus timbanganKendaraanPhotoStatus;
-  final PhotoVerificationStatus segelPhotoStatus;
-  final String? fullStartKmPhotoUrl;
-  final String? fullMuatPhotoUrl;
-  final List<String> fullBongkarPhotoUrl;
-  final String? fullEndKmPhotoUrl;
-  final List<String> fullDeliveryLetterUrls;
-  final String? fullDeliveryOrderUrl;
-  final String? fullTimbanganKendaraanPhotoUrl;
-  final String? fullSegelPhotoUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final User? user;
+  final Vehicle? vehicle;
+
+  // Paths
+  final String? startKmPhotoPath;
+  final String? kmMuatPhotoPath;
+  final String? kedatanganMuatPhotoPath;
+  final String? deliveryOrderPath;
+  final List<String> muatPhotoPath;
+  final Map<String, List<String>> deliveryLetterPath;
+  final String? timbanganKendaraanPhotoPath;
+  final String? segelPhotoPath;
+  final String? endKmPhotoPath;
+  final String? kedatanganBongkarPhotoPath;
+  final List<String> bongkarPhotoPath;
+
+  // Statuses
+  final PhotoVerificationStatus startKmPhotoStatus;
+  final PhotoVerificationStatus kmMuatPhotoStatus;
+  final PhotoVerificationStatus kedatanganMuatPhotoStatus;
+  final PhotoVerificationStatus deliveryOrderStatus;
+  final PhotoVerificationStatus muatPhotoStatus;
+  final PhotoVerificationStatus deliveryLetterInitialStatus;
+  final PhotoVerificationStatus timbanganKendaraanPhotoStatus;
+  final PhotoVerificationStatus segelPhotoStatus;
+  final PhotoVerificationStatus endKmPhotoStatus;
+  final PhotoVerificationStatus kedatanganBongkarPhotoStatus;
+  final PhotoVerificationStatus bongkarPhotoStatus;
+  final PhotoVerificationStatus deliveryLetterFinalStatus;
+
+  // Full URLs from backend
+  final String? fullStartKmPhotoUrl;
+  final String? fullKmMuatPhotoUrl;
+  final String? fullKedatanganMuatPhotoUrl;
+  final String? fullDeliveryOrderUrl;
+  final List<String> fullMuatPhotoUrls;
+  final Map<String, List<String>> fullDeliveryLetterUrls;
+  final String? fullTimbanganKendaraanPhotoUrl;
+  final String? fullSegelPhotoUrl;
+  final String? fullEndKmPhotoUrl;
+  final String? fullKedatanganBongkarPhotoUrl;
+  final List<String> fullBongkarPhotoUrls;
 
   Trip({
-    required this.id, this.userId, required this.projectName, required this.origin, required this.destination,
-    this.licensePlate, this.startKm, this.endKm, this.startKmPhotoPath, this.muatPhotoPath,
-    required this.bongkarPhotoPath, this.endKmPhotoPath, required this.deliveryLetterPath,
-    this.deliveryOrderPath, this.timbanganKendaraanPhotoPath, this.segelPhotoPath,
-    required this.statusTrip, this.jenisTrip, this.statusLokasi, this.statusMuatan,
-    required this.startKmPhotoStatus, required this.muatPhotoStatus, required this.bongkarPhotoStatus,
-    required this.endKmPhotoStatus, required this.deliveryLetterInitialStatus, required this.deliveryLetterFinalStatus,
-    required this.deliveryOrderStatus, required this.timbanganKendaraanPhotoStatus, required this.segelPhotoStatus,
-    this.fullStartKmPhotoUrl, this.fullMuatPhotoUrl, required this.fullBongkarPhotoUrl,
-    this.fullEndKmPhotoUrl, required this.fullDeliveryLetterUrls, this.fullDeliveryOrderUrl,
-    this.fullTimbanganKendaraanPhotoUrl, this.fullSegelPhotoUrl, this.createdAt, this.updatedAt, this.user,
+    required this.id,
+    this.userId,
+    required this.projectName,
+    required this.originAddress,
+    required this.originLink,
+    required this.destinationAddress,
+    required this.destinationLink,
+    this.vehicleId,
+    this.slotTime,
+    this.jenisBerat,
+    this.startKm,
+    this.endKm,
+    this.statusTrip,
+    this.jenisTrip,
+    this.statusLokasi,
+    this.statusMuatan,
+    this.createdAt,
+    this.updatedAt,
+    this.user,
+    this.vehicle,
+    this.startKmPhotoPath,
+    this.kmMuatPhotoPath,
+    this.kedatanganMuatPhotoPath,
+    this.deliveryOrderPath,
+    required this.muatPhotoPath,
+    required this.deliveryLetterPath,
+    this.timbanganKendaraanPhotoPath,
+    this.segelPhotoPath,
+    this.endKmPhotoPath,
+    this.kedatanganBongkarPhotoPath,
+    required this.bongkarPhotoPath,
+    required this.startKmPhotoStatus,
+    required this.kmMuatPhotoStatus,
+    required this.kedatanganMuatPhotoStatus,
+    required this.deliveryOrderStatus,
+    required this.muatPhotoStatus,
+    required this.deliveryLetterInitialStatus,
+    required this.timbanganKendaraanPhotoStatus,
+    required this.segelPhotoStatus,
+    required this.endKmPhotoStatus,
+    required this.kedatanganBongkarPhotoStatus,
+    required this.bongkarPhotoStatus,
+    required this.deliveryLetterFinalStatus,
+    this.fullStartKmPhotoUrl,
+    this.fullKmMuatPhotoUrl,
+    this.fullKedatanganMuatPhotoUrl,
+    this.fullDeliveryOrderUrl,
+    required this.fullMuatPhotoUrls,
+    required this.fullDeliveryLetterUrls,
+    this.fullTimbanganKendaraanPhotoUrl,
+    this.fullSegelPhotoUrl,
+    this.fullEndKmPhotoUrl,
+    this.fullKedatanganBongkarPhotoUrl,
+    required this.fullBongkarPhotoUrls,
   });
 
   bool get isFullyCompleted {
     final finalLetters = deliveryLetterPath['final_letters'];
-    
-    return endKmPhotoPath != null && endKmPhotoStatus.isApproved &&
-           bongkarPhotoPath.isNotEmpty && bongkarPhotoStatus.isApproved &&
-           (finalLetters != null && finalLetters.isNotEmpty) && deliveryLetterFinalStatus.isApproved;
+
+    return endKmPhotoPath != null &&
+        endKmPhotoStatus.isApproved &&
+        kedatanganBongkarPhotoPath != null &&
+        kedatanganBongkarPhotoStatus.isApproved &&
+        bongkarPhotoPath.isNotEmpty &&
+        bongkarPhotoStatus.isApproved &&
+        (finalLetters != null && finalLetters.isNotEmpty) &&
+        deliveryLetterFinalStatus.isApproved;
   }
 
   TripDerivedStatus get derivedStatus {
-    if (getAllVerificationStatuses().any((s) => s.status?.toLowerCase() == 'rejected' || (s.rejectionReason != null && s.rejectionReason!.isNotEmpty))) {
+    if (getAllVerificationStatuses()
+        .any((s) => s.status?.toLowerCase() == 'rejected')) {
       return TripDerivedStatus.revisiGambar;
     }
-    
+
     if (isFullyCompleted || statusTrip == 'selesai') {
       return TripDerivedStatus.selesai;
     }
-
-    if (statusTrip == 'verifikasi gambar') {
-      return TripDerivedStatus.verifikasiGambar;
-    }
-
     switch (statusTrip) {
-      case 'tersedia': return TripDerivedStatus.tersedia;
-      case 'proses': return TripDerivedStatus.proses;
-      default: return TripDerivedStatus.proses;
+      case 'tersedia':
+        return TripDerivedStatus.tersedia;
+      case 'proses':
+        return TripDerivedStatus.proses;
+      case 'verifikasi gambar':
+        return TripDerivedStatus.verifikasiGambar;
+      case 'revisi gambar':
+        return TripDerivedStatus.revisiGambar;
+      default:
+        return TripDerivedStatus.proses;
     }
   }
 
   List<PhotoVerificationStatus> getAllVerificationStatuses() {
-    final statuses = <PhotoVerificationStatus>[];
-    if (startKmPhotoPath != null) statuses.add(startKmPhotoStatus);
-    if (muatPhotoPath != null) statuses.add(muatPhotoStatus);
-    if (deliveryLetterPath['initial_letters']?.isNotEmpty ?? false) statuses.add(deliveryLetterInitialStatus);
-    if (deliveryOrderPath != null) statuses.add(deliveryOrderStatus);
-    if (timbanganKendaraanPhotoPath != null) statuses.add(timbanganKendaraanPhotoStatus);
-    if (segelPhotoPath != null) statuses.add(segelPhotoStatus);
-    if (bongkarPhotoPath.isNotEmpty) statuses.add(bongkarPhotoStatus);
-    if (endKmPhotoPath != null) statuses.add(endKmPhotoStatus);
-    if (deliveryLetterPath['final_letters']?.isNotEmpty ?? false) statuses.add(deliveryLetterFinalStatus);
-    return statuses;
+    return allDocuments.map((doc) => doc.verificationStatus).toList();
   }
 
   List<DocumentInfo> get allDocuments {
     return [
-      if (startKmPhotoPath != null) DocumentInfo('start_km_photo', 'Foto KM Awal', startKmPhotoStatus, fullStartKmPhotoUrl),
-      if (muatPhotoPath != null) DocumentInfo('muat_photo', 'Foto Muat Barang', muatPhotoStatus, fullMuatPhotoUrl),
-      if (deliveryLetterPath['initial_letters']?.isNotEmpty ?? false) DocumentInfo('initial_delivery_letters', 'Surat Jalan Awal', deliveryLetterInitialStatus, fullDeliveryLetterUrls.join(', ')),
-      if (deliveryOrderPath != null) DocumentInfo('delivery_order', 'Delivery Order', deliveryOrderStatus, fullDeliveryOrderUrl),
-      if (timbanganKendaraanPhotoPath != null) DocumentInfo('timbangan_kendaraan_photo', 'Foto Timbangan', timbanganKendaraanPhotoStatus, fullTimbanganKendaraanPhotoUrl),
-      if (segelPhotoPath != null) DocumentInfo('segel_photo', 'Foto Segel', segelPhotoStatus, fullSegelPhotoUrl),
-      if (bongkarPhotoPath.isNotEmpty) DocumentInfo('bongkar_photo', 'Foto Bongkar', bongkarPhotoStatus, fullBongkarPhotoUrl.join(', ')),
-      if (endKmPhotoPath != null) DocumentInfo('end_km_photo', 'Foto KM Akhir', endKmPhotoStatus, fullEndKmPhotoUrl),
-      if (deliveryLetterPath['final_letters']?.isNotEmpty ?? false) DocumentInfo('final_delivery_letters', 'Surat Jalan Akhir', deliveryLetterFinalStatus, fullDeliveryLetterUrls.join(', ')),
+      if (startKmPhotoPath != null)
+        DocumentInfo('start_km_photo', 'Foto KM Awal', startKmPhotoStatus,
+            [fullStartKmPhotoUrl].whereType<String>().toList()),
+      if (kmMuatPhotoPath != null)
+        DocumentInfo(
+            'km_muat_photo',
+            'Foto KM di Lokasi Muat',
+            kmMuatPhotoStatus,
+            [fullKmMuatPhotoUrl].whereType<String>().toList()),
+      if (kedatanganMuatPhotoPath != null)
+        DocumentInfo(
+            'kedatangan_muat_photo',
+            'Foto Tiba di Lokasi Muat',
+            kedatanganMuatPhotoStatus,
+            [fullKedatanganMuatPhotoUrl].whereType<String>().toList()),
+      if (deliveryOrderPath != null)
+        DocumentInfo(
+            'delivery_order_photo',
+            'Delivery Order',
+            deliveryOrderStatus,
+            [fullDeliveryOrderUrl].whereType<String>().toList()),
+      if (muatPhotoPath.isNotEmpty)
+        DocumentInfo('muat_photo', 'Foto Muat Barang', muatPhotoStatus,
+            fullMuatPhotoUrls),
+      if (deliveryLetterPath['initial_letters']?.isNotEmpty ?? false)
+        DocumentInfo(
+            'delivery_letter_initial',
+            'Surat Jalan Awal',
+            deliveryLetterInitialStatus,
+            fullDeliveryLetterUrls['initial'] ?? []),
+      if (timbanganKendaraanPhotoPath != null)
+        DocumentInfo(
+            'timbangan_kendaraan_photo',
+            'Foto Timbangan',
+            timbanganKendaraanPhotoStatus,
+            [fullTimbanganKendaraanPhotoUrl].whereType<String>().toList()),
+      if (segelPhotoPath != null)
+        DocumentInfo('segel_photo', 'Foto Segel', segelPhotoStatus,
+            [fullSegelPhotoUrl].whereType<String>().toList()),
+      if (kedatanganBongkarPhotoPath != null)
+        DocumentInfo(
+            'kedatangan_bongkar_photo',
+            'Foto Tiba di Lokasi Bongkar',
+            kedatanganBongkarPhotoStatus,
+            [fullKedatanganBongkarPhotoUrl].whereType<String>().toList()),
+      if (bongkarPhotoPath.isNotEmpty)
+        DocumentInfo('bongkar_photo', 'Foto Bongkar Barang', bongkarPhotoStatus,
+            fullBongkarPhotoUrls),
+      if (endKmPhotoPath != null)
+        DocumentInfo('end_km_photo', 'Foto KM Akhir', endKmPhotoStatus,
+            [fullEndKmPhotoUrl].whereType<String>().toList()),
+      if (deliveryLetterPath['final_letters']?.isNotEmpty ?? false)
+        DocumentInfo('delivery_letter_final', 'Surat Jalan Akhir',
+            deliveryLetterFinalStatus, fullDeliveryLetterUrls['final'] ?? []),
     ];
   }
-  
+
   DocumentRevisionInfo? get firstRejectedDocumentInfo {
     for (final doc in allDocuments) {
-      if (doc.verificationStatus.status?.toLowerCase() == 'rejected' ||
-          (doc.verificationStatus.rejectionReason != null && doc.verificationStatus.rejectionReason!.isNotEmpty)) {
+      if (doc.verificationStatus.isRejected) {
         int pageIndex;
         switch (doc.type) {
-          case 'start_km_photo': pageIndex = 0; break;
+          case 'start_km_photo':
+            pageIndex = 0;
+            break;
+          case 'km_muat_photo':
+          case 'kedatangan_muat_photo':
+          case 'delivery_order_photo':
           case 'muat_photo':
-          case 'initial_delivery_letters': pageIndex = 3; break;
-          case 'delivery_order':
+            pageIndex = 3;
+            break;
+          case 'delivery_letter_initial':
           case 'timbangan_kendaraan_photo':
-          case 'segel_photo': pageIndex = 4; break;
-          case 'bongkar_photo':
+          case 'segel_photo':
+            pageIndex = 4;
+            break;
+          case 'kedatangan_bongkar_photo':
           case 'end_km_photo':
-          case 'final_delivery_letters': pageIndex = 7; break;
-          default: pageIndex = 0;
+          case 'bongkar_photo':
+          case 'delivery_letter_final':
+            pageIndex = 7;
+            break;
+          default:
+            pageIndex = 0;
         }
         return DocumentRevisionInfo(doc, pageIndex);
       }
@@ -175,13 +306,11 @@ class Trip {
 
   String? get allRejectionReasons {
     final reasons = allDocuments
-      .where((doc) => (doc.verificationStatus.status?.toLowerCase() == 'rejected' || (doc.verificationStatus.rejectionReason != null && doc.verificationStatus.rejectionReason!.isNotEmpty)))
-      .map((doc) {
-          final reason = doc.verificationStatus.rejectionReason;
-          return '• ${doc.name}: ${reason != null && reason.isNotEmpty ? reason : "Ditolak tanpa alasan spesifik."}';
-      })
-      .toList();
-
+        .where((doc) => doc.verificationStatus.isRejected)
+        .map((doc) {
+      final reason = doc.verificationStatus.rejectionReason;
+      return '• ${doc.name}: ${reason != null && reason.isNotEmpty ? reason : "Ditolak tanpa alasan spesifik."}';
+    }).toList();
     if (reasons.isEmpty) return null;
     return reasons.join('\n');
   }
@@ -194,62 +323,152 @@ class Trip {
   }
 
   static List<String> _parseToListString(dynamic jsonValue) {
-    if (jsonValue is List) return List<String>.from(jsonValue.map((e) => e.toString()));
+    if (jsonValue is List) {
+      return List<String>.from(jsonValue.map((e) => e.toString()));
+    }
     return [];
   }
 
   factory Trip.fromJson(Map<String, dynamic> json) {
+    final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
+    String buildFullUrl(String? relativePath) {
+      if (relativePath == null || relativePath.isEmpty) {
+        return '';
+      }
+
+      final String sanitizedBaseUrl = imageBaseUrl.endsWith('/api')
+          ? imageBaseUrl.substring(0, imageBaseUrl.length - 4)
+          : imageBaseUrl;
+
+      if (relativePath.startsWith('/')) {
+        return '$sanitizedBaseUrl$relativePath';
+      }
+      return '$sanitizedBaseUrl/$relativePath';
+    }
+
+    List<String> buildFullUrlList(dynamic pathList) {
+      if (pathList is! List) return [];
+      return _parseToListString(pathList)
+          .map((path) => buildFullUrl(path))
+          .toList();
+    }
+
+    Map<String, List<String>> buildFullUrlMap(dynamic pathMap) {
+      if (pathMap is! Map) return {'initial': [], 'final': []};
+      return {
+        'initial': buildFullUrlList(pathMap['initial']),
+        'final': buildFullUrlList(pathMap['final']),
+      };
+    }
+
     Map<String, List<String>> parseDeliveryLetterPath(dynamic jsonValue) {
       if (jsonValue is Map<String, dynamic>) {
         return {
-          'initial_letters': jsonValue.containsKey('initial_letters') ? _parseToListString(jsonValue['initial_letters']) : [],
-          'final_letters': jsonValue.containsKey('final_letters') ? _parseToListString(jsonValue['final_letters']) : [],
+          'initial_letters': jsonValue.containsKey('initial_letters')
+              ? _parseToListString(jsonValue['initial_letters'])
+              : [],
+          'final_letters': jsonValue.containsKey('final_letters')
+              ? _parseToListString(jsonValue['final_letters'])
+              : [],
         };
       }
       return {'initial_letters': [], 'final_letters': []};
+    }
+
+    Map<String, dynamic> originData = {};
+    if (json['origin'] is Map) {
+      originData = json['origin'];
+    } else if (json['origin'] is String) {
+      originData['address'] = json['origin'];
+    }
+
+    Map<String, dynamic> destinationData = {};
+    if (json['destination'] is Map) {
+      destinationData = json['destination'];
+    } else if (json['destination'] is String) {
+      destinationData['address'] = json['destination'];
     }
 
     return Trip(
       id: _parseToInt(json['id']) ?? 0,
       userId: _parseToInt(json['user_id']),
       projectName: json['project_name'] ?? '',
-      origin: json['origin'] ?? '',
-      destination: json['destination'] ?? '',
-      licensePlate: json['license_plate'],
+      originAddress: originData['address'] ?? 'Alamat tidak tersedia',
+      originLink: originData['link'] ?? '',
+      destinationAddress: destinationData['address'] ?? 'Alamat tidak tersedia',
+      destinationLink: destinationData['link'] ?? '',
+      vehicleId: _parseToInt(json['vehicle_id']),
+      slotTime: json['slot_time'],
+      jenisBerat: json['jenis_berat'],
       startKm: _parseToInt(json['start_km']),
       endKm: _parseToInt(json['end_km']),
-      startKmPhotoPath: json['start_km_photo_path'],
-      muatPhotoPath: json['muat_photo_path'],
-      bongkarPhotoPath: _parseToListString(json['bongkar_photo_path']),
-      endKmPhotoPath: json['end_km_photo_path'],
-      deliveryLetterPath: parseDeliveryLetterPath(json['delivery_letter_path']),
-      deliveryOrderPath: json['delivery_order_path'],
-      timbanganKendaraanPhotoPath: json['timbangan_kendaraan_photo_path'],
-      segelPhotoPath: json['segel_photo_path'],
-      statusTrip: json['status_trip'] ?? 'tersedia',
+      statusTrip: json['status_trip'],
       jenisTrip: json['jenis_trip'],
       statusLokasi: json['status_lokasi'],
       statusMuatan: json['status_muatan'],
-      startKmPhotoStatus: PhotoVerificationStatus.fromJson(json, 'start_km_photo'),
-      muatPhotoStatus: PhotoVerificationStatus.fromJson(json, 'muat_photo'),
-      bongkarPhotoStatus: PhotoVerificationStatus.fromJson(json, 'bongkar_photo'),
-      endKmPhotoStatus: PhotoVerificationStatus.fromJson(json, 'end_km_photo'),
-      deliveryLetterInitialStatus: PhotoVerificationStatus.fromJson(json, 'delivery_letter_initial'),
-      deliveryLetterFinalStatus: PhotoVerificationStatus.fromJson(json, 'delivery_letter_final'),
-      deliveryOrderStatus: PhotoVerificationStatus.fromJson(json, 'delivery_order'),
-      timbanganKendaraanPhotoStatus: PhotoVerificationStatus.fromJson(json, 'timbangan_kendaraan_photo'),
-      segelPhotoStatus: PhotoVerificationStatus.fromJson(json, 'segel_photo'),
-      fullStartKmPhotoUrl: json['full_start_km_photo_url'],
-      fullMuatPhotoUrl: json['full_muat_photo_url'],
-      fullBongkarPhotoUrl: _parseToListString(json['full_bongkar_photo_url']),
-      fullEndKmPhotoUrl: json['full_end_km_photo_url'],
-      fullDeliveryLetterUrls: _parseToListString(json['full_delivery_letter_urls']),
-      fullDeliveryOrderUrl: json['full_delivery_order_url'],
-      fullTimbanganKendaraanPhotoUrl: json['full_timbangan_kendaraan_photo_url'],
-      fullSegelPhotoUrl: json['full_segel_photo_url'],
-      createdAt: json['created_at'] == null ? null : DateTime.parse(json['created_at']),
-      updatedAt: json['updated_at'] == null ? null : DateTime.parse(json['updated_at']),
+      createdAt: json['created_at'] == null
+          ? null
+          : DateTime.parse(json['created_at']),
+      updatedAt: json['updated_at'] == null
+          ? null
+          : DateTime.parse(json['updated_at']),
       user: json['user'] != null ? User.fromJson(json['user']) : null,
+      vehicle:
+          json['vehicle'] != null ? Vehicle.fromJson(json['vehicle']) : null,
+
+      // Paths
+      startKmPhotoPath: json['start_km_photo_path'],
+      kmMuatPhotoPath: json['km_muat_photo_path'],
+      kedatanganMuatPhotoPath: json['kedatangan_muat_photo_path'],
+      deliveryOrderPath: json['delivery_order_photo_path'],
+      muatPhotoPath: _parseToListString(json['muat_photo_path']),
+      deliveryLetterPath: parseDeliveryLetterPath(json['delivery_letter_path']),
+      timbanganKendaraanPhotoPath: json['timbangan_kendaraan_photo_path'],
+      segelPhotoPath: json['segel_photo_path'],
+      endKmPhotoPath: json['end_km_photo_path'],
+      kedatanganBongkarPhotoPath: json['kedatangan_bongkar_photo_path'],
+      bongkarPhotoPath: _parseToListString(json['bongkar_photo_path']),
+
+      // Statuses
+      startKmPhotoStatus:
+          PhotoVerificationStatus.fromJson(json, 'start_km_photo'),
+      kmMuatPhotoStatus:
+          PhotoVerificationStatus.fromJson(json, 'km_muat_photo'),
+      kedatanganMuatPhotoStatus:
+          PhotoVerificationStatus.fromJson(json, 'kedatangan_muat_photo'),
+      deliveryOrderStatus:
+          PhotoVerificationStatus.fromJson(json, 'delivery_order_photo'),
+      muatPhotoStatus: PhotoVerificationStatus.fromJson(json, 'muat_photo'),
+      deliveryLetterInitialStatus:
+          PhotoVerificationStatus.fromJson(json, 'delivery_letter_initial'),
+      timbanganKendaraanPhotoStatus:
+          PhotoVerificationStatus.fromJson(json, 'timbangan_kendaraan_photo'),
+      segelPhotoStatus: PhotoVerificationStatus.fromJson(json, 'segel_photo'),
+      endKmPhotoStatus: PhotoVerificationStatus.fromJson(json, 'end_km_photo'),
+      kedatanganBongkarPhotoStatus:
+          PhotoVerificationStatus.fromJson(json, 'kedatangan_bongkar_photo'),
+      bongkarPhotoStatus:
+          PhotoVerificationStatus.fromJson(json, 'bongkar_photo'),
+      deliveryLetterFinalStatus:
+          PhotoVerificationStatus.fromJson(json, 'delivery_letter_final'),
+
+      // Full URLs
+      fullStartKmPhotoUrl: buildFullUrl(json['full_start_km_photo_url']),
+      fullKmMuatPhotoUrl: buildFullUrl(json['full_km_muat_photo_url']),
+      fullKedatanganMuatPhotoUrl:
+          buildFullUrl(json['full_kedatangan_muat_photo_url']),
+      fullDeliveryOrderUrl:
+          buildFullUrl(json['full_delivery_order_photo_url']),
+      fullMuatPhotoUrls: buildFullUrlList(json['full_muat_photo_urls']),
+      fullDeliveryLetterUrls:
+          buildFullUrlMap(json['full_delivery_letter_urls']),
+      fullTimbanganKendaraanPhotoUrl:
+          buildFullUrl(json['full_timbangan_kendaraan_photo_url']),
+      fullSegelPhotoUrl: buildFullUrl(json['full_segel_photo_url']),
+      fullEndKmPhotoUrl: buildFullUrl(json['full_end_km_photo_url']),
+      fullKedatanganBongkarPhotoUrl:
+          buildFullUrl(json['full_kedatangan_bongkar_photo_url']),
+      fullBongkarPhotoUrls: buildFullUrlList(json['full_bongkar_photo_urls']),
     );
   }
 }

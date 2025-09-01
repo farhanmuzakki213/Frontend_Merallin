@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../providers/auth_provider.dart';
 import '../services/trip_service.dart';
+import '../providers/trip_provider.dart';
 
 class DriverHistoryScreen extends StatefulWidget {
   const DriverHistoryScreen({super.key});
@@ -15,13 +16,6 @@ class DriverHistoryScreen extends StatefulWidget {
 }
 
 class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
-  // --- STATE MANAGEMENT ---
-  late final TripService _tripService;
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  Map<DateTime, List<Trip>> _allCompletedTripsByDate = {};
-  
   late ScrollController _dateScrollController;
   final double _dateCardWidth = 72.0;
 
@@ -31,17 +25,14 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _tripService = TripService();
     _dateScrollController = ScrollController();
 
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _currentDisplayMonth = DateTime(now.year, now.month, 1);
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    _fetchAndProcessHistory(authProvider.token);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reloadData();
       _scrollToSelectedDate(animate: false);
     });
   }
@@ -52,27 +43,15 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     super.dispose();
   }
 
-  Future<void> _fetchAndProcessHistory(String? token) async {
-    if (!mounted) return;
-    if (token == null) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Sesi Anda telah berakhir. Silakan login kembali.';
-      });
-      return;
+  Future<void> _reloadData() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.token != null) {
+      await context.read<TripProvider>().fetchTrips(authProvider.token!);
     }
+  }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final allTrips = await _tripService.getTrips(token);
-      if (!mounted) return;
-
-      final completedTrips = allTrips.where((trip) => trip.statusTrip == 'selesai').toList();
-
+  Map<DateTime, List<Trip>> _getGroupedCompletedTrips(TripProvider provider) {
+      final completedTrips = provider.allTrips.where((trip) => trip.statusTrip == 'selesai').toList();
       final Map<DateTime, List<Trip>> tempGrouped = {};
       for (var trip in completedTrips) {
         if (trip.updatedAt == null) continue;
@@ -82,27 +61,11 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         }
         tempGrouped[dateKey]!.add(trip);
       }
-      
-      setState(() {
-        _allCompletedTripsByDate = tempGrouped;
-      });
-
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Gagal memuat riwayat: ${e.toString()}';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+      return tempGrouped;
   }
 
   void _scrollToSelectedDate({bool animate = true}) {
-    if (!_dateScrollController.hasClients) return;
+    if (!_dateScrollController.hasClients || !mounted) return;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final selectedDayIndex = _selectedDate.day - 1;
@@ -136,7 +99,42 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         children: [
           _buildDateSelector(),
           Expanded(
-            child: _buildHistoryList(),
+            // <-- PERBAIKAN: Gunakan Consumer untuk listen ke perubahan state
+            child: Consumer<TripProvider>(
+              builder: (context, tripProvider, child) {
+                if (tripProvider.isLoading && tripProvider.allTrips.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (tripProvider.errorMessage != null) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Text(tripProvider.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                    ),
+                  );
+                }
+                
+                final groupedTrips = _getGroupedCompletedTrips(tripProvider);
+                final tripsOnSelectedDate = groupedTrips[_selectedDate] ?? [];
+
+                if (tripsOnSelectedDate.isEmpty) {
+                  return const Center(child: Text("Tidak ada riwayat pada tanggal ini.", style: TextStyle(fontSize: 16, color: Colors.grey)));
+                }
+
+                return RefreshIndicator(
+                  onRefresh: _reloadData,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    itemCount: tripsOnSelectedDate.length,
+                    itemBuilder: (context, index) {
+                      final trip = tripsOnSelectedDate[index];
+                      return _ExpandableTripCard(trip: trip);
+                    },
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -222,36 +220,6 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       ),
     );
   }
-
-  Widget _buildHistoryList() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-        ),
-      );
-    }
-
-    final tripsOnSelectedDate = _allCompletedTripsByDate[_selectedDate] ?? [];
-
-    if (tripsOnSelectedDate.isEmpty) {
-      return const Center(child: Text("Tidak ada riwayat pada tanggal ini.", style: TextStyle(fontSize: 16, color: Colors.grey)));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      itemCount: tripsOnSelectedDate.length,
-      itemBuilder: (context, index) {
-        final trip = tripsOnSelectedDate[index];
-        return _ExpandableTripCard(trip: trip);
-      },
-    );
-  }
 }
 
 class _DateCard extends StatelessWidget {
@@ -326,24 +294,8 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
   bool _isExpanded = false;
 
   String _capitalizeWords(String text) {
-    if (text.trim().isEmpty) {
-      return text;
-    }
-    return text
-        .split(' ')
-        .map((word) => word.isNotEmpty
-            ? '${word[0].toUpperCase()}${word.substring(1)}'
-            : '')
-        .join(' ');
-  }
-
-  String _buildFullImageUrl(String? relativePath) {
-    if (relativePath == null || relativePath.isEmpty) return '';
-    final String baseUrl = dotenv.env['API_BASE_URL'] ?? '';
-    final String sanitizedBaseUrl = baseUrl.endsWith('/api')
-        ? baseUrl.substring(0, baseUrl.length - 4)
-        : baseUrl;
-    return '$sanitizedBaseUrl/storage/$relativePath';
+    if (text.trim().isEmpty) return text;
+    return text.split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1)}' : '').join(' ');
   }
 
   void _showNetworkImagePreview(String imageUrl) {
@@ -391,7 +343,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                             widget.trip.user?.name ?? 'Tidak diketahui'),
                         const SizedBox(height: 8),
                         _buildInfoRow(Icons.directions_car_outlined, 'NOPOL',
-                            widget.trip.licensePlate ?? 'N/A'),
+                            widget.trip.vehicle?.licensePlate ?? 'N/A'),
                       ],
                     ),
                   ),
@@ -422,51 +374,6 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
   }
   
   Widget _buildExpandedDetails() {
-    final List<String> initialImagePaths = [];
-    final List<String> finalImagePaths = [];
-
-    // --- Initial Photos ---
-    if (widget.trip.startKmPhotoPath != null) {
-      initialImagePaths.add(widget.trip.startKmPhotoPath!);
-    }
-    if (widget.trip.muatPhotoPath != null) {
-      initialImagePaths.add(widget.trip.muatPhotoPath!);
-    }
-    // Add initial delivery letters from the map
-    final initialLetters = widget.trip.deliveryLetterPath['initial_letters'];
-    if (initialLetters != null) {
-        initialImagePaths.addAll(initialLetters);
-    }
-    
-    // Tambahkan foto-foto dokumen awal lainnya jika ada
-    if (widget.trip.timbanganKendaraanPhotoPath != null) {
-      initialImagePaths.add(widget.trip.timbanganKendaraanPhotoPath!);
-    }
-    if (widget.trip.segelPhotoPath != null) {
-      initialImagePaths.add(widget.trip.segelPhotoPath!);
-    }
-    if (widget.trip.deliveryOrderPath != null) {
-      initialImagePaths.add(widget.trip.deliveryOrderPath!);
-    }
-
-    // --- Final Photos ---
-    if (widget.trip.endKmPhotoPath != null) {
-      finalImagePaths.add(widget.trip.endKmPhotoPath!);
-    }
-    // Add bongkar photos (which is a list)
-    finalImagePaths.addAll(widget.trip.bongkarPhotoPath);
-    
-    // Add final delivery letters from the map
-    final finalLetters = widget.trip.deliveryLetterPath['final_letters'];
-    if (finalLetters != null) {
-        finalImagePaths.addAll(finalLetters);
-    }
-
-    final initialImageUrls =
-        initialImagePaths.map((path) => _buildFullImageUrl(path)).toList();
-    final finalImageUrls =
-        finalImagePaths.map((path) => _buildFullImageUrl(path)).toList();
-
     return Container(
       color: Colors.grey[50],
       padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 20.0),
@@ -475,19 +382,20 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
           const Divider(height: 20, thickness: 1.5),
           _buildSectionTitle("Detail Trip"),
           _buildInfoRow(
-              Icons.local_shipping_outlined, 'Tipe Trip', _capitalizeWords(widget.trip.jenisTrip ?? 'Tidak Diketahui')), // DIPERBAIKI
+              Icons.local_shipping_outlined, 'Tipe Trip', _capitalizeWords(widget.trip.jenisTrip ?? 'Tidak Diketahui')),
+          const SizedBox(height: 10),
+          // <-- PERBAIKAN: Gunakan originAddress dan destinationAddress
+          _buildInfoRow(
+              Icons.location_on_outlined, 'Origin', widget.trip.originAddress),
           const SizedBox(height: 10),
           _buildInfoRow(
-              Icons.location_on_outlined, 'Origin', widget.trip.origin),
-          const SizedBox(height: 10),
-          _buildInfoRow(
-              Icons.flag_outlined, 'Destination', widget.trip.destination),
+              Icons.flag_outlined, 'Destination', widget.trip.destinationAddress),
           const SizedBox(height: 10),
           _buildInfoRow(Icons.route_outlined, 'KM Awal',
               widget.trip.startKm?.toString() ?? 'N/A'),
           const SizedBox(height: 10),
           _buildInfoRow(
-              Icons.route, 'KM Tiba', widget.trip.endKm?.toString() ?? 'N/A'),
+              Icons.route, 'KM Akhir', widget.trip.endKm?.toString() ?? 'N/A'),
           const SizedBox(height: 10),
           _buildInfoRow(
               Icons.calendar_today_outlined,
@@ -505,15 +413,17 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                       .format(widget.trip.updatedAt!)
                   : 'N/A'),
           const SizedBox(height: 24),
-          _buildPhotoSection("Bukti Foto Awal", initialImageUrls),
-          _buildPhotoSection("Bukti Foto Akhir", finalImageUrls),
+          // <-- PERBAIKAN: Tampilkan semua foto dalam satu galeri
+          _buildPhotoSection("Semua Bukti Foto", widget.trip.allDocuments),
         ],
       ),
     );
   }
 
-  Widget _buildPhotoSection(String title, List<String> imageUrls) {
-    if (imageUrls.isEmpty) return const SizedBox.shrink();
+
+  Widget _buildPhotoSection(String title, List<DocumentInfo> documents) {
+    final allImageUrls = documents.expand((doc) => doc.urls).toList();
+    if (allImageUrls.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,9 +433,9 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
           height: 120,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: imageUrls.length,
+            itemCount: allImageUrls.length,
             itemBuilder: (context, index) {
-              final imageUrl = imageUrls[index];
+              final imageUrl = allImageUrls[index];
               return GestureDetector(
                 onTap: () => _showNetworkImagePreview(imageUrl),
                 child: Card(
@@ -534,7 +444,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                       borderRadius: BorderRadius.circular(10)),
                   margin: const EdgeInsets.only(right: 10.0),
                   child: Image.network(
-                    imageUrl,
+                    imageUrl, // Langsung gunakan URL dari model
                     fit: BoxFit.cover,
                     width: 120,
                     loadingBuilder: (context, child, progress) {
@@ -549,7 +459,8 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                       return Container(
                         width: 120,
                         color: Colors.grey[200],
-                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                        child:
+                            const Icon(Icons.broken_image, color: Colors.grey),
                       );
                     },
                   ),
