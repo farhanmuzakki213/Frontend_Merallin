@@ -206,7 +206,7 @@ class TripService {
       }
     }
 
-    final response = await _multipartPostRequest(request);
+    final response = await multipartPostRequest(request);
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 

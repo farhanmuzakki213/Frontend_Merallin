@@ -1,31 +1,41 @@
 // lib/models/bbm_model.dart
 import 'vehicle_model.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class BbmPhotoVerificationStatus {
   final String? status;
   final String? rejectionReason;
 
-  BbmPhotoVerificationStatus({ this.status, this.rejectionReason });
+  BbmPhotoVerificationStatus({this.status, this.rejectionReason});
 
-  factory BbmPhotoVerificationStatus.fromJson(Map<String, dynamic> json, String fieldPrefix) {
+  factory BbmPhotoVerificationStatus.fromJson(
+      Map<String, dynamic> json, String fieldPrefix) {
     return BbmPhotoVerificationStatus(
       status: json['${fieldPrefix}_status'],
       rejectionReason: json['${fieldPrefix}_rejection_reason'],
     );
   }
-}
 
-extension BbmPhotoStatusCheck on BbmPhotoVerificationStatus {
-  bool get isRejected => (status?.toLowerCase() == 'rejected' ||
-      (rejectionReason != null && rejectionReason!.isNotEmpty));
-      
   bool get isApproved => status?.toLowerCase() == 'approved';
-
-  bool get isPending => status?.toLowerCase() == 'pending' || status == null || status!.isEmpty;
+  bool get isRejected => status?.toLowerCase() == 'rejected';
 }
 
-enum BbmStatus { proses, verifikasiGambar, selesai, ditolak }
-enum BbmProgressStatus { sedangAntri, sedangIsiBbm, selesaiIsiBbm, tidakAda }
+class BbmDocumentInfo {
+  final String type;
+  final String name;
+  final BbmPhotoVerificationStatus verificationStatus;
+  final List<String> urls;
+  BbmDocumentInfo(this.type, this.name, this.verificationStatus, this.urls);
+}
+
+class BbmDocumentRevisionInfo {
+  final BbmDocumentInfo document;
+  final int pageIndex;
+  BbmDocumentRevisionInfo(this.document, this.pageIndex);
+}
+
+
+enum BbmStatus { proses, verifikasiGambar, selesai, revisiGambar }
 
 class BbmKendaraan {
   final int id;
@@ -33,7 +43,7 @@ class BbmKendaraan {
   final int vehicleId;
   final String statusBbmKendaraan;
   final String? statusPengisian;
-  
+
   final BbmPhotoVerificationStatus startKmPhotoStatus;
   final BbmPhotoVerificationStatus endKmPhotoStatus;
   final BbmPhotoVerificationStatus notaPengisianPhotoStatus;
@@ -68,35 +78,95 @@ class BbmKendaraan {
     required this.createdAt,
   });
 
-  // --- PERBAIKAN LOGIKA STATUS DI SINI ---
+  bool get isFullyCompleted {
+    return startKmPhotoPath != null &&
+        startKmPhotoStatus.isApproved &&
+        endKmPhotoPath != null &&
+        endKmPhotoStatus.isApproved &&
+        notaPengisianPhotoPath != null &&
+        notaPengisianPhotoStatus.isApproved;
+  }
+
   BbmStatus get derivedStatus {
-    // Prioritas 1: Jika ada foto yang ditolak, statusnya adalah 'ditolak'.
-    if (startKmPhotoStatus.isRejected || endKmPhotoStatus.isRejected || notaPengisianPhotoStatus.isRejected) {
-      return BbmStatus.ditolak;
+    if (allDocuments.any((doc) => doc.verificationStatus.isRejected)) {
+      return BbmStatus.revisiGambar;
     }
-    // Prioritas 2: Jika status dari backend adalah 'selesai', maka selesai.
     if (statusBbmKendaraan == 'selesai') {
       return BbmStatus.selesai;
     }
-    bool hasPendingPhotos = startKmPhotoStatus.isPending || endKmPhotoStatus.isPending || notaPengisianPhotoStatus.isPending;
-    // Prioritas 3: Jika status dari backend adalah 'verifikasi gambar', maka menunggu verifikasi.
-    if (statusBbmKendaraan == 'verifikasi gambar' && !hasPendingPhotos) {
+    if (statusBbmKendaraan == 'verifikasi gambar') {
       return BbmStatus.verifikasiGambar;
     }
-    // Default: Jika tidak ada kondisi di atas, berarti sedang dalam proses.
     return BbmStatus.proses;
   }
+  
+  List<BbmDocumentInfo> get allDocuments {
+    return [
+      if (startKmPhotoPath != null)
+        BbmDocumentInfo(
+          'start_km_photo', 
+          'Foto KM Awal', 
+          startKmPhotoStatus,
+          [fullStartKmPhotoUrl].whereType<String>().toList()
+        ),
+      if (endKmPhotoPath != null)
+        BbmDocumentInfo(
+          'end_km_photo', 
+          'Foto KM Akhir', 
+          endKmPhotoStatus,
+          [fullEndKmPhotoUrl].whereType<String>().toList()
+        ),
+      if (notaPengisianPhotoPath != null)
+        BbmDocumentInfo(
+          'nota_pengisian_photo', 
+          'Foto Nota Pengisian',
+          notaPengisianPhotoStatus,
+          [fullNotaPengisianPhotoUrl].whereType<String>().toList()
+        ),
+    ];
+  }
 
-  BbmProgressStatus get progressStatus {
-    switch (statusPengisian) {
-      case 'sedang antri': return BbmProgressStatus.sedangAntri;
-      case 'sedang isi bbm': return BbmProgressStatus.sedangIsiBbm;
-      case 'selesai isi bbm': return BbmProgressStatus.selesaiIsiBbm;
-      default: return BbmProgressStatus.tidakAda;
+  BbmDocumentRevisionInfo? get firstRejectedDocumentInfo {
+    for (final doc in allDocuments) {
+      if (doc.verificationStatus.isRejected) {
+        int pageIndex;
+        switch (doc.type) {
+          case 'start_km_photo':
+            pageIndex = 0;
+            break;
+          case 'end_km_photo':
+          case 'nota_pengisian_photo':
+            pageIndex = 2;
+            break;
+          default:
+            pageIndex = 0;
+        }
+        return BbmDocumentRevisionInfo(doc, pageIndex);
+      }
     }
+    return null;
+  }
+
+  String? get allRejectionReasons {
+    final reasons = allDocuments
+      .where((doc) => doc.verificationStatus.isRejected)
+      .map((doc) => '• ${doc.name}: ${doc.verificationStatus.rejectionReason ?? "Ditolak."}')
+      .toList();
+    return reasons.isEmpty ? null : reasons.join('\n');
   }
 
   factory BbmKendaraan.fromJson(Map<String, dynamic> json) {
+    final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
+    
+    String buildFullUrl(String? relativePath) {
+      if (relativePath == null || relativePath.isEmpty) return '';
+      final String sanitizedBaseUrl = imageBaseUrl.endsWith('/api')
+          ? imageBaseUrl.substring(0, imageBaseUrl.length - 4)
+          : imageBaseUrl;
+      if (relativePath.startsWith('/')) return '$sanitizedBaseUrl$relativePath';
+      return '$sanitizedBaseUrl/$relativePath';
+    }
+
     return BbmKendaraan(
       id: json['id'],
       userId: json['user_id'],
@@ -109,9 +179,9 @@ class BbmKendaraan {
       startKmPhotoPath: json['start_km_photo_path'],
       endKmPhotoPath: json['end_km_photo_path'],
       notaPengisianPhotoPath: json['nota_pengisian_photo_path'],
-      fullStartKmPhotoUrl: json['full_start_km_photo_url'],
-      fullEndKmPhotoUrl: json['full_end_km_photo_url'],
-      fullNotaPengisianPhotoUrl: json['full_nota_pengisian_photo_url'],
+      fullStartKmPhotoUrl: buildFullUrl(json['full_start_km_photo_url']),
+      fullEndKmPhotoUrl: buildFullUrl(json['full_end_km_photo_url']),
+      fullNotaPengisianPhotoUrl: buildFullUrl(json['full_nota_pengisian_photo_url']),
       vehicle: json['vehicle'] != null ? Vehicle.fromJson(json['vehicle']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );

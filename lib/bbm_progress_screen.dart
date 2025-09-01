@@ -1,17 +1,30 @@
+// lib/screens/bbm_progress_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/bbm_list_screen.dart';
 import 'package:provider/provider.dart';
 import 'bbm_waiting_verification.dart';
 import 'models/bbm_model.dart';
 import 'providers/auth_provider.dart';
 import 'providers/bbm_provider.dart';
+import 'services/bbm_service.dart'; // Import ApiException
 import 'utils/image_helper.dart';
+
+// Helper function
+bool _isStringNullOrEmpty(String? str) {
+  return str == null || str.isEmpty;
+}
 
 class BbmProgressScreen extends StatefulWidget {
   final int bbmId;
   final bool resumeVerification;
 
-  const BbmProgressScreen({super.key, required this.bbmId, this.resumeVerification = false});
+  const BbmProgressScreen({
+    super.key,
+    required this.bbmId,
+    this.resumeVerification = false,
+  });
 
   @override
   State<BbmProgressScreen> createState() => _BbmProgressScreenState();
@@ -31,24 +44,25 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
   final List<String> _pageTitles = [
     'FOTO KM AWAL',
     'PROSES PENGISIAN',
-    'BUKTI AKHIR',
+    'BUKTI AKHIR & SELESAI',
   ];
 
   @override
   void initState() {
     super.initState();
-    _fetchDetailsAndProceed();
-  }
-
-  @override
-  void dispose() {
-    _pageController?.dispose();
-    super.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchDetailsAndProceed();
+    });
   }
 
   Future<void> _fetchDetailsAndProceed({bool forceShowForm = false}) async {
     if (!mounted) return;
-    if (!forceShowForm) setState(() => _isLoading = true);
+    if (!forceShowForm) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       final provider = context.read<BbmProvider>();
@@ -64,6 +78,7 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
       }
 
       int determinedPage = _determineInitialPage(bbm);
+
       if (_pageController == null) {
         _pageController = PageController(initialPage: determinedPage);
       } else if (_pageController!.hasClients &&
@@ -76,253 +91,204 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
         _currentPage = determinedPage;
       });
 
-      bool shouldGoToVerification = (widget.resumeVerification || bbm.derivedStatus == BbmStatus.verifikasiGambar) &&
-                                     _hasSubmittedDocsForPage(bbm, determinedPage);
+      bool shouldGoToVerification = (widget.resumeVerification ||
+              bbm.derivedStatus == BbmStatus.verifikasiGambar) &&
+          !bbm.isFullyCompleted &&
+          _hasSubmittedDocsForPage(bbm, determinedPage);
 
       if (shouldGoToVerification && !forceShowForm) {
-        await _navigateToVerification(bbm);
+        await _handleVerificationResult(bbm);
       } else {
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      if (mounted)
+      debugPrint("Error di _fetchTripDetailsAndProceed: ${e.toString()}");
+      if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = e.toString();
+          _error = "Terjadi kesalahan: ${e.toString()}";
         });
+      }
     }
   }
 
   bool _hasSubmittedDocsForPage(BbmKendaraan bbm, int page) {
     switch (page) {
-      case 0: // FOTO KM AWAL
-        return bbm.startKmPhotoPath != null && bbm.startKmPhotoPath!.isNotEmpty;
-      case 2: // BUKTI AKHIR (KM Akhir dan Nota)
-        return (bbm.endKmPhotoPath != null && bbm.endKmPhotoPath!.isNotEmpty) &&
-            (bbm.notaPengisianPhotoPath != null &&
-                bbm.notaPengisianPhotoPath!.isNotEmpty);
+      case 0:
+        return !_isStringNullOrEmpty(bbm.startKmPhotoPath);
+      case 2:
+        return !_isStringNullOrEmpty(bbm.endKmPhotoPath) ||
+            !_isStringNullOrEmpty(bbm.notaPengisianPhotoPath);
       default:
         return false;
     }
   }
 
-  bool _hasPendingRevisions(BbmKendaraan bbm) {
-    // Check if any rejected photo has been re-uploaded (path exists) and is now pending approval
-    bool startKmPending = bbm.startKmPhotoStatus.isRejected &&
-        (bbm.startKmPhotoPath != null && bbm.startKmPhotoPath!.isNotEmpty) &&
-        !bbm.startKmPhotoStatus
-            .isApproved; // Assuming not approved means pending after re-upload
+  Future<void> _handleVerificationResult(BbmKendaraan bbm,
+      {bool isRevisionResubmission = false}) async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.setPendingBbmForVerification(bbm.id);
 
-    bool endKmPending = bbm.endKmPhotoStatus.isRejected &&
-        (bbm.endKmPhotoPath != null && bbm.endKmPhotoPath!.isNotEmpty) &&
-        !bbm.endKmPhotoStatus.isApproved;
-
-    bool notaPending = bbm.notaPengisianPhotoStatus.isRejected &&
-        (bbm.notaPengisianPhotoPath != null &&
-            bbm.notaPengisianPhotoPath!.isNotEmpty) &&
-        !bbm.notaPengisianPhotoStatus.isApproved;
-
-    return startKmPending || endKmPending || notaPending;
-  }
-
-  bool _hasAnyPendingDocs(BbmKendaraan bbm) {
-    bool startKmPendingAndSubmitted = bbm.startKmPhotoStatus.isPending &&
-        (bbm.startKmPhotoPath != null && bbm.startKmPhotoPath!.isNotEmpty);
-
-    bool endKmPendingAndSubmitted = bbm.endKmPhotoStatus.isPending &&
-        (bbm.endKmPhotoPath != null && bbm.endKmPhotoPath!.isNotEmpty);
-
-    bool notaPendingAndSubmitted = bbm.notaPengisianPhotoStatus.isPending &&
-        (bbm.notaPengisianPhotoPath != null &&
-            bbm.notaPengisianPhotoPath!.isNotEmpty);
-
-    return startKmPendingAndSubmitted ||
-        endKmPendingAndSubmitted ||
-        notaPendingAndSubmitted;
-  }
-
-  int _determineInitialPage(BbmKendaraan bbm) {
-    // Prioritas 1: Tangani revisi terlebih dahulu
-    if (bbm.startKmPhotoStatus.isRejected) {
-      return 0;
-    }
-    if (bbm.endKmPhotoStatus.isRejected || bbm.notaPengisianPhotoStatus.isRejected) {
-      return 2;
-    }
-    
-    // Prioritas 2: Ikuti alur normal secara sekuensial (seperti checklist)
-    // Jika KM Awal belum disetujui, HARUS di halaman 0.
-    if (!bbm.startKmPhotoStatus.isApproved) {
-      return 0;
-    }
-    
-    // Jika KM Awal sudah disetujui dan statusnya 'sedang isi bbm', HARUS di halaman 1.
-    if (bbm.progressStatus == BbmProgressStatus.sedangIsiBbm) {
-      return 1;
-    }
-    
-    // Jika semua kondisi di atas sudah lewat (KM Awal approved, tidak sedang isi bbm),
-    // maka HARUS berada di halaman terakhir untuk mengunggah bukti akhir.
-    return 2;
-  }
-
-  Future<void> _navigateToVerification(BbmKendaraan bbm) async {
-    final authProvider = context.read<AuthProvider>(); // Ambil AuthProvider
-    await authProvider
-        .setPendingBbmForVerification(bbm.id); // <-- SIMPAN PROGRES DI SINI
+    setState(() {
+      _isLoading = false;
+    });
 
     final result = await Navigator.push<BbmVerificationResult>(
       context,
       MaterialPageRoute(
-          builder: (_) => BbmWaitingVerificationScreen(
-                bbmId: bbm.id,
-                initialPage: _currentPage,
-              )),
+        builder: (_) => BbmWaitingVerificationScreen(
+          bbmId: bbm.id,
+          initialPage: _currentPage,
+          initialBbmState: bbm,
+          isRevisionResubmission: isRevisionResubmission,
+        ),
+      ),
     );
 
-    await authProvider
-        .clearPendingBbmForVerification(); // <-- HAPUS PROGRES SETELAH SELESAI
+    await authProvider.clearPendingBbmForVerification();
 
-    if (!mounted || result == null) {
-      _fetchDetailsAndProceed(forceShowForm: true);
-      return;
-    }
-
-    if (!result.isApproved) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Satu atau lebih dokumen ditolak. Silakan unggah ulang.'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 5),
-      ));
-      _fetchDetailsAndProceed(forceShowForm: true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Verifikasi berhasil!'),
-        backgroundColor: Colors.green,
-      ));
-
-      final updatedBbm = result.updatedBbm;
-      if (updatedBbm == null) {
-        _fetchDetailsAndProceed();
+    if (mounted) {
+      if (result == null) {
+        _fetchDetailsAndProceed(forceShowForm: true);
         return;
       }
 
-      if (updatedBbm.derivedStatus == BbmStatus.selesai) {
+      if (result.status == BbmFlowStatus.rejected) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Revisi Diperlukan: ${result.rejectionReason ?? "Dokumen ditolak."}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ));
+        _fetchDetailsAndProceed(forceShowForm: true);
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Proses pengisian BBM telah selesai!'),
+          content: Text('Verifikasi berhasil!'),
+          backgroundColor: Colors.green,
+        ));
+        if (result.updatedBbm.isFullyCompleted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Tugas telah selesai sepenuhnya!'),
             backgroundColor: Colors.blue));
+        
         Navigator.of(context).pop(true);
         return;
       }
-
-      setState(() {
-        _currentBbm = updatedBbm;
-        _currentPage = _determineInitialPage(updatedBbm);
-        if (_pageController!.hasClients) {
-          _pageController?.animateToPage(
-            _currentPage,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOut,
-          );
-        }
-        _isLoading = false;
-      });
+        setState(() {
+          _currentBbm = result.updatedBbm;
+          _currentPage = _determineInitialPage(result.updatedBbm);
+          if (_pageController!.hasClients) {
+            _pageController?.animateToPage(_currentPage,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOut);
+          }
+        });
+      }
     }
+  }
+
+  int _determineInitialPage(BbmKendaraan bbm) {
+    if (bbm.derivedStatus == BbmStatus.revisiGambar) {
+      return bbm.firstRejectedDocumentInfo?.pageIndex ?? 0;
+    }
+    if (_isStringNullOrEmpty(bbm.startKmPhotoPath) ||
+        !bbm.startKmPhotoStatus.isApproved) {
+      return 0;
+    }
+    if (bbm.statusPengisian == 'sedang isi bbm') {
+      return 1;
+    }
+    if (_isStringNullOrEmpty(bbm.endKmPhotoPath) ||
+        !bbm.endKmPhotoStatus.isApproved ||
+        _isStringNullOrEmpty(bbm.notaPengisianPhotoPath) ||
+        !bbm.notaPengisianPhotoStatus.isApproved) {
+      return 2;
+    }
+    // Jika semua sudah selesai
+    return _currentPage;
+  }
+
+  @override
+  void dispose() {
+    _pageController?.dispose();
+    super.dispose();
   }
 
   Future<void> _handleNextPage() async {
     if (_isSendingData || _currentBbm == null) return;
     setState(() => _isSendingData = true);
-    final provider = context.read<BbmProvider>();
-    final token = context.read<AuthProvider>().token!;
 
     try {
-      BbmKendaraan? newBbmState;
-      bool needsVerification = false;
+      BbmKendaraan? submittedBbm;
+      final bool wasRevision =
+          _currentBbm!.derivedStatus == BbmStatus.revisiGambar;
 
       switch (_currentPage) {
         case 0:
-          final photo = _kmStartKey.currentState?.getImage();
-          if (photo == null && !_currentBbm!.startKmPhotoStatus.isApproved) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Foto KM Awal wajib diisi.'),
-              backgroundColor: Colors.red,
-            ));
-            setState(() => _isSendingData = false);
-            return;
-          }
-          if (photo != null) {
-            newBbmState =
-                await provider.uploadStartKm(token, widget.bbmId, photo);
-            needsVerification = true;
-          } else {
-            newBbmState = _currentBbm;
-          }
+          submittedBbm = await _kmStartKey.currentState?.validateAndSubmit();
           break;
         case 1:
-          newBbmState = await provider.finishFilling(token, widget.bbmId);
+          submittedBbm = await _callSimpleAPI(
+              () => context.read<BbmProvider>().finishFilling(
+                    context.read<AuthProvider>().token!,
+                    _currentBbm!.id,
+                  ));
           break;
         case 2:
-          final photos = _kmEndKey.currentState?.getImages();
-          final kmPhotoFile = photos?['km'];
-          final notaPhotoFile = photos?['nota'];
-
-          bool isKmRejected = _currentBbm!.endKmPhotoStatus.isRejected;
-          bool isNotaRejected =
-              _currentBbm!.notaPengisianPhotoStatus.isRejected;
-          bool isInitialUpload = !isKmRejected && !isNotaRejected;
-
-          if (isKmRejected && kmPhotoFile == null) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Foto KM Akhir yang ditolak wajib diunggah ulang.'),
-              backgroundColor: Colors.red,
-            ));
-            setState(() => _isSendingData = false);
-            return;
-          }
-          if (isNotaRejected && notaPhotoFile == null) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Foto Nota yang ditolak wajib diunggah ulang.'),
-              backgroundColor: Colors.red,
-            ));
-            setState(() => _isSendingData = false);
-            return;
-          }
-          if (isInitialUpload &&
-              (kmPhotoFile == null || notaPhotoFile == null)) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Foto KM Akhir dan Foto Nota wajib diisi.'),
-              backgroundColor: Colors.red,
-            ));
-            setState(() => _isSendingData = false);
-            return;
-          }
-
-          newBbmState = await provider.uploadEndKmAndNota(
-              token, widget.bbmId, kmPhotoFile, notaPhotoFile);
-          needsVerification = true;
+          submittedBbm = await _kmEndKey.currentState?.validateAndSubmit();
           break;
       }
 
-      if (mounted && newBbmState != null) {
-        setState(() => _currentBbm = newBbmState);
-        if (needsVerification) {
-          await _navigateToVerification(newBbmState);
-        } else {
-          int nextPage = _determineInitialPage(newBbmState);
+      if (!mounted || submittedBbm == null) {
+        setState(() => _isSendingData = false);
+        return;
+      }
+
+      setState(() => _currentBbm = submittedBbm);
+
+      bool needsVerification = [0, 2].contains(_currentPage);
+
+      if (needsVerification) {
+        await _handleVerificationResult(submittedBbm,
+            isRevisionResubmission: wasRevision);
+      } else {
+        int nextPage = _currentPage + 1;
+        if (nextPage < _pageTitles.length) {
           _pageController?.animateToPage(nextPage,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeIn);
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOut);
         }
       }
-    } catch (e) {
-      if (mounted)
+    } on ApiException catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Gagal: ${e.toString()}'),
           backgroundColor: Colors.red,
         ));
+      }
     } finally {
       if (mounted) setState(() => _isSendingData = false);
+    }
+  }
+
+  Future<BbmKendaraan?> _callSimpleAPI(
+      Future<BbmKendaraan> Function() apiCall) async {
+    try {
+      final updatedBbm = await apiCall();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Status berhasil diperbarui!'),
+          backgroundColor: Colors.green,
+        ));
+      }
+      return updatedBbm;
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+      return null;
     }
   }
 
@@ -335,8 +301,9 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
             const Text('Progres Anda sudah tersimpan. Yakin ingin keluar?'),
         actions: <Widget>[
           TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Batal')),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Batal'),
+          ),
           TextButton(
             child: const Text('Keluar'),
             onPressed: () {
@@ -351,12 +318,6 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isFinished = _currentBbm?.derivedStatus == BbmStatus.selesai;
-    bool isRevision = _currentBbm != null &&
-        (_currentBbm!.startKmPhotoStatus.isRejected ||
-            _currentBbm!.endKmPhotoStatus.isRejected ||
-            _currentBbm!.notaPengisianPhotoStatus.isRejected);
-
     return WillPopScope(
       onWillPop: () async {
         _showExitConfirmationDialog();
@@ -376,46 +337,16 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
             ),
             SafeArea(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.teal),
+                    ))
                   : _error != null
-                      ? Center(child: Text(_error!))
-                      : Column(
-                          children: [
-                            _buildCustomAppBar(isRevision: isRevision),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 32.0, vertical: 16.0),
-                              child: _buildProgressIndicator(),
-                            ),
-                            Expanded(
-                              child: PageView(
-                                controller: _pageController,
-                                physics: const NeverScrollableScrollPhysics(),
-                                onPageChanged: (page) =>
-                                    setState(() => _currentPage = page),
-                                children: [
-                                  _PageCardWrapper(
-                                      child: _PageKmStartState(
-                                          key: _kmStartKey, bbm: _currentBbm!)),
-                                  const _PageCardWrapper(
-                                      child: _PageInfo(
-                                          title: 'Selesai Mengisi',
-                                          subtitle:
-                                              'Geser tombol di bawah jika Anda sudah selesai mengisi BBM.')),
-                                  _PageCardWrapper(
-                                      child: _PageKmEnd(
-                                          key: _kmEndKey, bbm: _currentBbm!)),
-                                ],
-                              ),
-                            ),
-                            if (!isFinished)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 20.0),
-                                child:
-                                    _buildBottomButton(isRevision: isRevision),
-                              ),
-                          ],
-                        ),
+                      ? Center(
+                          child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text(_error!)))
+                      : _buildPageView(),
             ),
             if (_isSendingData)
               Container(
@@ -425,6 +356,38 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPageView() {
+    if (_currentBbm == null) {
+      return const Center(child: Text("Data tidak tersedia."));
+    }
+    final isRevision = _currentBbm!.derivedStatus == BbmStatus.revisiGambar;
+
+    return Column(
+      children: [
+        _buildCustomAppBar(isRevision: isRevision),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+          child: _buildProgressIndicator(),
+        ),
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            onPageChanged: (page) => setState(() => _currentPage = page),
+            itemBuilder: (context, index) =>
+                _PageCardWrapper(child: _getPageContent(index)),
+            itemCount: _pageTitles.length,
+          ),
+        ),
+        if (_currentBbm?.derivedStatus != BbmStatus.selesai)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20.0),
+            child: _buildBottomButton(isRevision: isRevision),
+          ),
+      ],
     );
   }
 
@@ -438,11 +401,14 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
             icon: const Icon(Icons.close, color: Colors.black54),
             onPressed: _isSendingData ? null : _showExitConfirmationDialog,
           ),
-          Text(isRevision ? 'KIRIM ULANG REVISI' : _pageTitles[_currentPage],
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
+          Text(
+            isRevision ? 'KIRIM ULANG REVISI' : _pageTitles[_currentPage],
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
           const SizedBox(width: 48),
         ],
       ),
@@ -450,47 +416,74 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
   }
 
   Widget _buildProgressIndicator() {
-    return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(
-          _pageTitles.length * 2 - 1,
-          (index) {
-            if (index.isEven) {
-              final dotIndex = index ~/ 2;
-              return CircleAvatar(
-                radius: 5,
-                backgroundColor: dotIndex <= _currentPage
-                    ? Colors.black87
-                    : Colors.grey.shade400,
-              );
-            } else {
-              final lineIndex = (index - 1) ~/ 2;
-              return Container(
-                width: 40,
-                height: 2,
-                margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                color: lineIndex < _currentPage
-                    ? Colors.black87
-                    : Colors.grey.shade400,
-              );
-            }
-          },
+    List<Widget> children = [];
+    for (int i = 0; i < _pageTitles.length; i++) {
+      final bool isActive = i <= _currentPage;
+      // Tambah lingkaran
+      children.add(
+        CircleAvatar(
+          radius: 5,
+          backgroundColor: isActive ? Colors.black87 : Colors.grey.shade400,
         ),
-      ),
+      );
+
+      // Tambah garis (kecuali untuk item terakhir)
+      if (i < _pageTitles.length - 1) {
+        children.add(
+          Container(
+            width: 80, // Lebar garis yang tetap
+            height: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+            color: (i < _currentPage) ? Colors.black87 : Colors.grey.shade400,
+          ),
+        );
+      }
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: children,
     );
+  }
+
+  Widget _getPageContent(int index) {
+    if (_currentBbm == null) return const SizedBox.shrink();
+    switch (index) {
+      case 0:
+        return _PageKmStartState(key: _kmStartKey, bbm: _currentBbm!);
+      case 1:
+        return const _PageInfo(
+          title: 'Proses Pengisian BBM',
+          subtitle:
+              'Geser tombol di bawah jika Anda sudah selesai mengisi BBM.',
+        );
+      case 2:
+        return _PageKmEnd(key: _kmEndKey, bbm: _currentBbm!);
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildBottomButton({required bool isRevision}) {
     String swipeText =
         isRevision ? 'Geser Untuk Kirim Revisi' : 'Geser Untuk Lanjutkan';
     if (!isRevision) {
-      if (_currentPage == 1) swipeText = 'Geser Jika Selesai Mengisi';
+      switch (_currentPage) {
+        case 0:
+          swipeText = 'Geser Untuk Mulai Pengisian';
+          break;
+        case 1:
+          swipeText = 'Geser Jika Selesai Mengisi';
+          break;
+        case 2:
+          swipeText = 'Geser Untuk Selesaikan';
+          break;
+      }
     }
     return _SwipeButton(
-        text: swipeText,
-        onConfirm: _handleNextPage,
-        isSendingData: _isSendingData);
+      text: swipeText,
+      onConfirm: _handleNextPage,
+      isSendingData: _isSendingData,
+    );
   }
 }
 
@@ -518,14 +511,31 @@ class _PageKmStartState extends StatefulWidget {
 
 class _PageKmStartStateState extends State<_PageKmStartState> {
   File? _kmPhoto;
-  File? getImage() => _kmPhoto;
+
+  Future<BbmKendaraan?> validateAndSubmit() async {
+    if (_kmPhoto == null) {
+      if (widget.bbm.startKmPhotoStatus.isRejected) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Foto yang ditolak wajib diunggah ulang.'),
+          backgroundColor: Colors.red,
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Foto KM Awal wajib diisi.'),
+          backgroundColor: Colors.red,
+        ));
+      }
+      return null;
+    }
+    return context.read<BbmProvider>().uploadStartKm(
+          context.read<AuthProvider>().token!,
+          widget.bbm.id,
+          _kmPhoto!,
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.bbm.startKmPhotoStatus.isApproved) {
-      return const _ApprovedDocumentPlaceholder(
-          title: 'Foto Seluruh Dashboard KM Awal');
-    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -535,13 +545,16 @@ class _PageKmStartStateState extends State<_PageKmStartState> {
                 fontWeight: FontWeight.bold,
                 color: Colors.black87)),
         const SizedBox(height: 24),
-        _PhotoSection(
-          title: 'Foto Seluruh Dashboard KM Awal',
-          icon: Icons.speed,
-          onImageChanged: (file) => setState(() => _kmPhoto = file),
-          isApproved: widget.bbm.startKmPhotoStatus.isApproved,
-          rejectionReason: widget.bbm.startKmPhotoStatus.rejectionReason,
-        )
+        if (widget.bbm.startKmPhotoStatus.isApproved)
+          const _ApprovedDocumentPlaceholder(title: 'Foto KM Awal')
+        else
+          _PhotoSection(
+            title: 'Foto Seluruh Dashboard KM Awal',
+            icon: Icons.speed,
+            onImageChanged: (file) => setState(() => _kmPhoto = file),
+            isApproved: widget.bbm.startKmPhotoStatus.isApproved,
+            rejectionReason: widget.bbm.startKmPhotoStatus.rejectionReason,
+          ),
       ],
     );
   }
@@ -581,7 +594,42 @@ class _PageKmEnd extends StatefulWidget {
 class _PageKmEndState extends State<_PageKmEnd> {
   File? _kmPhoto;
   File? _notaPhoto;
-  Map<String, File?> getImages() => {'km': _kmPhoto, 'nota': _notaPhoto};
+
+  Future<BbmKendaraan?> validateAndSubmit() async {
+    final bool isKmRequired = !widget.bbm.endKmPhotoStatus.isApproved;
+    final bool isNotaRequired = !widget.bbm.notaPengisianPhotoStatus.isApproved;
+
+    if (isKmRequired && _kmPhoto == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Foto KM Akhir wajib diisi.'),
+        backgroundColor: Colors.red,
+      ));
+      return null;
+    }
+    if (isNotaRequired && _notaPhoto == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Foto Nota Pengisian wajib diisi.'),
+        backgroundColor: Colors.red,
+      ));
+      return null;
+    }
+
+    // Jika tidak ada foto baru yang perlu diupload (karena tidak direject)
+    if (_kmPhoto == null && _notaPhoto == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Silakan unggah setidaknya satu foto revisi.'),
+        backgroundColor: Colors.orange,
+      ));
+      return null;
+    }
+
+    return context.read<BbmProvider>().uploadEndKmAndNota(
+          context.read<AuthProvider>().token!,
+          widget.bbm.id,
+          _kmPhoto,
+          _notaPhoto,
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -831,7 +879,6 @@ class _ImagePreviewScreen extends StatelessWidget {
   }
 }
 
-// Widget placeholder untuk dokumen yang sudah disetujui
 class _ApprovedDocumentPlaceholder extends StatelessWidget {
   final String title;
   const _ApprovedDocumentPlaceholder({required this.title});

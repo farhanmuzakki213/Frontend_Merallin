@@ -159,6 +159,10 @@ class _VehicleLocationProgressScreenState
     final authProvider = context.read<AuthProvider>();
     await authProvider.setPendingVehicleLocationForVerification(location.id);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     final result = await Navigator.push<VehicleLocationVerificationResult>(
       context,
       MaterialPageRoute(

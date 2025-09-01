@@ -1,4 +1,4 @@
-// lib/bbm_list_screen.dart
+// lib/screens/bbm_list_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/bbm_progress_screen.dart';
@@ -6,7 +6,6 @@ import 'package:frontend_merallin/models/bbm_model.dart';
 import 'package:frontend_merallin/models/vehicle_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/bbm_provider.dart';
-import 'package:frontend_merallin/services/vehicle_service.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -18,7 +17,6 @@ class BbmListScreen extends StatefulWidget {
 }
 
 class _BbmListScreenState extends State<BbmListScreen> {
-
   @override
   void initState() {
     super.initState();
@@ -28,122 +26,102 @@ class _BbmListScreenState extends State<BbmListScreen> {
   }
 
   Future<void> _reloadData() async {
-    // Gunakan context provider di luar async gap jika memungkinkan
-    final provider = context.read<BbmProvider>();
-    final token = context.read<AuthProvider>().token;
-    if (token != null) {
-      await provider.fetchBbmRequests(token);
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.token != null) {
+      await context.read<BbmProvider>().fetchBbmRequests(authProvider.token!);
     }
   }
 
-  void _showVehicleSelectionDialog() async {
-    // 1. Pindahkan semua yang butuh context ke atas sebelum await
-    final authProvider = context.read<AuthProvider>();
+  void _showVehicleSelectionDialog() {
     final bbmProvider = context.read<BbmProvider>();
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
-    // --- FITUR BARU: Cek jika ada proses yang sedang berjalan ---
+    
     final bool hasOngoing = bbmProvider.bbmRequests.any((bbm) => bbm.derivedStatus != BbmStatus.selesai);
     if (hasOngoing) {
-      messenger.showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan.'),
         backgroundColor: Colors.orange,
       ));
       return;
     }
-
-    showDialog(
+    
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final vehicleService = VehicleService();
-      final vehicles = await vehicleService.getVehicles(authProvider.token!);
-      navigator.pop(); // Tutup dialog loading
-
-      // Jangan gunakan context setelah await tanpa cek `mounted`
-      if (!mounted) return;
-
-      showModalBottomSheet(
-        context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (context) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Pilih Kendaraan', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context))
-                  ],
-                ),
-                const Divider(),
-                const SizedBox(height: 12),
-                if (vehicles.isEmpty)
-                  const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('Tidak ada kendaraan tersedia.')))
-                else
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: vehicles.length,
-                      itemBuilder: (context, index) {
-                        final Vehicle vehicle = vehicles[index];
-                        return Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          child: ListTile(
-                            leading: Icon(Icons.directions_car_filled, color: Theme.of(context).primaryColor, size: 36),
-                            title: Text(vehicle.licensePlate, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('${vehicle.model ?? "-"} - ${vehicle.type ?? "-"}'),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                            onTap: () async {
-                              // 2. Gunakan variabel yang sudah disimpan sebelumnya
-                              final sheetNavigator = Navigator.of(context);
-                              sheetNavigator.pop(); // Tutup bottom sheet
-
-                              final newRequest = await bbmProvider.createBbmRequest(authProvider.token!, vehicle.id);
-                              
-                              if (newRequest != null) {
-                                // Gunakan navigator yang aman
-                                final result = await navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) => BbmProgressScreen(bbmId: newRequest.id),
-                                  ),
-                                );
-                                if (result == true) {
-                                  _reloadData();
-                                }
-                              } else {
-                                messenger.showSnackBar(SnackBar(
-                                  content: Text(bbmProvider.errorMessage ?? 'Gagal membuat permintaan BBM.'),
-                                  backgroundColor: Colors.red,
-                                ));
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        // Gunakan Consumer di sini agar UI bottom sheet bisa update
+        return Consumer<BbmProvider>(
+          builder: (context, provider, child) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Pilih Kendaraan', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context))
+                    ],
                   ),
-              ],
-            ),
-          );
-        },
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  if (provider.vehicles.isEmpty)
+                    const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('Tidak ada kendaraan tersedia.')))
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: provider.vehicles.length,
+                        itemBuilder: (context, index) {
+                          final Vehicle vehicle = provider.vehicles[index];
+                          return Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            child: ListTile(
+                              leading: Icon(Icons.directions_car_filled, color: Theme.of(context).primaryColor, size: 36),
+                              title: Text(vehicle.licensePlate, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('${vehicle.model} - ${vehicle.type}'),
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                              onTap: () {
+                                Navigator.pop(context); // Tutup bottom sheet
+                                _handleCreateRequest(vehicle.id); 
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleCreateRequest(int vehicleId) async {
+    final bbmProvider = context.read<BbmProvider>();
+    final authProvider = context.read<AuthProvider>();
+
+    final newRequest = await bbmProvider.createBbmRequest(authProvider.token!, vehicleId);
+
+    if (mounted && newRequest != null) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BbmProgressScreen(bbmId: newRequest.id),
+        ),
       );
-    } catch (e) {
-      // Gunakan navigator yang aman
-      navigator.pop(); // Tutup dialog loading jika error
-      messenger.showSnackBar(SnackBar(
-        content: Text('Gagal memuat kendaraan: ${e.toString()}'),
+      if (result == true) {
+        _reloadData();
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(bbmProvider.errorMessage ?? 'Gagal membuat permintaan BBM.'),
         backgroundColor: Colors.red,
       ));
     }
@@ -151,44 +129,53 @@ class _BbmListScreenState extends State<BbmListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bbmProvider = context.watch<BbmProvider>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Riwayat Isi BBM'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _reloadData,
+            onPressed: bbmProvider.isLoading || bbmProvider.isCreating ? null : _reloadData,
             tooltip: 'Muat Ulang',
           ),
         ],
       ),
-      body: Consumer<BbmProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading && provider.bbmRequests.isEmpty) {
+      body: Builder(
+        builder: (context) {
+          if (bbmProvider.isLoading && bbmProvider.bbmRequests.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (provider.errorMessage != null) {
-            return Center(child: Text(provider.errorMessage!));
+          if (bbmProvider.errorMessage != null && bbmProvider.bbmRequests.isEmpty) {
+            return Center(child: Text(bbmProvider.errorMessage!));
           }
-          if (provider.bbmRequests.isEmpty) {
-            return const Center(child: Text('Belum ada riwayat pengisian BBM.'));
+          if (bbmProvider.bbmRequests.isEmpty) {
+            return RefreshIndicator(
+                onRefresh: _reloadData,
+                child: Stack(
+                  children: [
+                    Center(child: Text('Belum ada riwayat pengisian BBM.')),
+                    ListView(), // Agar RefreshIndicator berfungsi
+                  ],
+                ));
           }
-          // Panggil widget baru untuk membangun list
           return RefreshIndicator(
             onRefresh: _reloadData,
-            child: _buildBbmListView(provider.bbmRequests),
+            child: _buildBbmListView(bbmProvider.bbmRequests),
           );
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showVehicleSelectionDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Isi BBM Baru'),
+        onPressed: bbmProvider.isCreating ? null : _showVehicleSelectionDialog,
+        icon: bbmProvider.isCreating 
+            ? Container(width: 24, height: 24, padding: const EdgeInsets.all(2.0), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3,))
+            : const Icon(Icons.add),
+        label: Text(bbmProvider.isCreating ? 'Memproses...' : 'Isi BBM Baru'),
       ),
     );
   }
 
-  // --- WIDGET BARU: Untuk memisahkan list ---
   Widget _buildBbmListView(List<BbmKendaraan> requests) {
     final ongoing = requests.where((r) => r.derivedStatus != BbmStatus.selesai).toList();
     final finished = requests.where((r) => r.derivedStatus == BbmStatus.selesai).toList();
@@ -236,7 +223,7 @@ class _BbmListScreenState extends State<BbmListScreen> {
         statusColor = Colors.green;
         statusIcon = Icons.check_circle_outline;
         break;
-      case BbmStatus.ditolak:
+      case BbmStatus.revisiGambar:
         statusText = 'Ditolak/Revisi';
         statusColor = Colors.red;
         statusIcon = Icons.cancel_outlined;
@@ -248,16 +235,16 @@ class _BbmListScreenState extends State<BbmListScreen> {
       margin: const EdgeInsets.only(bottom: 12.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => BbmProgressScreen(bbmId: bbm.id),
             ),
-          ).then((value) {
-            // Reload data jika ada kemungkinan perubahan dari layar progress
+          );
+          if (result == true) {
             _reloadData();
-          });
+          }
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -279,6 +266,20 @@ class _BbmListScreenState extends State<BbmListScreen> {
                 ],
               ),
               const SizedBox(height: 12),
+              if (bbm.derivedStatus == BbmStatus.revisiGambar && bbm.allRejectionReasons != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8)
+                  ),
+                  child: Text(
+                    "Catatan Revisi:\n${bbm.allRejectionReasons!}",
+                    style: TextStyle(color: Colors.red.shade800, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               const Divider(),
               const SizedBox(height: 12),
               Align(

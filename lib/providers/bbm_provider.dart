@@ -3,18 +3,24 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/bbm_model.dart';
+import '../models/vehicle_model.dart';
 import '../services/bbm_service.dart';
-import '../services/trip_service.dart'; // Untuk ApiException
+import '../services/vehicle_service.dart';
 
 class BbmProvider with ChangeNotifier {
   final BbmService _bbmService = BbmService();
-  
+  final VehicleService _vehicleService = VehicleService();
+
   List<BbmKendaraan> _bbmRequests = [];
+  List<Vehicle> _vehicles = [];
   bool _isLoading = false;
+  bool _isCreating = false;
   String? _errorMessage;
 
   List<BbmKendaraan> get bbmRequests => _bbmRequests;
+  List<Vehicle> get vehicles => _vehicles;
   bool get isLoading => _isLoading;
+  bool get isCreating => _isCreating;
   String? get errorMessage => _errorMessage;
 
   Future<void> fetchBbmRequests(String token) async {
@@ -22,11 +28,17 @@ class BbmProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      _bbmRequests = await _bbmService.getBbmRequests(token);
-    } on ApiException catch(e) {
+      // Muat data BBM dan Kendaraan secara bersamaan
+      final bbmFuture = _bbmService.getBbmRequests(token);
+      final vehicleFuture = _vehicleService.getVehicles(token);
+
+      final results = await Future.wait([bbmFuture, vehicleFuture]);
+      _bbmRequests = results[0] as List<BbmKendaraan>;
+      _vehicles = results[1] as List<Vehicle>;
+    } on ApiException catch (e) {
       _errorMessage = e.toString();
-    } catch(e) {
-      _errorMessage = "Terjadi kesalahan tidak terduga.";
+    } catch (e) {
+      _errorMessage = "Terjadi kesalahan tidak terduga: ${e.toString()}";
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -34,15 +46,19 @@ class BbmProvider with ChangeNotifier {
   }
 
   Future<BbmKendaraan?> createBbmRequest(String token, int vehicleId) async {
+    _isCreating = true;
+    _errorMessage = null;
+    notifyListeners();
     try {
       final newRequest = await _bbmService.createBbmRequest(token, vehicleId);
       _bbmRequests.insert(0, newRequest);
-      notifyListeners();
       return newRequest;
-    } on ApiException catch(e) {
+    } on ApiException catch (e) {
       _errorMessage = e.toString();
-      notifyListeners();
       return null;
+    } finally {
+      _isCreating = false;
+      notifyListeners();
     }
   }
 
@@ -62,7 +78,9 @@ class BbmProvider with ChangeNotifier {
     return await _bbmService.finishFilling(token, bbmId);
   }
 
-  Future<BbmKendaraan> uploadEndKmAndNota(String token, int bbmId, File? kmPhoto, File? notaPhoto) async {
-    return await _bbmService.uploadEndKmAndNota(token, bbmId, kmPhoto, notaPhoto);
+  Future<BbmKendaraan> uploadEndKmAndNota(
+      String token, int bbmId, File? kmPhoto, File? notaPhoto) async {
+    return await _bbmService.uploadEndKmAndNota(
+        token, bbmId, kmPhoto, notaPhoto);
   }
 }

@@ -2,7 +2,8 @@
 
 import 'user_model.dart';
 import 'vehicle_model.dart';
-import 'trip_model.dart'; // Re-using helper classes from trip_model
+import 'trip_model.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class VehicleLocation {
   final int id;
@@ -28,6 +29,10 @@ class VehicleLocation {
   final User? user;
   final Vehicle? vehicle;
 
+  final String? fullStandbyPhotoUrl;
+  final String? fullStartKmPhotoUrl;
+  final String? fullEndKmPhotoUrl;
+
   VehicleLocation({
     required this.id,
     required this.userId,
@@ -48,6 +53,9 @@ class VehicleLocation {
     required this.updatedAt,
     this.user,
     this.vehicle,
+    this.fullStandbyPhotoUrl,
+    this.fullStartKmPhotoUrl,
+    this.fullEndKmPhotoUrl,
   });
 
   bool get isFullyCompleted {
@@ -70,27 +78,46 @@ class VehicleLocation {
     
     return TripDerivedStatus.proses;
   }
-  
-  DocumentRevisionInfo? get firstRejectedDocumentInfo {
-    final documents = [
-      if (standbyPhotoPath != null) DocumentInfo('standby_photo', 'Foto Standby', standbyPhotoStatus, null),
-      if (startKmPhotoPath != null) DocumentInfo('start_km_photo', 'Foto KM Awal', startKmPhotoStatus, null),
-      if (endKmPhotoPath != null) DocumentInfo('end_km_photo', 'Foto KM Akhir', endKmPhotoStatus, null),
-    ];
 
-    for (final doc in documents) {
-      if (doc.verificationStatus.status?.toLowerCase() == 'rejected') {
+  List<DocumentInfo> get allDocuments {
+    return [
+      if (standbyPhotoPath != null)
+        DocumentInfo(
+          'standby_photo', 
+          'Foto Standby', 
+          standbyPhotoStatus, 
+          [fullStandbyPhotoUrl].whereType<String>().toList()
+        ),
+      if (startKmPhotoPath != null)
+        DocumentInfo(
+          'start_km_photo', 
+          'Foto KM Awal', 
+          startKmPhotoStatus,
+          [fullStartKmPhotoUrl].whereType<String>().toList()
+        ),
+      if (endKmPhotoPath != null)
+        DocumentInfo(
+          'end_km_photo', 
+          'Foto KM Akhir', 
+          endKmPhotoStatus,
+          [fullEndKmPhotoUrl].whereType<String>().toList()
+        ),
+    ];
+  }
+
+  // <-- PERBAIKAN: Gunakan getter allDocuments
+  DocumentRevisionInfo? get firstRejectedDocumentInfo {
+    for (final doc in allDocuments) {
+      if (doc.verificationStatus.isRejected) {
         int pageIndex;
         switch (doc.type) {
           case 'standby_photo':
           case 'start_km_photo':
             pageIndex = 0;
             break;
-          // --- PERBAIKAN DI SINI ---
           case 'end_km_photo':
-            pageIndex = 2; // Indeks halaman 'Bukti Akhir' adalah 2
+            pageIndex = 2;
             break;
-          // -------------------------
           default:
             pageIndex = 0;
         }
@@ -101,19 +128,23 @@ class VehicleLocation {
   }
 
   String? get allRejectionReasons {
-    final documents = [
-      DocumentInfo('standby_photo', 'Foto Standby', standbyPhotoStatus, null),
-      DocumentInfo('start_km_photo', 'Foto KM Awal', startKmPhotoStatus, null),
-      DocumentInfo('end_km_photo', 'Foto KM Akhir', endKmPhotoStatus, null),
-    ];
-    final reasons = documents
-      .where((doc) => doc.verificationStatus.status?.toLowerCase() == 'rejected')
+    final reasons = allDocuments
+      .where((doc) => doc.verificationStatus.isRejected)
       .map((doc) => '• ${doc.name}: ${doc.verificationStatus.rejectionReason ?? "Ditolak."}')
       .toList();
     return reasons.isEmpty ? null : reasons.join('\n');
   }
 
   factory VehicleLocation.fromJson(Map<String, dynamic> json) {
+    final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
+    String buildFullUrl(String? relativePath) {
+      if (relativePath == null || relativePath.isEmpty) return '';
+      final String sanitizedBaseUrl = imageBaseUrl.endsWith('/api')
+          ? imageBaseUrl.substring(0, imageBaseUrl.length - 4)
+          : imageBaseUrl;
+      if (relativePath.startsWith('/')) return '$sanitizedBaseUrl$relativePath';
+      return '$sanitizedBaseUrl/$relativePath';
+    }
     return VehicleLocation(
       id: json['id'],
       userId: json['user_id'],
@@ -134,6 +165,9 @@ class VehicleLocation {
       updatedAt: DateTime.parse(json['updated_at']),
       user: json['user'] != null ? User.fromJson(json['user']) : null,
       vehicle: json['vehicle'] != null ? Vehicle.fromJson(json['vehicle']) : null,
+      fullStandbyPhotoUrl: buildFullUrl(json['full_standby_photo_url']),
+      fullStartKmPhotoUrl: buildFullUrl(json['full_start_km_photo_url']),
+      fullEndKmPhotoUrl: buildFullUrl(json['full_end_km_photo_url']),
     );
   }
 }

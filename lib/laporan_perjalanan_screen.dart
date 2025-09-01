@@ -190,7 +190,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
 
         if (result.updatedTrip.isFullyCompleted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Perjalanan telah selesai!'),
+              content: Text('Pengisian BBM telah selesai!'),
               backgroundColor: Colors.blue));
           Navigator.of(context).pop(true);
           return;

@@ -8,63 +8,73 @@ import 'models/bbm_model.dart';
 import 'providers/auth_provider.dart';
 import 'providers/bbm_provider.dart';
 
+enum BbmFlowStatus { approved, rejected }
+
 class BbmVerificationResult {
-  final bool isApproved;
-  final BbmKendaraan? updatedBbm;
-  BbmVerificationResult({required this.isApproved, this.updatedBbm});
+  final BbmFlowStatus status;
+  final int targetPage;
+  final BbmKendaraan updatedBbm;
+  final String? rejectionReason;
+
+  BbmVerificationResult({
+    required this.status,
+    required this.targetPage,
+    required this.updatedBbm,
+    this.rejectionReason,
+  });
 }
 
 class BbmWaitingVerificationScreen extends StatefulWidget {
   final int bbmId;
   final int initialPage;
+  final BbmKendaraan? initialBbmState;
+  final bool isRevisionResubmission;
 
   const BbmWaitingVerificationScreen({
-    super.key, 
+    super.key,
     required this.bbmId,
     required this.initialPage,
+    this.initialBbmState,
+    this.isRevisionResubmission = false,
   });
 
   @override
-  State<BbmWaitingVerificationScreen> createState() => _BbmWaitingVerificationScreenState();
+  State<BbmWaitingVerificationScreen> createState() =>
+      _BbmWaitingVerificationScreenState();
 }
 
-class _BbmWaitingVerificationScreenState extends State<BbmWaitingVerificationScreen> {
+class _BbmWaitingVerificationScreenState
+    extends State<BbmWaitingVerificationScreen> {
   Timer? _pollingTimer;
-  Timer? _timeoutTimer; // Timer untuk pesan timeout
-  bool _showTimeoutMessage = false; // State untuk menampilkan pesan
+  Timer? _timeoutTimer;
+  bool _showTimeoutMessage = false;
 
   @override
   void initState() {
     super.initState();
-    _startTimeoutTimer(); // Jalankan timer timeout
-    
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        _startPolling();
-      }
+    _startTimeoutTimer();
+    // Beri jeda singkat sebelum memulai polling agar UI sempat build
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _startPolling();
     });
   }
 
   void _startPolling() {
     _pollingTimer?.cancel();
-    _checkBbmStatus();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkBbmStatus());
+    _checkBbmStatus(isFirstCheck: true);
+    _pollingTimer =
+        Timer.periodic(const Duration(seconds: 5), (_) => _checkBbmStatus());
   }
 
   void _startTimeoutTimer() {
     _timeoutTimer = Timer(const Duration(minutes: 1), () {
-      if (mounted) {
-        setState(() {
-          _showTimeoutMessage = true;
-        });
-      }
+      if (mounted) setState(() => _showTimeoutMessage = true);
     });
   }
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
-    _timeoutTimer?.cancel(); // Matikan juga timer timeout
+    _stopAllTimers();
     super.dispose();
   }
 
@@ -73,46 +83,82 @@ class _BbmWaitingVerificationScreenState extends State<BbmWaitingVerificationScr
     _timeoutTimer?.cancel();
   }
 
-  Future<void> _checkBbmStatus() async {
+  List<BbmPhotoVerificationStatus> _getRelevantStatuses(BbmKendaraan bbm) {
+    switch (widget.initialPage) {
+      case 0:
+        return [bbm.startKmPhotoStatus];
+      case 2:
+        return [bbm.endKmPhotoStatus, bbm.notaPengisianPhotoStatus];
+      default:
+        // Jika halaman tidak relevan untuk verifikasi, kembalikan list kosong
+        return [];
+    }
+  }
+
+  Future<void> _checkBbmStatus({bool isFirstCheck = false}) async {
     if (!mounted) return;
-    
+
     final provider = context.read<BbmProvider>();
     final token = context.read<AuthProvider>().token!;
-    final bbm = await provider.getBbmDetails(token, widget.bbmId);
+    BbmKendaraan? bbm;
+
+    try {
+      // Logika utama: tentukan apakah perlu fetch API atau bisa pakai data awal
+      if (isFirstCheck &&
+          !widget.isRevisionResubmission &&
+          widget.initialBbmState != null) {
+        bbm = widget.initialBbmState;
+      } else {
+        bbm = await provider.getBbmDetails(token, widget.bbmId);
+      }
+    } catch (e) {
+      debugPrint("Gagal polling status BBM: $e");
+      return; // Coba lagi di iterasi berikutnya
+    }
 
     if (!mounted || bbm == null) return;
 
-    List<BbmPhotoVerificationStatus> getRelevantStatuses(BbmKendaraan bbm) {
-      switch (widget.initialPage) {
-        case 0: return [bbm.startKmPhotoStatus];
-        case 2: return [bbm.endKmPhotoStatus, bbm.notaPengisianPhotoStatus];
-        default: return [];
-      }
-    }
-
-    final relevantStatuses = getRelevantStatuses(bbm);
+    final relevantStatuses = _getRelevantStatuses(bbm);
     if (relevantStatuses.isEmpty) {
+      // Jika tidak ada status yang relevan (misal dari halaman 1), anggap saja 'approved'
+      // dan biarkan progress screen yang menentukan halaman selanjutnya.
       _stopAllTimers();
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(BbmVerificationResult(
+        status: BbmFlowStatus.approved,
+        updatedBbm: bbm,
+        targetPage: widget.initialPage + 1,
+      ));
       return;
     }
 
-    final bool allPhotosDecided = relevantStatuses.every((s) => !s.isPending);
-
-    if (!allPhotosDecided) {
+    final bool hasPending = relevantStatuses.any((s) => s.status == null || s.status!.isEmpty || s.status!.toLowerCase() == 'pending');
+    if (hasPending) {
       return; // Lanjutkan polling
     }
 
     _stopAllTimers();
 
-    final bool hasAnyRejection = relevantStatuses.any((s) => s.isRejected);
+    final bool hasRejection = relevantStatuses.any((s) => s.isRejected);
 
-    Navigator.of(context).pop(
-      BbmVerificationResult(
-        isApproved: !hasAnyRejection,
-        updatedBbm: bbm,
-      ),
-    );
+    if (hasRejection) {
+      final rejectedInfo = bbm.firstRejectedDocumentInfo;
+      Navigator.of(context).pop(
+        BbmVerificationResult(
+          status: BbmFlowStatus.rejected,
+          updatedBbm: bbm,
+          targetPage: rejectedInfo?.pageIndex ?? widget.initialPage,
+          rejectionReason: bbm.allRejectionReasons,
+        ),
+      );
+    } else {
+      Navigator.of(context).pop(
+        BbmVerificationResult(
+          status: BbmFlowStatus.approved,
+          updatedBbm: bbm,
+          targetPage: widget.initialPage + 1,
+        ),
+      );
+    }
   }
 
   @override
@@ -132,14 +178,13 @@ class _BbmWaitingVerificationScreenState extends State<BbmWaitingVerificationScr
                 const CircularProgressIndicator(),
                 const SizedBox(height: 32),
                 const Text('Menunggu Verifikasi Admin',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 12),
-                const Text('Data pengisian BBM Anda sedang diperiksa. Mohon tunggu sebentar.',
-                  style: TextStyle(fontSize: 16, color: Colors.black54),
-                  textAlign: TextAlign.center),
-                
-                // --- WIDGET PESAN TIMEOUT ---
+                const Text(
+                    'Data pengisian BBM Anda sedang diperiksa. Mohon tunggu sebentar.',
+                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                    textAlign: TextAlign.center),
                 if (_showTimeoutMessage)
                   Padding(
                     padding: const EdgeInsets.only(top: 20.0),
