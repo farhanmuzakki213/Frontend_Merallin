@@ -50,7 +50,6 @@ class _BbmListScreenState extends State<BbmListScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        // Gunakan Consumer di sini agar UI bottom sheet bisa update
         return Consumer<BbmProvider>(
           builder: (context, provider, child) {
             return Container(
@@ -86,7 +85,7 @@ class _BbmListScreenState extends State<BbmListScreen> {
                               subtitle: Text('${vehicle.model} - ${vehicle.type}'),
                               trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                               onTap: () {
-                                Navigator.pop(context); // Tutup bottom sheet
+                                Navigator.pop(context);
                                 _handleCreateRequest(vehicle.id); 
                               },
                             ),
@@ -133,7 +132,7 @@ class _BbmListScreenState extends State<BbmListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Riwayat Isi BBM'),
+        title: const Text('Isi BBM'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -156,7 +155,7 @@ class _BbmListScreenState extends State<BbmListScreen> {
                 child: Stack(
                   children: [
                     Center(child: Text('Belum ada riwayat pengisian BBM.')),
-                    ListView(), // Agar RefreshIndicator berfungsi
+                    ListView(),
                   ],
                 ));
           }
@@ -198,7 +197,13 @@ class _BbmListScreenState extends State<BbmListScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
         child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54)),
       ),
-      ...requests.map((bbm) => _buildBbmCard(bbm)),
+      ...requests.map((bbm) {
+        if (bbm.derivedStatus == BbmStatus.selesai) {
+          return _ExpandableBbmCard(bbm: bbm);
+        } else {
+          return _buildBbmCard(bbm);
+        }
+      }),
     ];
   }
 
@@ -218,16 +223,15 @@ class _BbmListScreenState extends State<BbmListScreen> {
         statusColor = Colors.blue;
         statusIcon = Icons.hourglass_top;
         break;
-      case BbmStatus.selesai:
-        statusText = 'Selesai';
-        statusColor = Colors.green;
-        statusIcon = Icons.check_circle_outline;
-        break;
       case BbmStatus.revisiGambar:
         statusText = 'Ditolak/Revisi';
         statusColor = Colors.red;
         statusIcon = Icons.cancel_outlined;
         break;
+      default: // Selesai or other cases
+        statusText = 'Selesai';
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle_outline;
     }
 
     return Card(
@@ -297,6 +301,176 @@ class _BbmListScreenState extends State<BbmListScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+class _ExpandableBbmCard extends StatefulWidget {
+  final BbmKendaraan bbm;
+  const _ExpandableBbmCard({required this.bbm});
+
+  @override
+  State<_ExpandableBbmCard> createState() => _ExpandableBbmCardState();
+}
+
+class _ExpandableBbmCardState extends State<_ExpandableBbmCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.bbm.vehicle?.licensePlate ?? 'N/A',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal.shade900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(widget.bbm.createdAt),
+                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.teal.shade800,
+                    size: 30,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.fastOutSlowIn,
+            child: _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedDetails() {
+    return Container(
+      color: Colors.grey[50],
+      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1, thickness: 1),
+          const SizedBox(height: 16),
+          const Text(
+            "Bukti Foto",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPhotoItem('KM Awal', widget.bbm.fullStartKmPhotoUrl),
+              const SizedBox(width: 8),
+              _buildPhotoItem('KM Akhir', widget.bbm.fullEndKmPhotoUrl),
+              const SizedBox(width: 8),
+              _buildPhotoItem('Nota', widget.bbm.fullNotaPengisianPhotoUrl),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoItem(String title, String? imageUrl) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          if (imageUrl != null && imageUrl.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    child: Stack(
+                      children: [
+                        InteractiveViewer(child: Image.network(imageUrl)),
+                        Positioned(
+                          right: 0,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white, shadows: [Shadow(color: Colors.black, blurRadius: 2)]),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: Image.network(
+                  imageUrl,
+                  height: 100,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      height: 100,
+                      alignment: Alignment.center,
+                      child: const CircularProgressIndicator(strokeWidth: 2),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 100,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.error, color: Colors.red),
+                    );
+                  },
+                ),
+              ),
+            )
+          else
+            Container(
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.image_not_supported, color: Colors.grey[400]),
+            ),
+        ],
       ),
     );
   }

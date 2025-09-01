@@ -1,12 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/trip_model.dart';
+import '../models/vehicle_location_model.dart';
 import '../providers/auth_provider.dart';
-import '../services/trip_service.dart';
 import '../providers/trip_provider.dart';
+import '../providers/vehicle_location_provider.dart';
+import '../utils/address_helper.dart';
+
+// Abstract base class for a unified history item
+abstract class HistoryItem {
+  DateTime get completionDate;
+  String get itemType;
+}
+
+class TripHistoryItem extends HistoryItem {
+  final Trip trip;
+  TripHistoryItem(this.trip);
+
+  @override
+  DateTime get completionDate => trip.updatedAt ?? trip.createdAt!;
+  @override
+  String get itemType => 'Trip';
+}
+
+class VehicleLocationHistoryItem extends HistoryItem {
+  final VehicleLocation location;
+  VehicleLocationHistoryItem(this.location);
+
+  @override
+  DateTime get completionDate => location.updatedAt;
+  @override
+  String get itemType => 'VehicleLocation';
+}
+
 
 class DriverHistoryScreen extends StatefulWidget {
   const DriverHistoryScreen({super.key});
@@ -21,6 +49,11 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
 
   DateTime _selectedDate = DateTime.now();
   DateTime _currentDisplayMonth = DateTime.now();
+  
+  List<HistoryItem> _combinedHistory = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+
 
   @override
   void initState() {
@@ -44,22 +77,63 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   }
 
   Future<void> _reloadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     final authProvider = context.read<AuthProvider>();
-    if (authProvider.token != null) {
-      await context.read<TripProvider>().fetchTrips(authProvider.token!);
+    if (authProvider.token == null) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Sesi tidak valid, silakan login ulang.";
+      });
+      return;
+    }
+    
+    try {
+      // Fetch both histories in parallel
+      final tripFuture = context.read<TripProvider>().fetchTrips(authProvider.token!);
+      final locationFuture = context.read<VehicleLocationProvider>().fetchHistory(authProvider.token!);
+      
+      await Future.wait([tripFuture, locationFuture]);
+
+      final tripProvider = context.read<TripProvider>();
+      final locationProvider = context.read<VehicleLocationProvider>();
+
+      // Combine and sort
+      final List<HistoryItem> combined = [];
+
+      final completedTrips = tripProvider.allTrips.where((t) => t.statusTrip == 'selesai');
+      combined.addAll(completedTrips.map((t) => TripHistoryItem(t)));
+
+      final completedLocations = locationProvider.history.where((l) => l.statusVehicleLocation == 'selesai');
+      combined.addAll(completedLocations.map((l) => VehicleLocationHistoryItem(l)));
+
+      // Sort by completion date, newest first
+      combined.sort((a, b) => b.completionDate.compareTo(a.completionDate));
+      
+      setState(() {
+        _combinedHistory = combined;
+        _isLoading = false;
+      });
+
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Gagal memuat data: $e";
+      });
     }
   }
 
-  Map<DateTime, List<Trip>> _getGroupedCompletedTrips(TripProvider provider) {
-      final completedTrips = provider.allTrips.where((trip) => trip.statusTrip == 'selesai').toList();
-      final Map<DateTime, List<Trip>> tempGrouped = {};
-      for (var trip in completedTrips) {
-        if (trip.updatedAt == null) continue;
-        final dateKey = DateTime(trip.updatedAt!.year, trip.updatedAt!.month, trip.updatedAt!.day);
+  Map<DateTime, List<HistoryItem>> _getGroupedHistory() {
+      final Map<DateTime, List<HistoryItem>> tempGrouped = {};
+      for (var item in _combinedHistory) {
+        final dateKey = DateTime(item.completionDate.year, item.completionDate.month, item.completionDate.day);
         if (tempGrouped[dateKey] == null) {
           tempGrouped[dateKey] = [];
         }
-        tempGrouped[dateKey]!.add(trip);
+        tempGrouped[dateKey]!.add(item);
       }
       return tempGrouped;
   }
@@ -90,7 +164,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[200],
       appBar: AppBar(
-        title: const Text('Riwayat Perjalanan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Riwayat Tugas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.teal.shade800,
         elevation: 2,
         automaticallyImplyLeading: false,
@@ -99,44 +173,48 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         children: [
           _buildDateSelector(),
           Expanded(
-            // <-- PERBAIKAN: Gunakan Consumer untuk listen ke perubahan state
-            child: Consumer<TripProvider>(
-              builder: (context, tripProvider, child) {
-                if (tripProvider.isLoading && tripProvider.allTrips.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (tripProvider.errorMessage != null) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text(tripProvider.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-                    ),
-                  );
-                }
-                
-                final groupedTrips = _getGroupedCompletedTrips(tripProvider);
-                final tripsOnSelectedDate = groupedTrips[_selectedDate] ?? [];
-
-                if (tripsOnSelectedDate.isEmpty) {
-                  return const Center(child: Text("Tidak ada riwayat pada tanggal ini.", style: TextStyle(fontSize: 16, color: Colors.grey)));
-                }
-
-                return RefreshIndicator(
-                  onRefresh: _reloadData,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    itemCount: tripsOnSelectedDate.length,
-                    itemBuilder: (context, index) {
-                      final trip = tripsOnSelectedDate[index];
-                      return _ExpandableTripCard(trip: trip);
-                    },
-                  ),
-                );
-              },
-            ),
+            child: _buildHistoryList(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryList() {
+    if (_isLoading && _combinedHistory.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+        ),
+      );
+    }
+    
+    final groupedHistory = _getGroupedHistory();
+    final historyOnSelectedDate = groupedHistory[_selectedDate] ?? [];
+
+    if (historyOnSelectedDate.isEmpty) {
+      return const Center(child: Text("Tidak ada riwayat pada tanggal ini.", style: TextStyle(fontSize: 16, color: Colors.grey)));
+    }
+
+    return RefreshIndicator(
+      onRefresh: _reloadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        itemCount: historyOnSelectedDate.length,
+        itemBuilder: (context, index) {
+          final item = historyOnSelectedDate[index];
+          if (item is TripHistoryItem) {
+            return _ExpandableTripCard(trip: item.trip);
+          } else if (item is VehicleLocationHistoryItem) {
+            return _ExpandableVehicleLocationCard(location: item.location);
+          }
+          return const SizedBox.shrink();
+        },
       ),
     );
   }
@@ -283,6 +361,7 @@ class _DateCard extends StatelessWidget {
   }
 }
 
+// Card for regular Trip
 class _ExpandableTripCard extends StatefulWidget {
   final Trip trip;
   const _ExpandableTripCard({required this.trip});
@@ -338,12 +417,8 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                           ),
                           softWrap: true,
                         ),
-                        const SizedBox(height: 12),
-                        _buildInfoRow(Icons.person_outline, 'Driver',
-                            widget.trip.user?.name ?? 'Tidak diketahui'),
-                        const SizedBox(height: 8),
-                        _buildInfoRow(Icons.directions_car_outlined, 'NOPOL',
-                            widget.trip.vehicle?.licensePlate ?? 'N/A'),
+                        const SizedBox(height: 4),
+                        Text("Tipe: Trip Reguler", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                       ],
                     ),
                   ),
@@ -378,13 +453,18 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
       color: Colors.grey[50],
       padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 20.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Divider(height: 20, thickness: 1.5),
-          _buildSectionTitle("Detail Trip"),
+          _buildInfoRow(Icons.person_outline, 'Driver',
+              widget.trip.user?.name ?? 'Tidak diketahui'),
+          const SizedBox(height: 10),
+          _buildInfoRow(Icons.directions_car_outlined, 'NOPOL',
+              widget.trip.vehicle?.licensePlate ?? 'N/A'),
+          const SizedBox(height: 10),
           _buildInfoRow(
               Icons.local_shipping_outlined, 'Tipe Trip', _capitalizeWords(widget.trip.jenisTrip ?? 'Tidak Diketahui')),
           const SizedBox(height: 10),
-          // <-- PERBAIKAN: Gunakan originAddress dan destinationAddress
           _buildInfoRow(
               Icons.location_on_outlined, 'Origin', widget.trip.originAddress),
           const SizedBox(height: 10),
@@ -413,7 +493,6 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                       .format(widget.trip.updatedAt!)
                   : 'N/A'),
           const SizedBox(height: 24),
-          // <-- PERBAIKAN: Tampilkan semua foto dalam satu galeri
           _buildPhotoSection("Semua Bukti Foto", widget.trip.allDocuments),
         ],
       ),
@@ -428,7 +507,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(title),
+        _buildSectionTitle(title, Colors.teal.shade800),
         SizedBox(
           height: 120,
           child: ListView.builder(
@@ -444,7 +523,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
                       borderRadius: BorderRadius.circular(10)),
                   margin: const EdgeInsets.only(right: 10.0),
                   child: Image.network(
-                    imageUrl, // Langsung gunakan URL dari model
+                    imageUrl,
                     fit: BoxFit.cover,
                     width: 120,
                     loadingBuilder: (context, child, progress) {
@@ -474,7 +553,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, Color color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14.0),
       child: Text(
@@ -482,7 +561,7 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
         style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 17,
-          color: Colors.teal.shade800,
+          color: color,
         ),
       ),
     );
@@ -522,6 +601,250 @@ class _ExpandableTripCardState extends State<_ExpandableTripCard> {
     );
   }
 }
+
+// Card for Vehicle Location (Trip Geser)
+class _ExpandableVehicleLocationCard extends StatefulWidget {
+  final VehicleLocation location;
+  const _ExpandableVehicleLocationCard({required this.location});
+
+  @override
+  State<_ExpandableVehicleLocationCard> createState() => _ExpandableVehicleLocationCardState();
+}
+
+class _ExpandableVehicleLocationCardState extends State<_ExpandableVehicleLocationCard> {
+  bool _isExpanded = false;
+  String? _startAddress;
+  String? _endAddress;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAddresses();
+  }
+
+  Future<void> _fetchAddresses() async {
+    // Fetch start address
+    final startCoords = AddressHelper.parseLocationString(widget.location.startLocation);
+    if (startCoords != null) {
+      final address = await AddressHelper.getAddressFromCoordinates(startCoords['latitude']!, startCoords['longitude']!);
+      if (mounted) setState(() => _startAddress = address);
+    } else {
+       if (mounted) setState(() => _startAddress = "Lokasi Awal Tidak Valid");
+    }
+
+    // Fetch end address
+    final endCoords = AddressHelper.parseLocationString(widget.location.endLocation);
+    if (endCoords != null) {
+      final address = await AddressHelper.getAddressFromCoordinates(endCoords['latitude']!, endCoords['longitude']!);
+      if (mounted) setState(() => _endAddress = address);
+    } else {
+      if (mounted) setState(() => _endAddress = "Lokasi Akhir Tidak Valid");
+    }
+  }
+
+  void _showNetworkImagePreview(String imageUrl) {
+    if (!mounted || imageUrl.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _NetworkImagePreviewScreen(imageUrl: imageUrl),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 5,
+      margin: const EdgeInsets.symmetric(vertical: 10.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.location.keterangan ?? 'Trip Geser',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple.shade800,
+                          ),
+                          softWrap: true,
+                        ),
+                        const SizedBox(height: 4),
+                        Text("Tipe: Trip Geser", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.shade100.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: Colors.deepPurple.shade800,
+                      size: 30,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.fastOutSlowIn,
+            child: _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedDetails() {
+    return Container(
+      color: Colors.grey[50],
+      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 20, thickness: 1.5),
+          _buildInfoRow(Icons.person_outline, 'Driver',
+              widget.location.user?.name ?? 'Tidak diketahui'),
+          const SizedBox(height: 10),
+          _buildInfoRow(Icons.directions_car_outlined, 'NOPOL',
+              widget.location.vehicle?.licensePlate ?? 'N/A'),
+          const SizedBox(height: 10),
+          _buildInfoRow(Icons.location_on_outlined, 'Lokasi Awal', _startAddress ?? 'Memuat alamat...'),
+          const SizedBox(height: 10),
+          _buildInfoRow(Icons.flag_outlined, 'Lokasi Akhir', _endAddress ?? 'Memuat alamat...'),
+          const SizedBox(height: 10),
+           _buildInfoRow(
+              Icons.calendar_today,
+              'Selesai',
+              DateFormat('d MMM yyyy, HH:mm', 'id_ID')
+                      .format(widget.location.updatedAt)
+            ),
+          const SizedBox(height: 24),
+          _buildPhotoSection("Bukti Foto Trip Geser", widget.location.allDocuments),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoSection(String title, List<DocumentInfo> documents) {
+    final allImageUrls = documents.expand((doc) => doc.urls).toList();
+    if (allImageUrls.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(title, Colors.deepPurple.shade800),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: allImageUrls.length,
+            itemBuilder: (context, index) {
+              final imageUrl = allImageUrls[index];
+              return GestureDetector(
+                onTap: () => _showNetworkImagePreview(imageUrl),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  margin: const EdgeInsets.only(right: 10.0),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    width: 120,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        width: 120,
+                        color: Colors.grey[200],
+                        child: const Center(child: CircularProgressIndicator()),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 120,
+                        color: Colors.grey[200],
+                        child:
+                            const Icon(Icons.broken_image, color: Colors.grey),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14.0),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 17,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.grey.shade600, size: 20),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                  fontSize: 15,
+                ),
+                softWrap: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 
 class _NetworkImagePreviewScreen extends StatelessWidget {
   final String imageUrl;
