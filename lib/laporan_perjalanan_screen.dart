@@ -249,7 +249,6 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
       if (trip.statusLokasi == 'di lokasi bongkar' && trip.statusMuatan == 'proses bongkar') return 6; // Halaman info
       return 7; // Halaman form upload
     }
-
     return _currentPage;
 
     // if (_isStringNullOrEmpty(trip.startKmPhotoPath)) return 0;
@@ -467,7 +466,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
                           const CircularProgressIndicator(),
                           const SizedBox(height: 20),
                           const Text(
-                            'Memuat detail perjalanan dari server...',
+                            'Memuat detail perjalanan dari server, silahkan coba mulai ulang aplikasi...',
                             textAlign: TextAlign.center,
                             style:
                                 TextStyle(fontSize: 16, color: Colors.black54),

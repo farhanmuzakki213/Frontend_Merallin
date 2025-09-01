@@ -2,6 +2,7 @@
 
 import 'dart:async'; // <-- PERBAIKAN DI SINI
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
@@ -241,7 +242,7 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                   height: 70,
                 ),
                 const CircularProgressIndicator(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 const Text(
                   'Menunggu Verifikasi Admin',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),

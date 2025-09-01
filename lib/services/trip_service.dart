@@ -30,8 +30,8 @@ class ApiException implements Exception {
 
 class TripService {
   final String _baseUrl = dotenv.env['API_BASE_URL'] ?? '';
-
-  void _handleResponse(http.Response response) {
+// PERUBAHAN UNTUK BISA DIPAKAI DI BBM
+  void handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
     Map<String, dynamic>? errorBody;
     try {
@@ -50,12 +50,12 @@ class TripService {
         errorBody['message'] ?? 'Terjadi kesalahan pada server.');
   }
 
-  Future<http.Response> _multipartPostRequest(
+  Future<http.Response> multipartPostRequest(
       http.MultipartRequest request) async {
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      _handleResponse(response);
+      handleResponse(response);
       return response;
     } on SocketException {
       throw ApiException(
@@ -79,7 +79,7 @@ class TripService {
         },
         body: body != null ? json.encode(body) : null,
       );
-      _handleResponse(response);
+      handleResponse(response);
       return response;
     } on SocketException {
       throw ApiException(
@@ -97,7 +97,7 @@ class TripService {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json'
       });
-      _handleResponse(response);
+      handleResponse(response);
       List<dynamic> data = json.decode(response.body);
       return data.map((json) => Trip.fromJson(json)).toList();
     } on SocketException {
@@ -116,7 +116,7 @@ class TripService {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json'
       }).timeout(const Duration(seconds: 20));
-      _handleResponse(response);
+      handleResponse(response);
       return Trip.fromJson(json.decode(response.body));
     } on SocketException {
       throw ApiException(
@@ -154,7 +154,7 @@ class TripService {
           'start_km_photo', startKmPhoto.path,
           filename: basename(startKmPhoto.path)));
     }
-    final response = await _multipartPostRequest(request);
+    final response = await multipartPostRequest(request);
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
@@ -239,7 +239,7 @@ class TripService {
           'timbangan_kendaraan_photo', timbanganPhoto.path,
           filename: basename(timbanganPhoto.path)));
     }
-    final response = await _multipartPostRequest(request);
+    final response = await multipartPostRequest(request);
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
@@ -296,7 +296,7 @@ class TripService {
             filename: basename(file.path)));
       }
     }
-    final response = await _multipartPostRequest(request);
+    final response = await multipartPostRequest(request);
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 }
