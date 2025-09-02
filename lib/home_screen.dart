@@ -659,7 +659,7 @@ class _TripCalculatorCard extends StatelessWidget {
           final int totalTrips = tripProvider.totalTrips;
           final int companyTrips = tripProvider.companyTrips;
           final int driverTrips = tripProvider.driverTrips;
-          const int minTrips = 30;
+          const int minTrips = 26;
           const int maxTrips = 90;
 
           final now = DateTime.now();

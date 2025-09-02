@@ -61,6 +61,13 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            def project = "Merallin Group"
+            def newName = "${project}-${variant.buildType.name}.apk"
+            output.outputFileName = newName
+        }
+    }
 }
 
 flutter {

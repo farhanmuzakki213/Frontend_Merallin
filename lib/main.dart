@@ -65,7 +65,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => VehicleLocationProvider()),
       ],
       child: MaterialApp(
-        title: 'Absensi App',
+        title: 'Merallin Group',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           fontFamily: 'Poppins',
