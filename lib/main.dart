@@ -10,6 +10,7 @@ import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/bbm_provider.dart';
 import 'package:frontend_merallin/providers/trip_provider.dart';
 import 'package:frontend_merallin/providers/vehicle_location_provider.dart';
+import 'package:frontend_merallin/providers/dashboard_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -63,6 +64,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => HistoryProvider()),
         ChangeNotifierProvider(create: (context) => BbmProvider()),
         ChangeNotifierProvider(create: (context) => VehicleLocationProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, DashboardProvider>(
+  create: (context) => DashboardProvider(),
+  update: (context, auth, dashboard) {
+    dashboard!.updateToken(auth.token);
+    return dashboard;
+  },
+),
       ],
       child: MaterialApp(
         title: 'Merallin Group',
