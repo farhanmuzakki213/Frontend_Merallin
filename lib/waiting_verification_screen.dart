@@ -1,6 +1,6 @@
 // lib/waiting_verification_screen.dart
 
-import 'dart:async'; // <-- PERBAIKAN DI SINI
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
@@ -198,7 +198,7 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
       return 5;
     }
     if (trip.statusMuatan == 'selesai muat') {
-      if (trip.muatPhotoPath == null) {
+      if (trip.kmMuatPhotoPath == null || trip.kedatanganMuatPhotoPath == null || trip.deliveryOrderPath == null || trip.muatPhotoPath == null) {
         return 3;
       }
       return 4;
