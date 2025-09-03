@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:frontend_merallin/models/attendance_history_model.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
@@ -88,6 +89,34 @@ class AttendanceService {
       }
     } on SocketException {
       throw Exception('Gagal mengirim data. Periksa koneksi Anda.');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // +++ card baru absen +++
+  Future<List<AttendanceHistory>> getAttendanceHistory(String token) async {
+    final url = Uri.parse('$_baseUrl/attendance/history'); // Pastikan endpoint ini ada di backend Anda
+    try {
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+  // Cek apakah response-nya object map dg key 'data' atau langsung list
+  final List<dynamic> body = (decoded is Map<String, dynamic>) ? decoded['data'] : decoded;
+  return body
+      .map((dynamic item) => AttendanceHistory.fromJson(item))
+      .toList();
+} else {
+        final responseBody = json.decode(response.body);
+        throw Exception(
+            responseBody['message'] ?? 'Gagal memuat riwayat absensi.');
+      }
+    } on SocketException {
+      throw Exception('Gagal terhubung ke server. Periksa koneksi Anda.');
     } catch (e) {
       rethrow;
     }

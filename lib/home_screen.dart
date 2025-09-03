@@ -10,7 +10,7 @@ import 'package:frontend_merallin/utils/image_absen_helper.dart';
 import 'package:frontend_merallin/vehicle_location_list_screen.dart';
 import 'package:frontend_merallin/vehicle_location_progress_screen.dart';
 import 'package:intl/intl.dart';
-
+import 'package:frontend_merallin/providers/dashboard_provider.dart';
 import 'package:frontend_merallin/profile_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
@@ -100,6 +100,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       if (authProvider.token != null) {
         Provider.of<AttendanceProvider>(context, listen: false)
             .checkTodayAttendanceStatus(authProvider.token!);
+         // +++ PANGGIL PROVIDER DASHBOARD BARU +++
         if (authProvider.user?.roles.contains('driver') ?? false) {
           // Ganti fetchMonthlyTrips menjadi fetchTrips
           Provider.of<TripProvider>(context, listen: false)
@@ -319,10 +320,92 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           children: [
             _buildHeader(user?.name ?? 'User'),
             _buildTimeCard(),
+            // +++ LETAKKAN WIDGET BARU DI SINI +++
+            _buildDashboardStats(),
             if (userRole == 'driver') const _TripCalculatorCard(),
             _buildMenuGrid(context, userRole),
             const SizedBox(height: 20),
           ],
+        ),
+      ),
+    );
+  }
+  // ++ KODE BARU +++
+  Widget _buildDashboardStats() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Consumer<DashboardProvider>(
+        builder: (context, provider, child) {
+          if (provider.isLoading) {
+            // Tampilan loading
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (provider.errorMessage != null) {
+            // Tampilan error
+            return Center(
+              child: Text(
+                'Gagal memuat statistik: ${provider.errorMessage}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+            );
+          }
+          
+          // Tampilan card statistik
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatCard(
+                context,
+                'Hadir',
+                provider.hadirCount.toString(),
+                Icons.check_circle_outline,
+                Colors.green,
+              ),
+              _buildStatCard(
+                context,
+                'Izin',
+                provider.izinCount.toString(),
+                Icons.info_outline,
+                Colors.orange,
+              ),
+              _buildStatCard(
+                context,
+                'Sakit',
+                provider.sakitCount.toString(),
+                Icons.local_hospital_outlined,
+                Colors.red,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStatCard(BuildContext context, String title, String count, IconData icon, Color color) {
+    return Expanded(
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                count,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -392,12 +475,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           AnimatedMenuItem(
               icon: Icons.note_alt_outlined,
               label: 'Izin',
-              onTap: () {
-                Navigator.push(
+              onTap: () async { // <-- Tambahkan 'async'
+                // Tunggu sampai pengguna kembali dari LeaveRequestScreen
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const LeaveRequestScreen()),
+                    builder: (context) => const LeaveRequestScreen()),
                 );
+                if (mounted) {
+      Provider.of<DashboardProvider>(context, listen: false)
+          .fetchDashboardData();
+          }
               }),
           AnimatedMenuItem(
               icon: Icons.timer_outlined,
