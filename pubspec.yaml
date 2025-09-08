@@ -10,7 +10,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+
+  # ===== tambahan =====
+  device_info_plus: ^9.1.2
+
+  # ===== MULAI KODE TAMBAHAN =====
+  # ===== untuk menginstal library Firebase yang diperlukan agar aplikasi Anda bisa menerima notifikasi.===
+  firebase_core: ^2.24.2
+  firebase_messaging: ^14.7.10
+  # ===== AKHIR KODE TAMBAHAN =====
+
+  dio: ^5.7.0
+  file_saver: ^0.1.1
+
+  flutter_local_notifications: ^17.1.2
+  open_filex: ^4.4.0
   flutter_localizations:
     sdk: flutter
 
@@ -24,7 +38,7 @@ dependencies:
   flutter_dotenv: ^5.1.0
   http: ^0.13.5
   intl: ^0.18.0          
-  geolocator: ^9.0.2      
+  geolocator: ^ 9.0.2      
   image_picker: ^0.8.9      
   permission_handler: ^10.4.5 
   file_picker: ^5.5.0
@@ -33,6 +47,7 @@ dependencies:
 
   flutter_image_compress: ^2.3.0
   path_provider: ^2.1.2
+  flutter_pdfview: ^1.2.2
   path: ^1.8.3
   flutter_svg: ^2.0.9
 
@@ -68,6 +83,7 @@ flutter:
     - assets/logo_meralin_besar.jpeg
     - assets/MERALLIN_LOGO_WAITING.svg
 
+
   # ===== BAGIAN FONT YANG DITAMBAHKAN =====
   fonts:
     - family: Arial
@@ -88,3 +104,5 @@ flutter:
           weight: 900                              
           style: italic
   # ========================================
+dependency_overrides:
+  dio: ^5.7.0
