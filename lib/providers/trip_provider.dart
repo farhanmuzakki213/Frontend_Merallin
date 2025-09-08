@@ -70,12 +70,15 @@ class TripProvider with ChangeNotifier {
 
   Future<void> fetchVehicles(String token) async {
     try {
-      debugPrint('[TripProvider] Memulai fetchVehicles...'); // Lacak pemanggilan
+      debugPrint(
+          '[TripProvider] Memulai fetchVehicles...'); // Lacak pemanggilan
       _vehicles = await _vehicleService.getVehicles(token);
-      debugPrint('[TripProvider] Berhasil. Ditemukan ${_vehicles.length} kendaraan.'); // Lacak jumlah data
+      debugPrint(
+          '[TripProvider] Berhasil. Ditemukan ${_vehicles.length} kendaraan.'); // Lacak jumlah data
       notifyListeners();
     } catch (e) {
-      debugPrint('[TripProvider] Gagal memuat kendaraan: ${e.toString()}'); // Lacak jika ada error
+      debugPrint(
+          '[TripProvider] Gagal memuat kendaraan: ${e.toString()}'); // Lacak jika ada error
       _errorMessage = "Gagal memuat data kendaraan: ${e.toString()}";
       notifyListeners();
     }
@@ -158,46 +161,49 @@ class TripProvider with ChangeNotifier {
     }
   }
 
-  Future<Trip?> finishLoading(
-      {required String token, required int tripId}) async {
-    try {
-      final trip =
-          await _tripService.finishLoading(token: token, tripId: tripId);
-      return trip;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw Exception(
-          'Terjadi kesalahan saat menyelesaikan muat: ${e.toString()}');
-    }
-  }
-
-  Future<Trip?> updateAfterLoading({
+  Future<Trip?> submitKedatanganMuat({
     required String token,
     required int tripId,
     File? kmMuatPhoto,
     File? kedatanganMuatPhoto,
     File? deliveryOrderPhoto,
-    List<File>? muatPhotos,
   }) async {
     try {
-      return await _tripService.updateAfterLoading(
+      return await _tripService.updateKedatanganMuat(
         token: token,
         tripId: tripId,
         kmMuatPhoto: kmMuatPhoto,
         kedatanganMuatPhoto: kedatanganMuatPhoto,
         deliveryOrderPhoto: deliveryOrderPhoto,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw Exception(
+          'Terjadi kesalahan saat update kedatangan muat: ${e.toString()}');
+    }
+  }
+
+  Future<Trip?> submitProsesMuat({
+    required String token,
+    required int tripId,
+    List<File>? muatPhotos,
+  }) async {
+    try {
+      return await _tripService.updateProsesMuat(
+        token: token,
+        tripId: tripId,
         muatPhotos: muatPhotos,
       );
     } on ApiException {
       rethrow;
     } catch (e) {
       throw Exception(
-          'Terjadi kesalahan saat update setelah muat: ${e.toString()}');
+          'Terjadi kesalahan saat upload proses muat: ${e.toString()}');
     }
   }
 
-  Future<Trip?> uploadTripDocuments({
+  Future<Trip?> submitSelesaiMuat({
     required String token,
     required int tripId,
     List<File>? deliveryLetters,
@@ -205,7 +211,7 @@ class TripProvider with ChangeNotifier {
     File? timbanganPhoto,
   }) async {
     try {
-      return await _tripService.uploadTripDocuments(
+      return await _tripService.uploadSelesaiMuat(
         token: token,
         tripId: tripId,
         deliveryLetters: deliveryLetters,
@@ -216,7 +222,7 @@ class TripProvider with ChangeNotifier {
       rethrow;
     } catch (e) {
       throw Exception(
-          'Terjadi kesalahan saat upload dokumen tambahan: ${e.toString()}');
+          'Terjadi kesalahan saat upload dokumen selesai muat: ${e.toString()}');
     }
   }
 
@@ -230,48 +236,68 @@ class TripProvider with ChangeNotifier {
       rethrow;
     } catch (e) {
       throw Exception(
-          'Terjadi kesalahan saat update ke lokasi muat: ${e.toString()}');
+          'Terjadi kesalahan saat update ke lokasi bongkar: ${e.toString()}');
     }
   }
 
-  Future<Trip?> finishUnloading(
-      {required String token, required int tripId}) async {
-    try {
-      final trip =
-          await _tripService.finishUnloading(token: token, tripId: tripId);
-      return trip;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw Exception(
-          'Terjadi kesalahan saat menyelesaikan bongkar: ${e.toString()}');
-    }
-  }
-
-  Future<Trip?> updateFinishTrip({
+  Future<Trip?> submitKedatanganBongkar({
     required String token,
     required int tripId,
     String? endKm,
     File? endKmPhoto,
     File? kedatanganBongkarPhoto,
-    List<File>? bongkarPhotos,
-    List<File>? deliveryLetters,
   }) async {
     try {
-      return await _tripService.updateFinishTrip(
+      return await _tripService.updateKedatanganBongkar(
         token: token,
         tripId: tripId,
         endKm: endKm,
         endKmPhoto: endKmPhoto,
         kedatanganBongkarPhoto: kedatanganBongkarPhoto,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw Exception(
+          'Terjadi kesalahan saat update kedatangan bongkar: ${e.toString()}');
+    }
+  }
+
+  Future<Trip?> submitProsesBongkar({
+    required String token,
+    required int tripId,
+    List<File>? bongkarPhotos,
+  }) async {
+    try {
+      return await _tripService.updateProsesBongkar(
+        token: token,
+        tripId: tripId,
         bongkarPhotos: bongkarPhotos,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw Exception(
+          'Terjadi kesalahan saat upload proses bongkar: ${e.toString()}');
+    }
+  }
+
+  Future<Trip?> submitSelesaiBongkar({
+    required String token,
+    required int tripId,
+    List<File>? deliveryLetters,
+  }) async {
+    try {
+      return await _tripService.updateSelesaiBongkar(
+        token: token,
+        tripId: tripId,
         deliveryLetters: deliveryLetters,
       );
     } on ApiException {
       rethrow;
     } catch (e) {
       throw Exception(
-          'Terjadi kesalahan saat update finish trip: ${e.toString()}');
+          'Terjadi kesalahan saat menyelesaikan trip: ${e.toString()}');
     }
   }
 }
