@@ -4,8 +4,16 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Aplikasi ini membutuhkan akses kamera untuk mengambil foto absensi.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Aplikasi ini membutuhkan akses untuk menyimpan slip gaji dalam format PDF.</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Aplikasi ini membutuhkan akses lokasi untuk merekam lokasi absensi.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+    <string>Aplikasi ini membutuhkan akses untuk menyimpan file slip gaji ke galeri.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Aplikasi ini membutuhkan akses untuk menyimpan file slip gaji ke galeri.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

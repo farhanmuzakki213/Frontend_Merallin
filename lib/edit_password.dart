@@ -32,6 +32,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
   }
 
   // --- FUNGSI _submit DIUBAH TOTAL ---
+  // --- FUNGSI _submit DIUBAH TOTAL ---
   void _submit() async {
     // 1. Validasi form
     if (!_formKey.currentState!.validate()) {
@@ -52,7 +53,9 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
 
     // 3. Panggil AuthProvider untuk update password
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    // ===== PERBAIKAN DI SINI =====
     final error = await authProvider.updatePassword(
+      context: context, // <-- TAMBAHKAN BARIS INI
       currentPassword: _oldPasswordController.text,
       newPassword: _newPasswordController.text,
       newPasswordConfirmation: _confirmPasswordController.text,

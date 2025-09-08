@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/id_card_screen.dart';
 import 'package:frontend_merallin/bbm_list_screen.dart';
 import 'package:frontend_merallin/bbm_progress_screen.dart';
 import 'package:frontend_merallin/laporan_perjalanan_screen.dart';
@@ -14,12 +15,15 @@ import 'package:frontend_merallin/providers/dashboard_provider.dart';
 import 'package:frontend_merallin/profile_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
-import 'package:frontend_merallin/services/permission_service.dart';
+// ===== KODE DI BAWAH INI DIHAPUS KARENA SUDAH TIDAK DIPERLUKAN =====
+// import 'package:frontend_merallin/services/permission_service.dart'; 
+// =================================================================
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend_merallin/my_trip_screen.dart';
 import 'package:frontend_merallin/history_screen.dart';
 import 'package:frontend_merallin/leave_request_screen.dart';
+import 'package:frontend_merallin/payslip_list_screen.dart';
 import 'driver_history_screen.dart';
 import 'lembur_screen.dart';
 
@@ -87,22 +91,21 @@ class HomeScreenContent extends StatefulWidget {
 }
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
-  final PermissionService _permissionService = PermissionService();
+  // ===== KODE DI BAWAH INI DIHAPUS KARENA SUDAH TIDAK DIPERLUKAN =====
+  // final PermissionService _permissionService = PermissionService();
+  // =================================================================
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // _checkPendingTrip();
       _checkPendingTasks();
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (authProvider.token != null) {
         Provider.of<AttendanceProvider>(context, listen: false)
             .checkTodayAttendanceStatus(authProvider.token!);
-         // +++ PANGGIL PROVIDER DASHBOARD BARU +++
         if (authProvider.user?.roles.contains('driver') ?? false) {
-          // Ganti fetchMonthlyTrips menjadi fetchTrips
           Provider.of<TripProvider>(context, listen: false)
               .fetchTrips(authProvider.token!);
         }
@@ -110,30 +113,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     });
   }
 
-  // void _checkPendingTrip() {
-  //   final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-  //   if (authProvider.pendingTripId != null) {
-  //     final tripId = authProvider.pendingTripId!;
-
-  //     Navigator.of(context).push(MaterialPageRoute(
-  //       builder: (_) => LaporanDriverScreen(
-  //         tripId: tripId,
-  //         resumeVerification: true,
-  //       ),
-  //     ));
-  //   }
-  // }
-
   Future<void> _checkPendingTasks() async {
-    // Gunakan 'listen: false' karena ini adalah aksi satu kali di dalam initState
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Gunakan if-else if untuk memastikan hanya satu tugas pending yang dijalankan
     if (authProvider.pendingTripId != null) {
       final tripId = authProvider.pendingTripId!;
-      
-      // Tunggu (await) sampai halaman LaporanDriverScreen ditutup
       final result = await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => LaporanDriverScreen(
           tripId: tripId,
@@ -141,14 +125,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         ),
       ));
 
-      // Jika hasilnya 'true' (menandakan proses selesai/ada perubahan), hapus ID
       if (result == true) {
         await authProvider.clearPendingTripForVerification();
       }
     } else if (authProvider.pendingBbmId != null) {
       final bbmId = authProvider.pendingBbmId!;
       final result = await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => BbmProgressScreen(bbmId: bbmId, resumeVerification: true),
+        builder: (_) =>
+            BbmProgressScreen(bbmId: bbmId, resumeVerification: true),
       ));
       if (result == true) {
         await authProvider.clearPendingBbmForVerification();
@@ -168,14 +152,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Future<void> _startStampedClockIn(BuildContext context) async {
-    final bool permissionsGranted =
-        await _permissionService.requestAttendancePermissions();
-    if (!mounted) return;
-
-    if (!permissionsGranted) {
-      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
-      return;
-    }
+    // ===== BLOK PENGECEKAN IZIN DI BAWAH INI DIHAPUS =====
+    // final bool permissionsGranted =
+    //     await _permissionService.requestAttendancePermissions();
+    // if (!mounted) return;
+    //
+    // if (!permissionsGranted) {
+    //   showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
+    //   return;
+    // }
+    // ======================================================
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final attendanceProvider =
@@ -240,14 +226,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Future<void> _startStampedClockOut(BuildContext context) async {
-    final bool permissionsGranted =
-        await _permissionService.requestAttendancePermissions();
-    if (!mounted) return;
-
-    if (!permissionsGranted) {
-      showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
-      return;
-    }
+    // ===== BLOK PENGECEKAN IZIN DI BAWAH INI DIHAPUS =====
+    // final bool permissionsGranted =
+    //     await _permissionService.requestAttendancePermissions();
+    // if (!mounted) return;
+    //
+    // if (!permissionsGranted) {
+    //   showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
+    //   return;
+    // }
+    // ======================================================
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final attendanceProvider =
@@ -320,7 +308,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           children: [
             _buildHeader(user?.name ?? 'User'),
             _buildTimeCard(),
-            // +++ LETAKKAN WIDGET BARU DI SINI +++
             _buildDashboardStats(),
             if (userRole == 'driver') const _TripCalculatorCard(),
             _buildMenuGrid(context, userRole),
@@ -330,19 +317,31 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       ),
     );
   }
-  // ++ KODE BARU +++
+
   Widget _buildDashboardStats() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Consumer<DashboardProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
-            // Tampilan loading
             return const Center(child: CircularProgressIndicator());
           }
 
           if (provider.errorMessage != null) {
-            // Tampilan error
+            // ===== MULAI KODE TAMBAHAN =====
+            // Cek apakah pesan error menandakan sesi tidak valid (unauthenticated)
+            if (provider.errorMessage == 'Unauthenticated.') {
+              // Menjadwalkan pemanggilan logout setelah frame selesai di-build
+              // untuk menghindari error render.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                // Memanggil fungsi logout untuk membersihkan sesi dan token,
+                // yang akan secara otomatis mengarahkan ke halaman login via AuthGate.
+                Provider.of<AuthProvider>(context, listen: false).logout();
+              });
+
+              // Saat proses logout dan redirect, tampilkan loading indicator.
+              return const Center(child: CircularProgressIndicator());
+            }
             return Center(
               child: Text(
                 'Gagal memuat statistik: ${provider.errorMessage}',
@@ -351,8 +350,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               ),
             );
           }
-          
-          // Tampilan card statistik
+
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -384,7 +382,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
   }
 
-  Widget _buildStatCard(BuildContext context, String title, String count, IconData icon, Color color) {
+  Widget _buildStatCard(BuildContext context, String title, String count,
+      IconData icon, Color color) {
     return Expanded(
       child: Card(
         elevation: 2,
@@ -402,7 +401,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               const SizedBox(height: 4),
               Text(
                 count,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -469,23 +469,28 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             },
           ),
           AnimatedMenuItem(
-              icon: Icons.calendar_today_outlined,
-              label: 'Jadwal',
-              onTap: () {}),
+            icon: Icons.badge_outlined,
+            label: 'ID Karyawan',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const IdCardScreen()),
+              );
+            },
+          ),
           AnimatedMenuItem(
               icon: Icons.note_alt_outlined,
               label: 'Izin',
-              onTap: () async { // <-- Tambahkan 'async'
-                // Tunggu sampai pengguna kembali dari LeaveRequestScreen
+              onTap: () async {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const LeaveRequestScreen()),
+                      builder: (context) => const LeaveRequestScreen()),
                 );
                 if (mounted) {
-      Provider.of<DashboardProvider>(context, listen: false)
-          .fetchDashboardData();
-          }
+                  Provider.of<DashboardProvider>(context, listen: false)
+                      .fetchDashboardData();
+                }
               }),
           AnimatedMenuItem(
               icon: Icons.timer_outlined,
@@ -497,7 +502,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 );
               }),
           AnimatedMenuItem(
-              icon: Icons.description_outlined, label: 'Catatan', onTap: () {}),
+            icon: Icons.receipt_long_outlined,
+            label: 'Slip Gaji',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PayslipListScreen()),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -558,12 +571,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             },
           ),
           AnimatedMenuItem(
-            icon: Icons.alt_route, // Ikon alternatif
+            icon: Icons.alt_route,
             label: 'Trip Geser',
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const VehicleLocationListScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const VehicleLocationListScreen()),
               );
             },
           ),
