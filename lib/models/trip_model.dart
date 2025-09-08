@@ -282,6 +282,8 @@ class Trip {
           case 'km_muat_photo':
           case 'kedatangan_muat_photo':
           case 'delivery_order_photo':
+            pageIndex = 2;
+            break;
           case 'muat_photo':
             pageIndex = 3;
             break;
@@ -292,9 +294,13 @@ class Trip {
             break;
           case 'kedatangan_bongkar_photo':
           case 'end_km_photo':
+            pageIndex = 6;
+            break;
           case 'bongkar_photo':
-          case 'delivery_letter_final':
             pageIndex = 7;
+            break;
+          case 'delivery_letter_final':
+            pageIndex = 8;
             break;
           default:
             pageIndex = 0;
@@ -331,7 +337,8 @@ class Trip {
   }
 
   factory Trip.fromJson(Map<String, dynamic> json) {
-    final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
+    final String imageBaseUrl =
+        dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
     final wib = tz.getLocation('Asia/Jakarta');
     String buildFullUrl(String? relativePath) {
       if (relativePath == null || relativePath.isEmpty) {
@@ -463,8 +470,7 @@ class Trip {
       fullKmMuatPhotoUrl: buildFullUrl(json['full_km_muat_photo_url']),
       fullKedatanganMuatPhotoUrl:
           buildFullUrl(json['full_kedatangan_muat_photo_url']),
-      fullDeliveryOrderUrl:
-          buildFullUrl(json['full_delivery_order_photo_url']),
+      fullDeliveryOrderUrl: buildFullUrl(json['full_delivery_order_photo_url']),
       fullMuatPhotoUrls: buildFullUrlList(json['full_muat_photo_urls']),
       fullDeliveryLetterUrls:
           buildFullUrlMap(json['full_delivery_letter_urls']),

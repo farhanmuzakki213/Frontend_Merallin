@@ -8,13 +8,12 @@ import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../providers/trip_provider.dart';
 
-// Helper class to pass result back from the waiting screen
 enum TripStatus { approved, rejected }
 
 class VerificationResult {
   final TripStatus status;
   final int targetPage;
-  final Trip updatedTrip; // Pass the whole trip back for consistency
+  final Trip updatedTrip;
   final String? rejectionReason;
 
   VerificationResult({
@@ -143,73 +142,40 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
   }
 
   List<PhotoVerificationStatus> _getRelevantStatuses(Trip trip) {
-    // Logika ini diperbarui untuk mencocokkan dokumen di setiap halaman
     switch (widget.initialPage) {
-      // Tahap 0: Mulai Perjalanan
-      case 0:
+      case 0: // MULAI PERJALANAN
         return [trip.startKmPhotoStatus];
-      
-      // Tahap 3: Bukti Tiba & Muat
-      case 3:
+      case 2: // BUKTI KEDATANGAN MUAT
         return [
           trip.kmMuatPhotoStatus,
           trip.kedatanganMuatPhotoStatus,
-          trip.deliveryOrderStatus,
-          trip.muatPhotoStatus,
+          trip.deliveryOrderStatus
         ];
-
-      // Tahap 4: Dokumen Perjalanan
-      case 4:
+      case 3: // BUKTI PROSES MUAT
+        return [trip.muatPhotoStatus];
+      case 4: // DOKUMEN SELESAI MUAT
         return [
           trip.deliveryLetterInitialStatus,
           trip.segelPhotoStatus,
-          trip.timbanganKendaraanPhotoStatus,
+          trip.timbanganKendaraanPhotoStatus
         ];
-
-      // Tahap 7: Bukti Akhir & Selesai
-      case 7:
-        return [
-          trip.endKmPhotoStatus,
-          trip.kedatanganBongkarPhotoStatus,
-          trip.bongkarPhotoStatus,
-          trip.deliveryLetterFinalStatus,
-        ];
-        
+      case 6: // BUKTI KEDATANGAN BONGKAR
+        return [trip.endKmPhotoStatus, trip.kedatanganBongkarPhotoStatus];
+      case 7: // BUKTI PROSES BONGKAR
+        return [trip.bongkarPhotoStatus];
+      case 8: // DOKUMEN SELESAI BONGKAR
+        return [trip.deliveryLetterFinalStatus];
       default:
-        // Halaman info tidak memerlukan pengecekan status
+        // Halaman info (1, 5) tidak memerlukan pengecekan
         return [];
     }
   }
 
   int _determinePageAfterApproval(Trip trip) {
-    if (trip.derivedStatus == TripDerivedStatus.selesai || trip.endKm != null) {
-      return 7;
+    if (widget.initialPage < 8) {
+      return widget.initialPage + 1;
     }
-    if (trip.statusMuatan == 'selesai bongkar') {
-      return 7;
-    }
-    if (trip.statusLokasi == 'di lokasi bongkar') {
-      return 6;
-    }
-    if (trip.statusLokasi == 'menuju lokasi bongkar') {
-      if (trip.deliveryOrderPath == null || trip.segelPhotoPath == null || trip.timbanganKendaraanPhotoPath == null) {
-        return 4; 
-      }
-      return 5;
-    }
-    if (trip.statusMuatan == 'selesai muat') {
-      if (trip.kmMuatPhotoPath == null || trip.kedatanganMuatPhotoPath == null || trip.deliveryOrderPath == null || trip.muatPhotoPath == null) {
-        return 3;
-      }
-      return 4;
-    }
-    if (trip.statusLokasi == 'di lokasi muat') {
-      return 2;
-    }
-    if (trip.statusLokasi == 'menuju lokasi muat' || trip.startKm != null) {
-      return 1;
-    }
-    return 0;
+    return 8;
   }
 
 

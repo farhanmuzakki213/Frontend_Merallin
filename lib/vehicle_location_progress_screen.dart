@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/models/trip_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/vehicle_location_provider.dart';
@@ -82,12 +83,16 @@ class _VehicleLocationProgressScreenState
         return;
       }
 
-      if (location.isFullyCompleted || location.statusVehicleLocation == 'selesai') {
+      if (location.isFullyCompleted ||
+          location.statusVehicleLocation == 'selesai') {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Tugas Trip Geser ini sudah selesai.'),
           backgroundColor: Colors.green,
         ));
-        Navigator.of(context).pop(true);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
         return; // Hentikan eksekusi fungsi agar tidak lanjut ke bawah
       }
 
@@ -95,7 +100,8 @@ class _VehicleLocationProgressScreenState
 
       if (_pageController == null) {
         _pageController = PageController(initialPage: determinedPage);
-      } else if (_pageController!.hasClients && _pageController!.page != determinedPage) {
+      } else if (_pageController!.hasClients &&
+          _pageController!.page != determinedPage) {
         _pageController!.jumpToPage(determinedPage);
       }
 
@@ -143,7 +149,10 @@ class _VehicleLocationProgressScreenState
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Trip Geser telah selesai!'),
           backgroundColor: Colors.blue));
-      Navigator.of(context).pop(true);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
       return;
     }
 
@@ -198,7 +207,7 @@ class _VehicleLocationProgressScreenState
           content: Text(
               'Verifikasi ditolak: ${result.rejectionReason ?? "Dokumen ditolak."}'),
           backgroundColor: Colors.red));
-          _fetchDetailsAndProceed(forceShowForm: true);
+      _fetchDetailsAndProceed(forceShowForm: true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Verifikasi berhasil!'),
@@ -583,7 +592,7 @@ class _StartLocationPageState extends State<_StartLocationPage> {
                 fontWeight: FontWeight.bold,
                 color: Colors.black87)),
         const SizedBox(height: 24),
-        
+
         // --- PERBAIKAN DI SINI ---
         if (!widget.location.standbyPhotoStatus.isApproved)
           _PhotoSection(
@@ -595,7 +604,7 @@ class _StartLocationPageState extends State<_StartLocationPage> {
           ),
         if (widget.location.standbyPhotoStatus.isApproved)
           _ApprovedDocumentPlaceholder(title: 'Foto Standby Kendaraan'),
-        
+
         const SizedBox(height: 24),
 
         // --- PERBAIKAN DI SINI ---
@@ -691,7 +700,7 @@ class _EndLocationPageState extends State<_EndLocationPage> {
                 fontWeight: FontWeight.bold,
                 color: Colors.black87)),
         const SizedBox(height: 24),
-        
+
         // --- PERBAIKAN DI SINI ---
         if (!widget.location.endKmPhotoStatus.isApproved)
           _PhotoSection(
@@ -975,9 +984,13 @@ class _ApprovedDocumentPlaceholder extends StatelessWidget {
     );
   }
 }
+
 extension PhotoStatusCheck on PhotoVerificationStatus {
   bool get isRejected => (status?.toLowerCase() == 'rejected' ||
       (rejectionReason != null && rejectionReason!.isNotEmpty));
   bool get isApproved => status?.toLowerCase() == 'approved';
-  bool get isPending => status?.toLowerCase() == 'pending' || status == null || status!.isEmpty; // untuk trip geser
+  bool get isPending =>
+      status?.toLowerCase() == 'pending' ||
+      status == null ||
+      status!.isEmpty; // untuk trip geser
 }
