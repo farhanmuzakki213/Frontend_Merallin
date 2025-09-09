@@ -1,9 +1,14 @@
+// lib/screens/lembur_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:frontend_merallin/ajukan_lembur_screen.dart';
-import 'package:frontend_merallin/detail_lembur_screen.dart';
+import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/providers/lembur_provider.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
-import 'models/lembur_model.dart';
-
+import 'ajukan_lembur_screen.dart'; // Pastikan import ini ada
+import 'detail_lembur_screen.dart';
+import '../models/lembur_model.dart';
 
 class LemburScreen extends StatefulWidget {
   const LemburScreen({super.key});
@@ -13,45 +18,78 @@ class LemburScreen extends StatefulWidget {
 }
 
 class _LemburScreenState extends State<LemburScreen> {
-  // --- DATA DUMMY DIPERBARUI DENGAN ID ---
-  final List<LemburRequest> _riwayatLembur = [
-    LemburRequest(
-      id: '1',
-      tanggal: '13 Agustus 2025',
-      jamMulai: '17:00',
-      jamSelesai: '19:00',
-      durasi: '2 Jam',
-      pekerjaan: 'Deployment fitur baru ke server production.',
-      status: 'Pending',
-    ),
-    LemburRequest(
-      id: '2',
-      tanggal: '12 Agustus 2025',
-      jamMulai: '17:30',
-      jamSelesai: '19:30',
-      durasi: '2 Jam',
-      pekerjaan: 'Menyelesaikan revisi laporan penjualan bulanan.',
-      status: 'Terverifikasi',
-    ),
-    LemburRequest(
-      id: '3',
-      tanggal: '11 Agustus 2025',
-      jamMulai: '17:00',
-      jamSelesai: '18:00',
-      durasi: '1 Jam',
-      pekerjaan: 'Membantu persiapan event internal besok.',
-      status: 'Disetujui',
-    ),
-    LemburRequest(
-      id: '4',
-      tanggal: '10 Agustus 2025',
-      jamMulai: '18:00',
-      jamSelesai: '20:00',
-      durasi: '2 Jam',
-      pekerjaan: 'Perbaikan bug mendesak pada sistem CRM.',
-      status: 'Ditolak',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialData();
+    });
+  }
+
+  void _loadInitialData() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.token != null) {
+      Provider.of<LemburProvider>(context, listen: false)
+          .fetchOvertimeHistory(authProvider.token!);
+    } else {
+      print("Token tidak ditemukan, user belum login.");
+    }
+  }
+
+  // --- FUNGSI HELPER YANG DIPERBAIKI ---
+
+  String _formatTime(String timeStr) {
+    try {
+      final time = TimeOfDay(
+        hour: int.parse(timeStr.split(':')[0]),
+        minute: int.parse(timeStr.split(':')[1]),
+      );
+      return time.format(context);
+    } catch (e) {
+      if (timeStr.length >= 5) {
+        return timeStr.substring(0, 5);
+      }
+      return timeStr;
+    }
+  }
+
+  // --- PERBAIKAN DI SINI: FUNGSI PERHITUNGAN DURASI DISESUAIKAN ---
+  /// Mengkalkulasi durasi antara jam mulai dan selesai, sesuai dengan logika di halaman pengajuan.
+  String _calculateDuration(String startTimeStr, String endTimeStr) {
+    try {
+      final now = DateTime.now();
+
+      // Parsing string "HH:mm:ss" atau "HH:mm" menjadi DateTime
+      final startHour = int.parse(startTimeStr.split(':')[0]);
+      final startMinute = int.parse(startTimeStr.split(':')[1]);
+      var startDateTime =
+          DateTime(now.year, now.month, now.day, startHour, startMinute);
+
+      final endHour = int.parse(endTimeStr.split(':')[0]);
+      final endMinute = int.parse(endTimeStr.split(':')[1]);
+      var endDateTime =
+          DateTime(now.year, now.month, now.day, endHour, endMinute);
+
+      // Jika jam selesai lebih awal dari jam mulai, berarti melewati tengah malam.
+      // Tambahkan 1 hari ke waktu selesai.
+      if (endDateTime.isBefore(startDateTime)) {
+        endDateTime = endDateTime.add(const Duration(days: 1));
+      }
+
+      final difference = endDateTime.difference(startDateTime);
+      if (difference.isNegative) {
+        return 'Jam tidak valid';
+      }
+
+      final hours = difference.inHours;
+      final minutes = difference.inMinutes % 60;
+
+      return '$hours Jam $minutes Menit';
+    } catch (e) {
+      debugPrint("Error calculating duration: $e");
+      return '-- Jam -- Menit';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,15 +101,41 @@ class _LemburScreenState extends State<LemburScreen> {
         elevation: 1,
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () {},
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadInitialData,
           ),
         ],
       ),
-      body: _riwayatLembur.isEmpty ? _buildEmptyState() : _buildLemburList(),
+      body: Consumer<LemburProvider>(
+        builder: (context, provider, child) {
+          if (provider.historyStatus == DataStatus.loading &&
+              provider.overtimeHistory.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (provider.historyStatus == DataStatus.error) {
+            return Center(
+              child: Text(
+                'Gagal memuat data:\n${provider.historyMessage}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+            );
+          }
+          if (provider.overtimeHistory.isEmpty) {
+            return _buildEmptyState();
+          }
+          // Tambahkan RefreshIndicator untuk fitur pull-to-refresh
+          return RefreshIndicator(
+              onRefresh: () async => _loadInitialData(),
+              child: _buildLemburList(provider.overtimeHistory));
+        },
+      ),
+      // Tombol ini sekarang akan bernavigasi ke AjukanLemburScreen
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          // Navigasi ke halaman pengajuan.
+          // Provider akan otomatis refresh data jika pengajuan berhasil.
+          await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AjukanLemburScreen()),
           );
@@ -83,29 +147,37 @@ class _LemburScreenState extends State<LemburScreen> {
     );
   }
 
-  Widget _buildLemburList() {
+  Widget _buildLemburList(List<Lembur> riwayatLembur) {
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
-      itemCount: _riwayatLembur.length,
+      itemCount: riwayatLembur.length,
       itemBuilder: (context, index) {
-        final lembur = _riwayatLembur[index];
+        final lembur = riwayatLembur[index];
         return _buildLemburCard(lembur);
       },
     );
   }
 
-  Widget _buildLemburCard(LemburRequest lembur) {
+  Widget _buildLemburCard(Lembur lembur) {
+    final formattedTanggal =
+        DateFormat('d MMMM yyyy', 'id_ID').format(lembur.tanggalLembur);
+    // Menggunakan fungsi format yang baru
+    final jamMulai = _formatTime(lembur.mulaiJamLembur);
+    final jamSelesai = _formatTime(lembur.selesaiJamLembur);
+    // Menggunakan fungsi kalkulasi durasi yang baru
+    final durasi =
+        _calculateDuration(lembur.mulaiJamLembur, lembur.selesaiJamLembur);
+
     return InkWell(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetailLemburScreen(lemburRequest: lembur),
+            builder: (context) => DetailLemburScreen(lembur: lembur),
           ),
         );
       },
-      borderRadius:
-          BorderRadius.circular(12), // Agar efek riak sesuai bentuk kartu
+      borderRadius: BorderRadius.circular(12),
       child: Card(
         elevation: 3,
         margin: const EdgeInsets.only(bottom: 16.0),
@@ -119,21 +191,19 @@ class _LemburScreenState extends State<LemburScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    lembur.tanggal,
+                    formattedTanggal,
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+                        fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  _buildStatusChip(lembur.status),
+                  _buildStatusChip(lembur.statusLembur),
                 ],
               ),
               const Divider(height: 24),
               _buildInfoRow(Icons.timer_outlined, 'Durasi',
-                  '${lembur.durasi} (${lembur.jamMulai} - ${lembur.jamSelesai})'),
+                  '$durasi ($jamMulai - $jamSelesai)'),
               const SizedBox(height: 8),
-              _buildInfoRow(Icons.work_outline, 'Pekerjaan', lembur.pekerjaan),
+              _buildInfoRow(
+                  Icons.work_outline, 'Pekerjaan', lembur.keteranganLembur),
             ],
           ),
         ),
@@ -164,27 +234,24 @@ class _LemburScreenState extends State<LemburScreen> {
     );
   }
 
-  Widget _buildStatusChip(String status) {
+  Widget _buildStatusChip(StatusPersetujuan status) {
     Color chipColor;
     Color textColor;
-    String chipText = status;
+    String chipText;
 
     switch (status) {
-      case 'Terverifikasi':
-      case 'Selesai':
+      case StatusPersetujuan.diterima:
         chipColor = Colors.green.shade100;
         textColor = Colors.green.shade800;
+        chipText = 'Disetujui';
         break;
-      case 'Disetujui':
-        chipColor = Colors.blue.shade100;
-        textColor = Colors.blue.shade800;
-        break;
-      case 'Ditolak':
+      case StatusPersetujuan.ditolak:
         chipColor = Colors.red.shade100;
         textColor = Colors.red.shade800;
+        chipText = 'Ditolak';
         break;
-      case 'Pending':
-      default: // Default case akan dianggap Pending
+      case StatusPersetujuan.menungguPersetujuan:
+      default:
         chipColor = Colors.orange.shade100;
         textColor = Colors.orange.shade800;
         chipText = 'Pending';
@@ -211,29 +278,22 @@ class _LemburScreenState extends State<LemburScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.history_toggle_off,
-              size: 80,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.history_toggle_off,
+                size: 80, color: Colors.grey.shade400),
             const SizedBox(height: 24),
             const Text(
               'Riwayat Lembur Kosong',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black54,
-              ),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black54),
             ),
             const SizedBox(height: 8),
             Text(
-              'Anda belum pernah mengajukan lembur. Ketuk tombol \'+\' di bawah untuk membuat pengajuan baru.',
+              'Anda belum pernah mengajukan lembur. Ketuk tombol di bawah untuk membuat pengajuan baru.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
             ),
           ],
         ),

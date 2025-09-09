@@ -1,168 +1,186 @@
+// lib/screens/detail_lembur_screen.dart
+
 import 'dart:async';
+import 'dart:io'; // Diperlukan untuk File
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:frontend_merallin/models/lembur_model.dart';
+import 'package:frontend_merallin/providers/lembur_provider.dart'; // Import provider
 import 'package:geolocator/geolocator.dart';
-
-import 'models/lembur_model.dart';
-
-
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart'; // Import provider
 
 class DetailLemburScreen extends StatefulWidget {
-  // Menerima data lembur dari halaman sebelumnya
-  final LemburRequest lemburRequest;
+  final Lembur lembur;
 
-  const DetailLemburScreen({super.key, required this.lemburRequest});
+  const DetailLemburScreen({super.key, required this.lembur});
 
   @override
   State<DetailLemburScreen> createState() => _DetailLemburScreenState();
 }
 
 class _DetailLemburScreenState extends State<DetailLemburScreen> {
-  late String _currentStatus;
+  late String _currentUiStatus;
   Timer? _timer;
   int _elapsedSeconds = 0;
   bool _isLoading = false;
   String _loadingMessage = "";
   final ImagePicker _picker = ImagePicker();
 
-
   @override
   void initState() {
     super.initState();
-    // Inisialisasi status dari data yang diterima
-    _currentStatus = widget.lemburRequest.status;
+    // Inisialisasi status UI dari data model yang diterima
+    _currentUiStatus = _mapModelStatusToUiStatus(widget.lembur.statusLembur);
+  }
+
+  // Fungsi untuk memetakan status dari model (enum) ke status UI (string)
+  String _mapModelStatusToUiStatus(StatusPersetujuan status) {
+    switch (status) {
+      case StatusPersetujuan.diterima:
+        // Status ini memungkinkan user untuk clock-in
+        return 'Disetujui'; 
+      case StatusPersetujuan.ditolak:
+        return 'Ditolak';
+      case StatusPersetujuan.menungguPersetujuan:
+      default:
+        return 'Pending';
+    }
   }
 
   @override
   void dispose() {
-    // Pastikan timer dihentikan saat halaman ditutup untuk menghindari memory leak
     _timer?.cancel();
     super.dispose();
   }
 
-  // Fungsi untuk mengambil gambar dan melanjutkan aksi (clock-in/out)
+  // --- LOGIKA UNTUK AMBIL FOTO & LOKASI ---
   Future<void> _takePictureAndProceed(bool isClockIn) async {
-    // 1. Buka kamera untuk mengambil foto
+    // 1. Ambil Gambar
     final XFile? image = await _picker.pickImage(
       source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front, // Utamakan kamera depan
-      imageQuality: 80, // Kompresi gambar agar tidak terlalu besar
+      preferredCameraDevice: CameraDevice.front,
+      imageQuality: 80,
     );
+    if (image == null) return;
 
-    if (image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pengambilan gambar dibatalkan.'), backgroundColor: Colors.orange),
-      );
-      return;
-    }
-
-    // 2. Dapatkan timestamp dan lokasi setelah foto diambil
     setState(() {
       _isLoading = true;
       _loadingMessage = "Mendapatkan lokasi...";
     });
 
+    // 2. Ambil Lokasi
     final DateTime timestamp = DateTime.now();
     final Position? position = await _getCurrentLocation();
 
     if (position == null) {
-      // Jika lokasi tidak didapat, hentikan proses dan beri tahu pengguna
-      setState(() {
-        _isLoading = false;
-      });
-      return; // Pesan error sudah ditampilkan di dalam _getCurrentLocation
+      setState(() { _isLoading = false; });
+      return;
     }
 
-    // 3. Tampilkan loading dan simulasikan proses upload
-    setState(() {
-      _loadingMessage = "Mengunggah bukti absen...";
-    });
+    setState(() { _loadingMessage = "Mengunggah bukti absen..."; });
 
-    // --- SIMULASI UPLOAD KE BACKEND ---
-    // TODO: Ganti bagian ini dengan kode untuk mengirim data ke API Laravel.
-    // Data yang harus dikirim:
-    // 1. image (file foto)
-    // 2. timestamp (waktu absen)
-    // 3. position (koordinat: position.latitude dan position.longitude)
+    // --- INTEGRASI DENGAN PROVIDER (MASA DEPAN) ---
+    // TODO: Panggil method dari LemburProvider di sini untuk mengirim data ke API.
+    // Anda perlu membuat method baru di service dan provider, contohnya:
+    //
+    // final provider = Provider.of<LemburProvider>(context, listen: false);
+    // try {
+    //   if (isClockIn) {
+    //     await provider.performClockIn(
+    //       token: 'YOUR_TOKEN',
+    //       lemburId: widget.lembur.id,
+    //       image: File(image.path),
+    //       position: position,
+    //     );
+    //     _performClockIn(); // Jika sukses, update UI
+    //   } else {
+    //     await provider.performClockOut(
+    //       token: 'YOUR_TOKEN',
+    //       lemburId: widget.lembur.id,
+    //       image: File(image.path),
+    //       position: position,
+    //     );
+    //     _performClockOut(); // Jika sukses, update UI
+    //   }
+    // } catch (e) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+    //   );
+    // }
+    // --- AKHIR INTEGRASI ---
+    
+    // Untuk sekarang, kita lanjutkan dengan simulasi
     print("Absen Terekam: ${timestamp.toIso8601String()} di Lat: ${position.latitude}, Lon: ${position.longitude}");
-    await Future.delayed(const Duration(seconds: 2)); 
-    // --- AKHIR SIMULASI ---
+    await Future.delayed(const Duration(seconds: 2));
 
-    // 4. Lanjutkan proses clock-in atau clock-out setelah 'upload' berhasil
     if (isClockIn) {
       _performClockIn();
     } else {
       _performClockOut();
     }
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() { _isLoading = false; });
   }
 
-  // Fungsi untuk mendapatkan lokasi terkini
   Future<Position?> _getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
-
-    // Test if location services are enabled.
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      if (!mounted) return null;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Layanan lokasi mati. Harap aktifkan GPS Anda.'), backgroundColor: Colors.red));
+          content: Text('Layanan lokasi mati. Harap aktifkan GPS Anda.'),
+          backgroundColor: Colors.red));
       return null;
     }
-
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        if (!mounted) return null;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Izin akses lokasi ditolak.'), backgroundColor: Colors.red));
+            content: Text('Izin akses lokasi ditolak.'),
+            backgroundColor: Colors.red));
         return null;
       }
     }
-
     if (permission == LocationPermission.deniedForever) {
+      if (!mounted) return null;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Izin lokasi ditolak permanen, tidak dapat meminta izin lagi.'), backgroundColor: Colors.red));
+          content: Text('Izin lokasi ditolak permanen, tidak dapat meminta izin lagi.'),
+          backgroundColor: Colors.red));
       return null;
     }
-
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
     return await Geolocator.getCurrentPosition();
   }
 
-
   void _performClockIn() {
-    // Aksi setelah clock-in berhasil
     setState(() {
-      _currentStatus = 'Berlangsung';
+      _currentUiStatus = 'Berlangsung';
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        setState(() {
-          _elapsedSeconds++;
-        });
+        setState(() { _elapsedSeconds++; });
       });
     });
-     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Absen mulai lembur berhasil!'), backgroundColor: Colors.green),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Absen mulai lembur berhasil!'),
+          backgroundColor: Colors.green),
     );
   }
 
   void _performClockOut() {
-    // Aksi setelah clock-out berhasil
     _timer?.cancel();
     setState(() {
-      _currentStatus = 'Selesai / Menunggu Verifikasi';
+      _currentUiStatus = 'Selesai';
     });
-    
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Lembur telah diselesaikan. Menunggu verifikasi atasan.'), backgroundColor: Colors.blue),
+      const SnackBar(
+          content: Text('Lembur telah diselesaikan. Menunggu verifikasi atasan.'),
+          backgroundColor: Colors.blue),
     );
   }
 
-  // Format durasi dari detik menjadi HH:mm:ss
   String _formatDuration(int totalSeconds) {
     final duration = Duration(seconds: totalSeconds);
     final hours = duration.inHours.toString().padLeft(2, '0');
@@ -171,14 +189,17 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     return '$hours:$minutes:$seconds';
   }
 
-
   @override
   Widget build(BuildContext context) {
+    final lembur = widget.lembur;
+    final formattedTanggal = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(lembur.tanggalLembur);
+    final jamMulai = lembur.mulaiJamLembur.substring(0, 5);
+    final jamSelesai = lembur.selesaiJamLembur.substring(0, 5);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detail Lembur'),
       ),
-      // Gunakan Stack untuk menumpuk loading indicator di atas konten
       body: Stack(
         children: [
           SingleChildScrollView(
@@ -186,7 +207,6 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- KARTU INFORMASI UTAMA ---
                 Card(
                   elevation: 4,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -199,25 +219,22 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text("Status Saat Ini", style: TextStyle(fontSize: 16, color: Colors.black54)),
-                            _buildStatusChip(_currentStatus),
+                            _buildStatusChip(_currentUiStatus),
                           ],
                         ),
                         const Divider(height: 30),
-                        _buildInfoRow(Icons.calendar_today, 'Tanggal', widget.lemburRequest.tanggal),
-                        _buildInfoRow(Icons.timer, 'Rencana', '${widget.lemburRequest.jamMulai} - ${widget.lemburRequest.jamSelesai} (${widget.lemburRequest.durasi})'),
-                        _buildInfoRow(Icons.work, 'Pekerjaan', widget.lemburRequest.pekerjaan),
+                        _buildInfoRow(Icons.calendar_today, 'Tanggal', formattedTanggal),
+                        _buildInfoRow(Icons.timer, 'Rencana Waktu', '$jamMulai - $jamSelesai'),
+                        _buildInfoRow(Icons.work, 'Pekerjaan', lembur.keteranganLembur),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 32),
-
-                // --- AREA AKSI DINAMIS ---
                 _buildActionSection(),
               ],
             ),
           ),
-          // --- LOADING INDICATOR ---
           if (_isLoading)
             Container(
               color: Colors.black.withOpacity(0.5),
@@ -237,24 +254,17 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     );
   }
 
-  // Widget untuk menampilkan bagian Aksi sesuai status
   Widget _buildActionSection() {
-    switch (_currentStatus) {
+    switch (_currentUiStatus) {
       case 'Disetujui':
         return _buildClockInWidget();
       case 'Berlangsung':
         return _buildInProgressWidget();
-      case 'Selesai / Menunggu Verifikasi':
+      case 'Selesai':
         return _buildInfoCard(
           icon: Icons.check_circle_outline,
           text: 'Lembur telah selesai dan sedang menunggu verifikasi dari atasan Anda.',
           color: Colors.blue,
-        );
-      case 'Terverifikasi':
-        return _buildInfoCard(
-          icon: Icons.verified_user_outlined,
-          text: 'Lembur telah diverifikasi dan akan diproses untuk pembayaran.',
-          color: Colors.green,
         );
       case 'Ditolak':
         return _buildInfoCard(
@@ -263,17 +273,15 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
           color: Colors.red,
         );
       case 'Pending':
-         return _buildInfoCard(
+      default:
+        return _buildInfoCard(
           icon: Icons.pending_actions_outlined,
           text: 'Pengajuan lembur ini masih menunggu persetujuan dari atasan Anda.',
           color: Colors.orange,
         );
-      default:
-        return const SizedBox.shrink();
     }
   }
-  
-  // Widget untuk tombol Clock-in
+
   Widget _buildClockInWidget() {
     return Center(
       child: Column(
@@ -285,7 +293,7 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
           ElevatedButton.icon(
             icon: const Icon(Icons.camera_alt_outlined),
             label: const Text('MULAI LEMBUR (CLOCK-IN)'),
-            onPressed: () => _takePictureAndProceed(true), // Panggil fungsi baru
+            onPressed: () => _takePictureAndProceed(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -297,7 +305,6 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     );
   }
 
-  // Widget saat lembur sedang berlangsung
   Widget _buildInProgressWidget() {
     return Column(
       children: [
@@ -311,7 +318,7 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
         ElevatedButton.icon(
           icon: const Icon(Icons.camera_alt_outlined),
           label: const Text('SELESAIKAN LEMBUR (CLOCK-OUT)'),
-          onPressed: () => _takePictureAndProceed(false), // Panggil fungsi baru
+          onPressed: () => _takePictureAndProceed(false),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -322,26 +329,25 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     );
   }
 
-  // Widget info untuk status final (Ditolak, Selesai, dll)
   Widget _buildInfoCard({required IconData icon, required String text, required Color color}) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5))
-      ),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.5))),
       child: Row(
         children: [
           Icon(icon, color: color, size: 32),
           const SizedBox(width: 16),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 16, color: color.darken(0.2), fontWeight: FontWeight.w500))),
+          Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w500))),
         ],
       ),
     );
   }
 
-  // Widget pembantu untuk baris info di kartu
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -364,20 +370,13 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
       ),
     );
   }
-  
-  // Widget pembantu untuk chip status
+
   Widget _buildStatusChip(String status) {
     Color chipColor;
     Color textColor;
-    String chipText = status;
-
     switch (status) {
-      case 'Terverifikasi':
-        chipColor = Colors.green.shade100;
-        textColor = Colors.green.shade800;
-        break;
       case 'Berlangsung':
-         chipColor = Colors.purple.shade100;
+        chipColor = Colors.purple.shade100;
         textColor = Colors.purple.shade800;
         break;
       case 'Disetujui':
@@ -388,31 +387,20 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
         chipColor = Colors.red.shade100;
         textColor = Colors.red.shade800;
         break;
-      case 'Selesai / Menunggu Verifikasi':
-        chipColor = Colors.blueGrey.shade100;
-        textColor = Colors.blueGrey.shade800;
+      case 'Selesai':
+        chipColor = Colors.green.shade100;
+        textColor = Colors.green.shade800;
         break;
       case 'Pending':
       default:
         chipColor = Colors.orange.shade100;
         textColor = Colors.orange.shade800;
-        chipText = 'Pending';
         break;
     }
     return Chip(
-      label: Text(chipText, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor)),
+      label: Text(status, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor)),
       backgroundColor: chipColor,
       side: BorderSide.none,
     );
-  }
-}
-
-// Ekstensi untuk menggelapkan warna
-extension ColorUtils on Color {
-  Color darken([double amount = .1]) {
-    assert(amount >= 0 && amount <= 1);
-    final hsl = HSLColor.fromColor(this);
-    final hslDark = hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
-    return hslDark.toColor();
   }
 }

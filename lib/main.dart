@@ -16,6 +16,7 @@ import 'package:frontend_merallin/models/user_model.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/bbm_provider.dart';
+import 'package:frontend_merallin/providers/lembur_provider.dart';
 import 'package:frontend_merallin/providers/trip_provider.dart';
 import 'package:frontend_merallin/providers/vehicle_location_provider.dart';
 import 'package:frontend_merallin/providers/dashboard_provider.dart';
@@ -103,6 +104,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => HistoryProvider()),
         ChangeNotifierProvider(create: (context) => BbmProvider()),
         ChangeNotifierProvider(create: (context) => VehicleLocationProvider()),
+        ChangeNotifierProvider(create: (context) => LemburProvider()),
         ChangeNotifierProxyProvider<AuthProvider, PayslipProvider>(
           create: (context) => PayslipProvider(),
           update: (context, auth, payslip) {

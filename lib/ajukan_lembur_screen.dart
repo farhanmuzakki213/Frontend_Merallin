@@ -1,5 +1,11 @@
+// lib/screens/ajukan_lembur_screen.dart
+
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/models/lembur_model.dart';
+import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/providers/lembur_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class AjukanLemburScreen extends StatefulWidget {
   const AjukanLemburScreen({super.key});
@@ -20,18 +26,16 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
 
-  String? _selectedDepartement;
-  String? _selectedJenis;
-  final List<String> _departementOptions = [
-    'Keuangan',
-    'SDM',
-    'Pemasaran',
-    'Penjualan',
-    'Produksi',
-    'IT',
-    'Pengembangan'
-  ];
-  final List<String> _jenisOptions = ['Kerja', 'Libur', 'Libur Nasional'];
+  // --- PERUBAHAN 1: Menyesuaikan Opsi dengan Model Data (Enum) ---
+  DepartmentLembur? _selectedDepartement;
+  JenisHariLembur? _selectedJenis;
+
+  // Opsi ini sekarang diambil dari enum untuk konsistensi data
+  final List<DepartmentLembur> _departementOptions = DepartmentLembur.values;
+  final List<JenisHariLembur> _jenisOptions = JenisHariLembur.values;
+
+  // State untuk loading
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -42,7 +46,7 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
     super.dispose();
   }
 
-  // --- FUNGSI-FUNGSI LOGIKA (TIDAK ADA PERUBAHAN) ---
+  // --- FUNGSI-FUNGSI LOGIKA ---
   Future<void> _selectDate() async {
     final pickedDate = await showDatePicker(
       context: context,
@@ -80,45 +84,96 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
 
   String _formatTime(TimeOfDay? time) {
     if (time == null) return '';
-    final now = DateTime.now();
-    final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    return DateFormat('HH:mm').format(dt);
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
+  // --- PERUBAHAN 2: Logika Kalkulasi Durasi Diperbaiki ---
   String _calculateDuration() {
     if (_startTime == null || _endTime == null) {
       return '-- Jam -- Menit';
     }
-    final startMinutes = _startTime!.hour * 60 + _startTime!.minute;
-    final endMinutes = _endTime!.hour * 60 + _endTime!.minute;
-    if (endMinutes <= startMinutes) {
+
+    final now = DateTime.now();
+    var startDateTime = DateTime(
+        now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+    var endDateTime = DateTime(
+        now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+
+    if (endDateTime.isBefore(startDateTime)) {
+      endDateTime = endDateTime.add(const Duration(days: 1));
+    }
+
+    final difference = endDateTime.difference(startDateTime);
+    if (difference.isNegative) {
       return 'Jam tidak valid';
     }
-    final difference = endMinutes - startMinutes;
-    final hours = difference ~/ 60;
-    final minutes = difference % 60;
+
+    final hours = difference.inHours;
+    final minutes = difference.inMinutes % 60;
     return '$hours Jam $minutes Menit';
   }
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      print('Form Valid. Mengirim data...');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Pengajuan lembur berhasil dikirim.'),
-            backgroundColor: Colors.green),
-      );
-      Navigator.of(context).pop();
-    } else {
+  // --- PERUBAHAN 3: Implementasi Logika Submit ke Provider ---
+  Future<void> _submitForm() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Harap lengkapi semua data yang wajib diisi.'),
             backgroundColor: Colors.red),
       );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final lemburProvider = Provider.of<LemburProvider>(context, listen: false);
+
+    try {
+      await lemburProvider.submitOvertime(
+        token: authProvider.token!,
+        jenisHari: _selectedJenis!,
+        department: _selectedDepartement!,
+        tanggalLembur: _selectedDate!,
+        keteranganLembur: _pekerjaanController.text.trim(),
+        mulaiJamLembur: _formatTime(_startTime),
+        selesaiJamLembur: _formatTime(_endTime),
+      );
+
+      if (lemburProvider.submissionStatus == DataStatus.success) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+              content: Text('Pengajuan lembur berhasil dikirim.'),
+              backgroundColor: Colors.green),
+        );
+        navigator.pop();
+      } else {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+              content:
+                  Text(lemburProvider.submissionMessage ?? 'Terjadi kesalahan'),
+              backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // --- BAGIAN BUILD METHOD (BANYAK PERUBAHAN DI SINI) ---
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).primaryColor;
@@ -126,7 +181,7 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Form Pengajuan Lembur'),
-        backgroundColor: Colors.transparent, //inisss
+        backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black87,
       ),
@@ -137,7 +192,6 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- DIUBAH: Menggunakan Card dengan style berbeda ---
               Card(
                 elevation: 2,
                 margin: EdgeInsets.zero,
@@ -148,7 +202,6 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // --- BARU: Section Header untuk pengelompokan ---
                       const Text(
                         'Informasi Utama',
                         style: TextStyle(
@@ -157,7 +210,6 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
                       const SizedBox(height: 8),
                       const Divider(),
                       const SizedBox(height: 20),
-
                       _buildFormField(
                         label: 'Tanggal Lembur',
                         child: TextFormField(
@@ -174,14 +226,14 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
                       const SizedBox(height: 20),
                       _buildFormField(
                         label: 'Departement',
-                        child: DropdownButtonFormField<String>(
+                        child: DropdownButtonFormField<DepartmentLembur>(
                           value: _selectedDepartement,
                           decoration: _inputDecoration(
                               hint: 'Pilih Departement',
                               icon: Icons.business_center_outlined),
                           items: _departementOptions
-                              .map((v) =>
-                                  DropdownMenuItem(value: v, child: Text(v)))
+                              .map((v) => DropdownMenuItem(
+                                  value: v, child: Text(v.name)))
                               .toList(),
                           onChanged: (v) =>
                               setState(() => _selectedDepartement = v),
@@ -192,14 +244,14 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
                       const SizedBox(height: 20),
                       _buildFormField(
                         label: 'Jenis Hari',
-                        child: DropdownButtonFormField<String>(
+                        child: DropdownButtonFormField<JenisHariLembur>(
                           value: _selectedJenis,
                           decoration: _inputDecoration(
                               hint: 'Pilih Jenis Hari',
                               icon: Icons.work_history_outlined),
                           items: _jenisOptions
-                              .map((v) =>
-                                  DropdownMenuItem(value: v, child: Text(v)))
+                              .map((v) => DropdownMenuItem(
+                                  value: v, child: Text(v.name)))
                               .toList(),
                           onChanged: (v) => setState(() => _selectedJenis = v),
                           validator: (v) =>
@@ -286,17 +338,26 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
               ),
               const SizedBox(height: 32),
 
+              // --- PERUBAHAN 4: Tombol dinamis berdasarkan state loading ---
               FilledButton(
-                onPressed: _submitForm,
+                onPressed: _isLoading ? null : _submitForm,
                 style: FilledButton.styleFrom(
                   backgroundColor: primaryColor,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('KIRIM PENGAJUAN',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ))
+                    : const Text('KIRIM PENGAJUAN',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
               ),
               const SizedBox(height: 16),
             ],
@@ -305,6 +366,9 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
       ),
     );
   }
+
+  // --- BAGIAN BUILD METHOD (BANYAK PERUBAHAN DI SINI) ---
+
 
   Widget _buildFormField({required String label, required Widget child}) {
     return Column(
