@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/waiting_verification_screen.dart';
 import 'package:provider/provider.dart';
@@ -36,21 +37,26 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
   String? _error;
 
   final GlobalKey<_StartTripPageState> _startTripKey = GlobalKey();
-  final GlobalKey<_AfterLoadingPageState> _afterLoadingKey = GlobalKey();
-  final GlobalKey<_UploadDocumentsPageState> _uploadDocumentsKey = GlobalKey();
-  final GlobalKey<_BuktiAkhirPageState> _buktiAkhirKey = GlobalKey();
+  final GlobalKey<_KedatanganMuatPageState> _kedatanganMuatKey = GlobalKey();
+  final GlobalKey<_ProsesMuatPageState> _prosesMuatKey = GlobalKey();
+  final GlobalKey<_SelesaiMuatPageState> _selesaiMuatKey = GlobalKey();
+  final GlobalKey<_KedatanganBongkarPageState> _kedatanganBongkarKey =
+      GlobalKey();
+  final GlobalKey<_ProsesBongkarPageState> _prosesBongkarKey = GlobalKey();
+  final GlobalKey<_SelesaiBongkarPageState> _selesaiBongkarKey = GlobalKey();
 
   bool _isSendingData = false;
 
   final List<String> _titles = [
-    'MULAI PERJALANAN',
-    'MENUJU TITIK MUAT',
-    'PROSES MUAT',
-    'UPLOAD PROSES MUAT',
-    'UPLOAD SELESAI MUAT',
-    'MENUJU TITIK BONGKAR',
-    'PROSES BONGKAR',
-    'BUKTI AKHIR & SELESAI'
+    '1. MULAI PERJALANAN',
+    '2. TIBA DI LOKASI MUAT',
+    '3. BUKTI AWAL MUAT',
+    '4. BUKTI PROSES MUAT',
+    '5. BUKTI SELESAI MUAT',
+    '6. TIBA DI LOKASI BONGKAR',
+    '7. BUKTI AWAL BONGKAR',
+    '8. BUKTI PROSES BONGKAR',
+    '9. BUKTI SELESAI BONGKAR',
   ];
 
   @override
@@ -98,7 +104,6 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
         _pageController = PageController(initialPage: determinedPage);
       } else if (_pageController!.hasClients &&
           _pageController!.page?.round() != determinedPage) {
-        // Gunakan jumpToPage di sini karena ini adalah pemulihan state, bukan animasi antar langkah
         _pageController!.jumpToPage(determinedPage);
       }
       setState(() {
@@ -134,12 +139,18 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
     switch (page) {
       case 0:
         return !_isStringNullOrEmpty(trip.startKmPhotoPath);
-      case 3:
+      case 2:
         return !_isStringNullOrEmpty(trip.kmMuatPhotoPath);
+      case 3:
+        return trip.muatPhotoPath.isNotEmpty;
       case 4:
         return trip.deliveryLetterPath['initial_letters']?.isNotEmpty ?? false;
-      case 7:
+      case 6:
         return !_isStringNullOrEmpty(trip.endKmPhotoPath);
+      case 7:
+        return trip.bongkarPhotoPath.isNotEmpty;
+      case 8:
+        return trip.deliveryLetterPath['final_letters']?.isNotEmpty ?? false;
       default:
         return false;
     }
@@ -192,7 +203,10 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Trip telah selesai!'),
               backgroundColor: Colors.blue));
-          Navigator.of(context).pop(true);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
           return;
         }
 
@@ -219,98 +233,48 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
       return 0;
     }
 
-    bool isAfterLoadingComplete = trip.kmMuatPhotoStatus.isApproved &&
-        trip.kedatanganMuatPhotoStatus.isApproved &&
-        trip.deliveryOrderStatus.isApproved &&
-        trip.muatPhotoStatus.isApproved;
-
-    if (!isAfterLoadingComplete) {
-      if (trip.statusLokasi == 'menuju lokasi muat' &&
-          trip.statusMuatan == 'kosong') return 1; // Halaman info
-      if (trip.statusLokasi == 'di lokasi muat' &&
-          trip.statusMuatan == 'proses muat') return 2; // Halaman info
-      return 3; // Halaman form upload
+    if (trip.statusLokasi == 'menuju lokasi muat') {
+      return 1;
     }
 
-    bool isDocumentsComplete = trip.deliveryLetterInitialStatus.isApproved &&
+    bool isKedatanganMuatApproved = trip.kmMuatPhotoStatus.isApproved &&
+        trip.kedatanganMuatPhotoStatus.isApproved &&
+        trip.deliveryOrderStatus.isApproved;
+    if (!isKedatanganMuatApproved) {
+      return 2;
+    }
+
+    if (!trip.muatPhotoStatus.isApproved) {
+      return 3;
+    }
+
+    bool isSelesaiMuatApproved = trip.deliveryLetterInitialStatus.isApproved &&
         trip.segelPhotoStatus.isApproved &&
         trip.timbanganKendaraanPhotoStatus.isApproved;
-
-    if (!isDocumentsComplete) {
-      return 4; // Halaman form upload
+    if (!isSelesaiMuatApproved) {
+      return 4;
     }
 
-    bool isFinishComplete = trip.kedatanganBongkarPhotoStatus.isApproved &&
-        trip.endKmPhotoStatus.isApproved &&
-        trip.bongkarPhotoStatus.isApproved &&
-        trip.deliveryLetterFinalStatus.isApproved;
-
-    if (!isFinishComplete) {
-      if (trip.statusLokasi == 'menuju lokasi bongkar' &&
-          trip.statusMuatan == 'termuat') return 5; // Halaman info
-      if (trip.statusLokasi == 'di lokasi bongkar' &&
-          trip.statusMuatan == 'proses bongkar') return 6; // Halaman info
-      return 7; // Halaman form upload
+    if (trip.statusLokasi == 'menuju lokasi bongkar') {
+      return 5;
     }
+
+    bool isKedatanganBongkarApproved = trip.endKmPhotoStatus.isApproved &&
+        trip.kedatanganBongkarPhotoStatus.isApproved;
+    if (!isKedatanganBongkarApproved) {
+      return 6;
+    }
+
+    if (!trip.bongkarPhotoStatus.isApproved) {
+      return 7;
+    }
+
+    if (!trip.deliveryLetterFinalStatus.isApproved) {
+      return 8;
+    }
+
+    // Jika semua sudah selesai, tetap di halaman terakhir
     return _currentPage;
-
-    // if (_isStringNullOrEmpty(trip.startKmPhotoPath)) return 0;
-    // if (trip.startKmPhotoStatus.status?.toLowerCase() != 'approved') return 0;
-
-    // if (trip.startKmPhotoStatus.status?.toLowerCase() == 'approved' &&
-    //     trip.statusLokasi == 'menuju lokasi muat' &&
-    //     trip.statusMuatan == 'kosong' &&
-    //     trip.muatPhotoStatus.status?.toLowerCase() != 'approved') return 1;
-
-    // if (trip.statusLokasi == 'di lokasi muat' &&
-    //     trip.statusMuatan != 'selesai muat' &&
-    //     trip.muatPhotoStatus.status?.toLowerCase() != 'approved') return 2;
-
-    // if (_isStringNullOrEmpty(trip.kmMuatPhotoPath) ||
-    //         trip.statusLokasi == 'di lokasi muat' &&
-    //         trip.statusMuatan == 'selesai muat' &&
-    //         trip.startKmPhotoStatus.status?.toLowerCase() == 'approved' &&
-    //         trip.muatPhotoStatus.status?.toLowerCase() != 'approved' ||
-    //         trip.deliveryOrderStatus.status?.toLowerCase() != 'approved' ||
-    //         trip.kmMuatPhotoStatus.status?.toLowerCase() != 'approved' ||
-    //         trip.kedatanganMuatPhotoStatus.status?.toLowerCase() != 'approved')
-    //   return 3;
-
-    // if (_isStringNullOrEmpty(trip.segelPhotoPath) &&
-    //         trip.muatPhotoStatus.status?.toLowerCase() == 'approved' &&
-    //         trip.deliveryOrderStatus.status?.toLowerCase() == 'approved' &&
-    //         trip.kmMuatPhotoStatus.status?.toLowerCase() == 'approved' &&
-    //         trip.kedatanganMuatPhotoStatus.status?.toLowerCase() == 'approved' &&
-    //         trip.statusLokasi == 'menuju lokasi bongkar' &&
-    //         trip.statusMuatan == 'termuat' &&
-    //         trip.deliveryLetterInitialStatus.status?.toLowerCase() != 'approved' ||
-    //         trip.segelPhotoStatus.status?.toLowerCase() != 'approved' ||
-    //         trip.timbanganKendaraanPhotoStatus.status?.toLowerCase() != 'approved')
-    //   return 4;
-
-    // if (trip.deliveryLetterInitialStatus.status?.toLowerCase() == 'approved' &&
-    //     trip.segelPhotoStatus.status?.toLowerCase() == 'approved' &&
-    //     trip.timbanganKendaraanPhotoStatus.status?.toLowerCase() ==
-    //         'approved' &&
-    //     trip.statusLokasi == 'menuju lokasi bongkar' &&
-    //     trip.statusMuatan == 'termuat' &&
-    //     trip.endKmPhotoStatus.status?.toLowerCase() != 'approved') return 5;
-
-    // if (trip.statusLokasi == 'di lokasi bongkar' &&
-    //     trip.statusMuatan != 'selesai bongkar' &&
-    //     trip.endKmPhotoStatus.status?.toLowerCase() != 'approved') return 6;
-
-    // if (_isStringNullOrEmpty(trip.endKmPhotoPath) &&
-    //         trip.statusLokasi == 'di lokasi bongkar' &&
-    //         trip.statusMuatan == 'selesai bongkar' &&
-    //         trip.endKmPhotoStatus.status?.toLowerCase() != 'approved' ||
-    //         trip.kedatanganBongkarPhotoStatus.status?.toLowerCase() != 'approved' ||
-    //         trip.bongkarPhotoStatus.status?.toLowerCase() != 'approved' ||
-    //         trip.deliveryLetterFinalStatus.status?.toLowerCase() != 'approved')
-    //   return 7;
-    // if (trip.derivedStatus == TripDerivedStatus.selesai) return 7;
-
-    // return _currentPage;
   }
 
   @override
@@ -339,19 +303,16 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
                   tripId: _currentTrip!.id));
           break;
         case 2:
-          submittedTrip = await _callSimpleAPI(() => context
-              .read<TripProvider>()
-              .finishLoading(
-                  token: context.read<AuthProvider>().token!,
-                  tripId: _currentTrip!.id));
+          submittedTrip =
+              await _kedatanganMuatKey.currentState?.validateAndSubmit();
           break;
         case 3:
           submittedTrip =
-              await _afterLoadingKey.currentState?.validateAndSubmit();
+              await _prosesMuatKey.currentState?.validateAndSubmit();
           break;
         case 4:
           submittedTrip =
-              await _uploadDocumentsKey.currentState?.validateAndSubmit();
+              await _selesaiMuatKey.currentState?.validateAndSubmit();
           break;
         case 5:
           submittedTrip = await _callSimpleAPI(() => context
@@ -361,15 +322,16 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
                   tripId: _currentTrip!.id));
           break;
         case 6:
-          submittedTrip = await _callSimpleAPI(() => context
-              .read<TripProvider>()
-              .finishUnloading(
-                  token: context.read<AuthProvider>().token!,
-                  tripId: _currentTrip!.id));
+          submittedTrip =
+              await _kedatanganBongkarKey.currentState?.validateAndSubmit();
           break;
         case 7:
           submittedTrip =
-              await _buktiAkhirKey.currentState?.validateAndSubmit();
+              await _prosesBongkarKey.currentState?.validateAndSubmit();
+          break;
+        case 8:
+          submittedTrip =
+              await _selesaiBongkarKey.currentState?.validateAndSubmit();
           break;
       }
 
@@ -380,7 +342,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
 
       setState(() => _currentTrip = submittedTrip);
 
-      bool needsVerification = [0, 3, 4, 7].contains(_currentPage);
+      bool needsVerification = [0, 2, 3, 4, 6, 7, 8].contains(_currentPage);
 
       if (needsVerification) {
         await _navigateToVerification(submittedTrip,
@@ -578,34 +540,33 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
         return _StartTripPage(key: _startTripKey, trip: _currentTrip!);
       case 1:
         return _InfoDisplayPage(
+            title: 'Menuju Lokasi Muat',
+            keterangan:
+                'Geser tombol di bawah jika Anda sudah tiba di lokasi muat.',
             trip: _currentTrip!,
-            isUnloading: false,
-            title: 'Menuju Lokasi Muat');
+            isUnloading: false);
       case 2:
-        return _InfoDisplayPage(
-            trip: _currentTrip!,
-            isUnloading: false,
-            title: 'Proses Muat Barang',
-            keterangan: 'Muat semua barang sesuai surat jalan.');
+        return _KedatanganMuatPage(
+            key: _kedatanganMuatKey, trip: _currentTrip!);
       case 3:
-        return _AfterLoadingPage(key: _afterLoadingKey, trip: _currentTrip!);
+        return _ProsesMuatPage(key: _prosesMuatKey, trip: _currentTrip!);
       case 4:
-        return _UploadDocumentsPage(
-            key: _uploadDocumentsKey, trip: _currentTrip!);
+        return _SelesaiMuatPage(key: _selesaiMuatKey, trip: _currentTrip!);
       case 5:
         return _InfoDisplayPage(
-            trip: _currentTrip!,
-            isUnloading: true,
-            title: 'Menuju Lokasi Bongkar');
-      case 6:
-        return _InfoDisplayPage(
-            trip: _currentTrip!,
-            isUnloading: true,
-            title: 'Proses Bongkar Barang',
+            title: 'Menuju Lokasi Bongkar',
             keterangan:
-                'Bongkar semua barang dan pastikan surat jalan ditandatangani.');
+                'Geser tombol di bawah jika Anda sudah tiba di lokasi bongkar.',
+            trip: _currentTrip!,
+            isUnloading: true);
+      case 6:
+        return _KedatanganBongkarPage(
+            key: _kedatanganBongkarKey, trip: _currentTrip!);
       case 7:
-        return _BuktiAkhirPage(key: _buktiAkhirKey, trip: _currentTrip!);
+        return _ProsesBongkarPage(key: _prosesBongkarKey, trip: _currentTrip!);
+      case 8:
+        return _SelesaiBongkarPage(
+            key: _selesaiBongkarKey, trip: _currentTrip!);
       default:
         return const SizedBox.shrink();
     }
@@ -616,28 +577,17 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
         isRevision ? 'Geser Untuk Kirim Revisi' : 'Geser Untuk Konfirmasi';
     if (!isRevision) {
       switch (_currentPage) {
-        case 0:
-          swipeText = 'Geser Untuk Mulai Perjalanan';
-          break;
         case 1:
-          swipeText = 'Geser Jika Sudah Sampai';
-          break;
-        case 2:
-          swipeText = 'Geser Jika Selesai Muat';
-          break;
-        case 3:
-        case 4:
-          swipeText = 'Geser Untuk Lanjutkan';
+          swipeText = 'Geser Konfirmasi Tiba di Lokasi Muat';
           break;
         case 5:
-          swipeText = 'Geser Jika Sudah Sampai';
+          swipeText = 'Geser Konfirmasi Tiba di Lokasi Bongkar';
           break;
-        case 6:
-          swipeText = 'Geser Jika Selesai Bongkar';
-          break;
-        case 7:
+        case 8:
           swipeText = 'Geser Untuk Selesaikan Perjalanan';
           break;
+        default:
+          swipeText = 'Geser Untuk Lanjutkan';
       }
     }
     return _SwipeButton(
@@ -649,6 +599,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
 
 // Sisa kode di bawah ini (widget _StartTripPage, _SuratJalanPage, dll) tidak perlu diubah.
 // Anda bisa menggunakan versi yang sudah ada.
+
 class _StartTripPage extends StatefulWidget {
   final Trip trip;
   const _StartTripPage({super.key, required this.trip});
@@ -667,27 +618,23 @@ class _StartTripPageState extends State<_StartTripPage> {
     super.initState();
     final tripProvider = context.read<TripProvider>();
 
-    // Pre-fill data jika trip sudah memiliki vehicle_id (misalnya saat resume)
     if (widget.trip.vehicleId != null && tripProvider.vehicles.isNotEmpty) {
       try {
         _selectedVehicle = tripProvider.vehicles
             .firstWhere((v) => v.id == widget.trip.vehicleId);
       } catch (e) {
-        // Jika vehicle tidak ditemukan di list, biarkan null
         _selectedVehicle = null;
       }
     }
     _startKmController.text = widget.trip.startKm?.toString() ?? '';
   }
 
-  /// Memvalidasi input dan mengirim data ke provider untuk diunggah ke API
   Future<Trip?> validateAndSubmit() async {
     final isRevision =
         widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
     final provider = context.read<TripProvider>();
     final token = context.read<AuthProvider>().token!;
 
-    // Validasi untuk pengiriman baru
     if (!isRevision) {
       if (!(_formKey.currentState?.validate() ?? false) ||
           _kmAwalImageFile == null) {
@@ -696,10 +643,9 @@ class _StartTripPageState extends State<_StartTripPage> {
               content: Text('Foto KM Awal tidak boleh kosong'),
               backgroundColor: Colors.red));
         }
-        return null; // Mengembalikan null jika validasi gagal
+        return null;
       }
     } else {
-      // Validasi khusus jika sedang dalam mode revisi
       if (widget.trip.startKmPhotoStatus.isRejected &&
           _kmAwalImageFile == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -721,13 +667,8 @@ class _StartTripPageState extends State<_StartTripPage> {
   @override
   Widget build(BuildContext context) {
     final kmStatus = widget.trip.startKmPhotoStatus;
-    final isFormEnabled =
-        !kmStatus.isApproved; // Form dinonaktifkan jika sudah disetujui
+    final isFormEnabled = !kmStatus.isApproved;
     final vehicles = context.watch<TripProvider>().vehicles;
-
-    debugPrint('[UI] Jumlah kendaraan yang diterima UI: ${vehicles.length}');
-    debugPrint(
-        '[UI] Apakah form aktif (isFormEnabled)? $isFormEnabled (karena status KM Awal approved: ${kmStatus.isApproved})');
 
     return Form(
       key: _formKey,
@@ -741,8 +682,6 @@ class _StartTripPageState extends State<_StartTripPage> {
                   fontWeight: FontWeight.bold,
                   color: Colors.black87)),
           const SizedBox(height: 24),
-
-          // Dropdown untuk memilih kendaraan
           DropdownButtonFormField<Vehicle>(
             value: _selectedVehicle,
             items: vehicles.map((Vehicle vehicle) {
@@ -752,15 +691,11 @@ class _StartTripPageState extends State<_StartTripPage> {
               );
             }).toList(),
             onChanged: isFormEnabled
-                ? (Vehicle? newValue) {
-                    setState(() {
-                      _selectedVehicle = newValue;
-                    });
-                  }
+                ? (Vehicle? newValue) =>
+                    setState(() => _selectedVehicle = newValue)
                 : null,
             decoration: InputDecoration(
               labelText: 'Pilih Kendaraan',
-              // Tambahkan hintText untuk memberi tahu user jika nonaktif
               hintText:
                   !isFormEnabled ? 'Data sudah disetujui' : 'Pilih dari daftar',
               filled: true,
@@ -773,15 +708,14 @@ class _StartTripPageState extends State<_StartTripPage> {
             validator: (v) => v == null ? 'Kendaraan harus dipilih' : null,
           ),
           const SizedBox(height: 16),
-
-          // Input untuk KM Awal
           TextFormField(
               controller: _startKmController,
               enabled: isFormEnabled,
               decoration: InputDecoration(
                   labelText: 'KM Awal Kendaraan',
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor:
+                      isFormEnabled ? Colors.grey[100] : Colors.grey[200],
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none),
@@ -789,429 +723,24 @@ class _StartTripPageState extends State<_StartTripPage> {
               keyboardType: TextInputType.number,
               validator: (v) {
                 if (v == null || v.isEmpty) return 'KM Awal tidak boleh kosong';
-                if (int.tryParse(v) == null) {
+                if (int.tryParse(v) == null)
                   return 'KM Awal harus berupa angka';
-                }
                 return null;
               }),
           const SizedBox(height: 24),
 
-          // Widget untuk mengambil foto
-          _PhotoSection(
-              title: 'Foto KM Awal',
-              icon: Icons.camera_alt_outlined,
-              onImageChanged: (file) => setState(() => _kmAwalImageFile = file),
-              rejectionReason: kmStatus.rejectionReason,
-              isApproved: kmStatus.isApproved),
-        ],
-      ),
-    );
-  }
-}
-
-class _AfterLoadingPage extends StatefulWidget {
-  final Trip trip;
-  const _AfterLoadingPage({Key? key, required this.trip}) : super(key: key);
-  @override
-  State<_AfterLoadingPage> createState() => _AfterLoadingPageState();
-}
-
-class _AfterLoadingPageState extends State<_AfterLoadingPage> {
-  File? _kmMuatImage;
-  File? _kedatanganMuatImage;
-  File? _deliveryOrderImage;
-  List<File> _muatImages = [];
-
-  Future<Trip?> validateAndSubmit() {
-    final isRevision =
-        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
-    final provider = context.read<TripProvider>();
-    final token = context.read<AuthProvider>().token!;
-
-    // Validasi untuk pengiriman baru
-    if (!isRevision) {
-      if (_kmMuatImage == null ||
-          _kedatanganMuatImage == null ||
-          _deliveryOrderImage == null ||
-          _muatImages.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Semua foto wajib diisi.'),
-            backgroundColor: Colors.red));
-        return Future.value(null); // Return Future<Trip?>
-      }
-    } else {
-      // Validasi untuk pengiriman revisi
-      bool needsKMMuat =
-          widget.trip.kmMuatPhotoStatus.isRejected && _kmMuatImage == null;
-      bool needsKedatangan = widget.trip.kedatanganMuatPhotoStatus.isRejected &&
-          _kedatanganMuatImage == null;
-      bool needsDO = widget.trip.deliveryOrderStatus.isRejected &&
-          _deliveryOrderImage == null;
-      bool needsMuat =
-          widget.trip.muatPhotoStatus.isRejected && _muatImages.isEmpty;
-
-      if (needsKMMuat || needsKedatangan || needsDO || needsMuat) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Silakan unggah ulang foto yang ditolak.'),
-            backgroundColor: Colors.orange));
-        return Future.value(null);
-      }
-    }
-
-    return provider.updateAfterLoading(
-      token: token,
-      tripId: widget.trip.id,
-      kmMuatPhoto: _kmMuatImage,
-      kedatanganMuatPhoto: _kedatanganMuatImage,
-      deliveryOrderPhoto: _deliveryOrderImage,
-      muatPhotos: _muatImages.isNotEmpty ? _muatImages : null,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final kmMuatStatus = widget.trip.kmMuatPhotoStatus;
-    final kedatanganMuatStatus = widget.trip.kedatanganMuatPhotoStatus;
-    final doStatus = widget.trip.deliveryOrderStatus;
-    final muatStatus = widget.trip.muatPhotoStatus;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text('Upload Bukti Tiba & Muat',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87)),
-        const SizedBox(height: 24),
-
-        // Foto KM di Lokasi Muat
-        if (!kmMuatStatus.isApproved)
-          _PhotoSection(
-              title: 'Foto KM di Lokasi Muat',
-              icon: Icons.speed_outlined,
-              onImageChanged: (file) => setState(() => _kmMuatImage = file),
-              rejectionReason: kmMuatStatus.rejectionReason,
-              isApproved: kmMuatStatus.isApproved),
-        if (kmMuatStatus.isApproved)
-          _ApprovedDocumentPlaceholder(title: 'Foto KM di Lokasi Muat'),
-        const SizedBox(height: 24),
-
-        // Foto Tiba di Lokasi Muat
-        if (!kedatanganMuatStatus.isApproved)
-          _PhotoSection(
-              title: 'Foto Tiba di Lokasi Muat',
-              icon: Icons.location_on_outlined,
-              onImageChanged: (file) =>
-                  setState(() => _kedatanganMuatImage = file),
-              rejectionReason: kedatanganMuatStatus.rejectionReason,
-              isApproved: kedatanganMuatStatus.isApproved),
-        if (kedatanganMuatStatus.isApproved)
-          _ApprovedDocumentPlaceholder(title: 'Foto Tiba di Lokasi Muat'),
-        const SizedBox(height: 24),
-
-        // Foto Delivery Order
-        if (!doStatus.isApproved)
-          _PhotoSection(
-              title: 'Foto Delivery Order (DO)',
-              icon: Icons.receipt_long_outlined,
-              onImageChanged: (file) =>
-                  setState(() => _deliveryOrderImage = file),
-              rejectionReason: doStatus.rejectionReason,
-              isApproved: doStatus.isApproved),
-        if (doStatus.isApproved)
-          _ApprovedDocumentPlaceholder(title: 'Foto Delivery Order (DO)'),
-        const SizedBox(height: 24),
-
-        // Foto Proses Muat
-        if (!muatStatus.isApproved)
-          _MultiPhotoSection(
-              title: 'Foto Proses Muat (Bisa lebih dari 1)',
-              icon: Icons.inventory_2_outlined,
-              onImagesChanged: (files) => setState(() => _muatImages = files),
-              rejectionReason: muatStatus.rejectionReason,
-              isApproved: muatStatus.isApproved),
-        if (muatStatus.isApproved)
-          _ApprovedDocumentPlaceholder(title: 'Foto Proses Muat'),
-      ],
-    );
-  }
-}
-
-class _UploadDocumentsPage extends StatefulWidget {
-  final Trip trip;
-  const _UploadDocumentsPage({Key? key, required this.trip}) : super(key: key);
-  @override
-  State<_UploadDocumentsPage> createState() => _UploadDocumentsPageState();
-}
-
-class _UploadDocumentsPageState extends State<_UploadDocumentsPage> {
-  List<File> _suratJalanAwalImages = [];
-  File? _segelImage;
-  File? _timbanganImage;
-
-  Future<Trip?> validateAndSubmit() {
-    final isRevision =
-        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
-    final provider = context.read<TripProvider>();
-    final token = context.read<AuthProvider>().token!;
-
-    if (!isRevision) {
-      if (_suratJalanAwalImages.isEmpty ||
-          _segelImage == null ||
-          _timbanganImage == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Semua foto wajib diisi.'),
-            backgroundColor: Colors.red));
-        return Future.value(null);
-      }
-    } else {
-      bool needsSuratJalan =
-          widget.trip.deliveryLetterInitialStatus.isRejected &&
-              _suratJalanAwalImages.isEmpty;
-      bool needsSegel =
-          widget.trip.segelPhotoStatus.isRejected && _segelImage == null;
-      bool needsTimbangan =
-          widget.trip.timbanganKendaraanPhotoStatus.isRejected &&
-              _timbanganImage == null;
-      if (needsSuratJalan || needsSegel || needsTimbangan) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Silakan unggah ulang foto yang ditolak.'),
-            backgroundColor: Colors.orange));
-        return Future.value(null);
-      }
-    }
-
-    return provider.uploadTripDocuments(
-      token: token,
-      tripId: widget.trip.id,
-      deliveryLetters:
-          _suratJalanAwalImages.isNotEmpty ? _suratJalanAwalImages : null,
-      segelPhoto: _segelImage,
-      timbanganPhoto: _timbanganImage,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final suratJalanStatus = widget.trip.deliveryLetterInitialStatus;
-    final segelStatus = widget.trip.segelPhotoStatus;
-    final timbanganStatus = widget.trip.timbanganKendaraanPhotoStatus;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text('Upload Dokumen Perjalanan',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87)),
-        const SizedBox(height: 24),
-
-        // Foto Surat Jalan Awal
-        if (!suratJalanStatus.isApproved)
-          _MultiPhotoSection(
-              title: 'Foto Surat Jalan Awal (Bisa lebih dari 1)',
-              icon: Icons.document_scanner_outlined,
-              onImagesChanged: (files) =>
-                  setState(() => _suratJalanAwalImages = files),
-              rejectionReason: suratJalanStatus.rejectionReason,
-              isApproved: suratJalanStatus.isApproved),
-        if (suratJalanStatus.isApproved)
-          _ApprovedDocumentPlaceholder(title: 'Foto Surat Jalan Awal'),
-        const SizedBox(height: 24),
-
-        // Foto Segel
-        if (!segelStatus.isApproved)
-          _PhotoSection(
-              title: 'Foto Segel',
-              icon: Icons.shield_outlined,
-              onImageChanged: (file) => setState(() => _segelImage = file),
-              rejectionReason: segelStatus.rejectionReason,
-              isApproved: segelStatus.isApproved),
-        if (segelStatus.isApproved)
-          _ApprovedDocumentPlaceholder(title: 'Foto Segel'),
-        const SizedBox(height: 24),
-
-        // Foto Timbangan Kendaraan
-        if (!timbanganStatus.isApproved)
-          _PhotoSection(
-              title: 'Foto Timbangan Kendaraan',
-              icon: Icons.scale_outlined,
-              onImageChanged: (file) => setState(() => _timbanganImage = file),
-              rejectionReason: timbanganStatus.rejectionReason,
-              isApproved: timbanganStatus.isApproved),
-        if (timbanganStatus.isApproved)
-          _ApprovedDocumentPlaceholder(title: 'Foto Timbangan Kendaraan'),
-      ],
-    );
-  }
-}
-
-class _BuktiAkhirPage extends StatefulWidget {
-  final Trip trip;
-  const _BuktiAkhirPage({super.key, required this.trip});
-  @override
-  State<_BuktiAkhirPage> createState() => _BuktiAkhirPageState();
-}
-
-class _BuktiAkhirPageState extends State<_BuktiAkhirPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _endKmController = TextEditingController();
-  File? _kmAkhirImage;
-  File? _kedatanganBongkarImage;
-  List<File> _bongkarBarangImages = [];
-  List<File> _suratJalanAkhirImages = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _endKmController.text = widget.trip.endKm?.toString() ?? '';
-  }
-
-  Future<Trip?> validateAndSubmit() {
-    final isRevision =
-        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
-    final provider = context.read<TripProvider>();
-    final token = context.read<AuthProvider>().token!;
-
-    if (!isRevision) {
-      final isFormValid = _formKey.currentState?.validate() ?? false;
-      if (_kmAkhirImage == null ||
-          _kedatanganBongkarImage == null ||
-          _bongkarBarangImages.isEmpty ||
-          _suratJalanAkhirImages.isEmpty ||
-          !isFormValid) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Semua field dan foto wajib diisi.'),
-            backgroundColor: Colors.red));
-        return Future.value(null);
-      }
-    } else {
-      bool needsKmAkhir =
-          widget.trip.endKmPhotoStatus.isRejected && _kmAkhirImage == null;
-      bool needsKedatanganBongkar =
-          widget.trip.kedatanganBongkarPhotoStatus.isRejected &&
-              _kedatanganBongkarImage == null;
-      bool needsBongkar = widget.trip.bongkarPhotoStatus.isRejected &&
-          _bongkarBarangImages.isEmpty;
-      bool needsSuratJalan = widget.trip.deliveryLetterFinalStatus.isRejected &&
-          _suratJalanAkhirImages.isEmpty;
-
-      if (needsKmAkhir ||
-          needsKedatanganBongkar ||
-          needsBongkar ||
-          needsSuratJalan) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Silakan unggah ulang foto yang ditolak.'),
-            backgroundColor: Colors.orange));
-        return Future.value(null);
-      }
-    }
-
-    return provider.updateFinishTrip(
-      token: token,
-      tripId: widget.trip.id,
-      endKm: _endKmController.text,
-      endKmPhoto: _kmAkhirImage,
-      kedatanganBongkarPhoto: _kedatanganBongkarImage,
-      bongkarPhotos:
-          _bongkarBarangImages.isNotEmpty ? _bongkarBarangImages : null,
-      deliveryLetters:
-          _suratJalanAkhirImages.isNotEmpty ? _suratJalanAkhirImages : null,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final kmAkhirStatus = widget.trip.endKmPhotoStatus;
-    final kedatanganBongkarStatus = widget.trip.kedatanganBongkarPhotoStatus;
-    final bongkarStatus = widget.trip.bongkarPhotoStatus;
-    final suratJalanAkhirStatus = widget.trip.deliveryLetterFinalStatus;
-
-    final isFormEnabled = !kmAkhirStatus.isApproved;
-
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text('Lengkapi Data Akhir Perjalanan',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
-          const SizedBox(height: 24),
-          TextFormField(
-              enabled: isFormEnabled,
-              controller: _endKmController,
-              decoration: InputDecoration(
-                  labelText: 'KM Akhir Kendaraan',
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
-                  prefixIcon: const Icon(Icons.speed_outlined)),
-              keyboardType: TextInputType.number,
-              validator: (v) {
-                if (v == null || v.isEmpty) {
-                  return 'KM Akhir tidak boleh kosong';
-                }
-                final endKm = int.tryParse(v);
-                if (endKm == null) return 'KM Akhir harus berupa angka';
-                if (widget.trip.startKm != null &&
-                    endKm <= widget.trip.startKm!) {
-                  return 'KM Akhir harus > KM Awal (${widget.trip.startKm})';
-                }
-                return null;
-              }),
-          const SizedBox(height: 24),
-          if (!kedatanganBongkarStatus.isApproved)
+          // === PERUBAHAN DI SINI ===
+          // Menampilkan placeholder jika sudah approved
+          if (!kmStatus.isApproved)
             _PhotoSection(
-                title: 'Foto Tiba di Lokasi Bongkar',
-                icon: Icons.location_on_outlined,
-                onImageChanged: (file) =>
-                    setState(() => _kedatanganBongkarImage = file),
-                rejectionReason: kedatanganBongkarStatus.rejectionReason,
-                isApproved: kedatanganBongkarStatus.isApproved),
-          if (kedatanganBongkarStatus.isApproved)
-            _ApprovedDocumentPlaceholder(title: 'Foto Tiba di Lokasi Bongkar'),
-          const SizedBox(height: 24),
-          if (!kmAkhirStatus.isApproved)
-            _PhotoSection(
-                title: 'Foto KM Akhir',
+                title: 'Foto KM Awal',
                 icon: Icons.camera_alt_outlined,
-                onImageChanged: (file) => setState(() => _kmAkhirImage = file),
-                rejectionReason: kmAkhirStatus.rejectionReason,
-                isApproved: kmAkhirStatus.isApproved),
-          if (kmAkhirStatus.isApproved)
-            _ApprovedDocumentPlaceholder(title: 'Foto KM Akhir'),
-          const SizedBox(height: 24),
-          if (!bongkarStatus.isApproved)
-            _MultiPhotoSection(
-                title: 'Foto Bongkar Barang (Bisa lebih dari 1)',
-                icon: Icons.inventory_outlined,
-                onImagesChanged: (files) =>
-                    setState(() => _bongkarBarangImages = files),
-                rejectionReason: bongkarStatus.rejectionReason,
-                isApproved: bongkarStatus.isApproved),
-          if (bongkarStatus.isApproved)
-            _ApprovedDocumentPlaceholder(title: 'Foto Bongkar Barang'),
-          const SizedBox(height: 24),
-          if (!suratJalanAkhirStatus.isApproved)
-            _MultiPhotoSection(
-                title: 'Foto Surat Jalan Akhir (Bisa lebih dari 1)',
-                icon: Icons.document_scanner_outlined,
-                onImagesChanged: (files) =>
-                    setState(() => _suratJalanAkhirImages = files),
-                rejectionReason: suratJalanAkhirStatus.rejectionReason,
-                isApproved: suratJalanAkhirStatus.isApproved),
-          if (suratJalanAkhirStatus.isApproved)
-            _ApprovedDocumentPlaceholder(title: 'Foto Surat Jalan Akhir'),
+                onImageChanged: (file) =>
+                    setState(() => _kmAwalImageFile = file),
+                rejectionReason: kmStatus.rejectionReason,
+                isApproved: kmStatus.isApproved)
+          else
+            _ApprovedDocumentPlaceholder(title: 'Foto KM Awal'),
         ],
       ),
     );
@@ -1231,7 +760,6 @@ class _InfoDisplayPage extends StatelessWidget {
     this.keterangan,
   });
 
-  // Fungsi helper untuk membuka URL
   Future<void> _launchUrl(String urlString, BuildContext context) async {
     if (urlString.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1258,7 +786,6 @@ class _InfoDisplayPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Menentukan alamat dan link mana yang akan digunakan (origin atau destination)
     final String address =
         isUnloading ? trip.destinationAddress : trip.originAddress;
     final String link = isUnloading ? trip.destinationLink : trip.originLink;
@@ -1273,18 +800,13 @@ class _InfoDisplayPage extends StatelessWidget {
               fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         const SizedBox(height: 20),
-
-        // Menampilkan Alamat dengan Tombol Link
         _buildInfoRowWithLink('Alamat', address, link, context),
-
         _buildInfoRow('Proyek', trip.projectName),
-
         if (keterangan != null) _buildInfoRow('Keterangan', keterangan!),
       ],
     );
   }
 
-  // Widget untuk menampilkan baris info biasa (tanpa link)
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -1304,7 +826,6 @@ class _InfoDisplayPage extends StatelessWidget {
     );
   }
 
-  // Widget baru untuk menampilkan baris info DENGAN tombol link
   Widget _buildInfoRowWithLink(
       String label, String value, String link, BuildContext context) {
     return Padding(
@@ -1328,10 +849,9 @@ class _InfoDisplayPage extends StatelessWidget {
                       fontSize: 16),
                 ),
               ),
-              // Tombol hanya akan muncul jika link tidak kosong
               if (link.isNotEmpty)
                 SizedBox(
-                  height: 36, // Menyamakan tinggi dengan teks
+                  height: 36,
                   child: IconButton(
                     padding: const EdgeInsets.only(left: 12.0),
                     icon: const Icon(Icons.open_in_new, color: Colors.blue),
@@ -1344,6 +864,420 @@ class _InfoDisplayPage extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _KedatanganMuatPage extends StatefulWidget {
+  final Trip trip;
+  const _KedatanganMuatPage({Key? key, required this.trip}) : super(key: key);
+  @override
+  State<_KedatanganMuatPage> createState() => _KedatanganMuatPageState();
+}
+
+class _KedatanganMuatPageState extends State<_KedatanganMuatPage> {
+  File? _kmMuatImage;
+  File? _kedatanganMuatImage;
+  File? _deliveryOrderImage;
+
+  Future<Trip?> validateAndSubmit() {
+    final isRevision =
+        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
+    if (!isRevision) {
+      if (_kmMuatImage == null ||
+          _kedatanganMuatImage == null ||
+          _deliveryOrderImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Semua foto wajib diisi.'),
+            backgroundColor: Colors.red));
+        return Future.value(null);
+      }
+    } else {
+      bool needsUpdate =
+          (widget.trip.kmMuatPhotoStatus.isRejected && _kmMuatImage == null) ||
+              (widget.trip.kedatanganMuatPhotoStatus.isRejected &&
+                  _kedatanganMuatImage == null) ||
+              (widget.trip.deliveryOrderStatus.isRejected &&
+                  _deliveryOrderImage == null);
+      if (needsUpdate) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Silakan unggah ulang foto yang ditolak.'),
+            backgroundColor: Colors.orange));
+        return Future.value(null);
+      }
+    }
+    return context.read<TripProvider>().submitKedatanganMuat(
+          token: context.read<AuthProvider>().token!,
+          tripId: widget.trip.id,
+          kmMuatPhoto: _kmMuatImage,
+          kedatanganMuatPhoto: _kedatanganMuatImage,
+          deliveryOrderPhoto: _deliveryOrderImage,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (!widget.trip.kmMuatPhotoStatus.isApproved)
+          _PhotoSection(
+              title: 'Foto KM di Lokasi Muat',
+              icon: Icons.speed_outlined,
+              onImageChanged: (f) => _kmMuatImage = f,
+              rejectionReason: widget.trip.kmMuatPhotoStatus.rejectionReason,
+              isApproved: widget.trip.kmMuatPhotoStatus.isApproved)
+        else
+          const _ApprovedDocumentPlaceholder(title: 'Foto KM di Lokasi Muat'),
+        const SizedBox(height: 24),
+        if (!widget.trip.kedatanganMuatPhotoStatus.isApproved)
+          _PhotoSection(
+              title: 'Foto Tiba di Lokasi Muat',
+              icon: Icons.location_on_outlined,
+              onImageChanged: (f) => _kedatanganMuatImage = f,
+              rejectionReason:
+                  widget.trip.kedatanganMuatPhotoStatus.rejectionReason,
+              isApproved: widget.trip.kedatanganMuatPhotoStatus.isApproved)
+        else
+          const _ApprovedDocumentPlaceholder(title: 'Foto Tiba di Lokasi Muat'),
+        const SizedBox(height: 24),
+        if (!widget.trip.deliveryOrderStatus.isApproved)
+          _PhotoSection(
+              title: 'Foto Delivery Order (DO)',
+              icon: Icons.receipt_long_outlined,
+              onImageChanged: (f) => _deliveryOrderImage = f,
+              rejectionReason: widget.trip.deliveryOrderStatus.rejectionReason,
+              isApproved: widget.trip.deliveryOrderStatus.isApproved)
+        else
+          const _ApprovedDocumentPlaceholder(title: 'Foto Delivery Order (DO)'),
+      ],
+    );
+  }
+}
+
+class _ProsesMuatPage extends StatefulWidget {
+  final Trip trip;
+  const _ProsesMuatPage({Key? key, required this.trip}) : super(key: key);
+  @override
+  State<_ProsesMuatPage> createState() => _ProsesMuatPageState();
+}
+
+class _ProsesMuatPageState extends State<_ProsesMuatPage> {
+  List<File> _muatImages = [];
+
+  Future<Trip?> validateAndSubmit() {
+    final isRevision =
+        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
+    if ((!isRevision && _muatImages.isEmpty) ||
+        (isRevision &&
+            widget.trip.muatPhotoStatus.isRejected &&
+            _muatImages.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isRevision
+              ? 'Unggah Ulang Foto Proses Muat & Selesai Muat.'
+              : 'Foto proses muat wajib diisi.'),
+          backgroundColor: Colors.red));
+      return Future.value(null);
+    }
+    return context.read<TripProvider>().submitProsesMuat(
+          token: context.read<AuthProvider>().token!,
+          tripId: widget.trip.id,
+          muatPhotos: _muatImages,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return !widget.trip.muatPhotoStatus.isApproved
+        ? _MultiPhotoSection(
+            title: 'Foto Proses Muat & Selesai Muat',
+            icon: Icons.inventory_2_outlined,
+            onImagesChanged: (files) => _muatImages = files,
+            rejectionReason: widget.trip.muatPhotoStatus.rejectionReason,
+            isApproved: widget.trip.muatPhotoStatus.isApproved)
+        : const _ApprovedDocumentPlaceholder(title: 'Foto Proses Muat');
+  }
+}
+
+class _SelesaiMuatPage extends StatefulWidget {
+  final Trip trip;
+  const _SelesaiMuatPage({Key? key, required this.trip}) : super(key: key);
+  @override
+  State<_SelesaiMuatPage> createState() => _SelesaiMuatPageState();
+}
+
+class _SelesaiMuatPageState extends State<_SelesaiMuatPage> {
+  List<File> _suratJalanAwalImages = [];
+  File? _segelImage;
+  File? _timbanganImage;
+
+  Future<Trip?> validateAndSubmit() {
+    final isRevision =
+        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
+    if (!isRevision) {
+      if (_suratJalanAwalImages.isEmpty ||
+          _segelImage == null ||
+          _timbanganImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Semua foto wajib diisi.'),
+            backgroundColor: Colors.red));
+        return Future.value(null);
+      }
+    } else {
+      bool needsUpdate = (widget.trip.deliveryLetterInitialStatus.isRejected &&
+              _suratJalanAwalImages.isEmpty) ||
+          (widget.trip.segelPhotoStatus.isRejected && _segelImage == null) ||
+          (widget.trip.timbanganKendaraanPhotoStatus.isRejected &&
+              _timbanganImage == null);
+      if (needsUpdate) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Silakan unggah ulang foto yang ditolak.'),
+            backgroundColor: Colors.orange));
+        return Future.value(null);
+      }
+    }
+    return context.read<TripProvider>().submitSelesaiMuat(
+          token: context.read<AuthProvider>().token!,
+          tripId: widget.trip.id,
+          deliveryLetters: _suratJalanAwalImages,
+          segelPhoto: _segelImage,
+          timbanganPhoto: _timbanganImage,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (!widget.trip.deliveryLetterInitialStatus.isApproved)
+          _MultiPhotoSection(
+              title: 'Foto Surat Jalan Awal',
+              icon: Icons.document_scanner_outlined,
+              onImagesChanged: (f) => _suratJalanAwalImages = f,
+              rejectionReason:
+                  widget.trip.deliveryLetterInitialStatus.rejectionReason,
+              isApproved: widget.trip.deliveryLetterInitialStatus.isApproved)
+        else
+          const _ApprovedDocumentPlaceholder(title: 'Foto Surat Jalan Awal'),
+        const SizedBox(height: 24),
+        if (!widget.trip.segelPhotoStatus.isApproved)
+          _PhotoSection(
+              title: 'Foto Segel',
+              icon: Icons.shield_outlined,
+              onImageChanged: (f) => _segelImage = f,
+              rejectionReason: widget.trip.segelPhotoStatus.rejectionReason,
+              isApproved: widget.trip.segelPhotoStatus.isApproved)
+        else
+          const _ApprovedDocumentPlaceholder(title: 'Foto Segel'),
+        const SizedBox(height: 24),
+        if (!widget.trip.timbanganKendaraanPhotoStatus.isApproved)
+          _PhotoSection(
+              title: 'Foto Timbangan Kendaraan',
+              icon: Icons.scale_outlined,
+              onImageChanged: (f) => _timbanganImage = f,
+              rejectionReason:
+                  widget.trip.timbanganKendaraanPhotoStatus.rejectionReason,
+              isApproved: widget.trip.timbanganKendaraanPhotoStatus.isApproved)
+        else
+          const _ApprovedDocumentPlaceholder(title: 'Foto Timbangan Kendaraan'),
+      ],
+    );
+  }
+}
+
+class _KedatanganBongkarPage extends StatefulWidget {
+  final Trip trip;
+  const _KedatanganBongkarPage({super.key, required this.trip});
+  @override
+  State<_KedatanganBongkarPage> createState() => _KedatanganBongkarPageState();
+}
+
+class _KedatanganBongkarPageState extends State<_KedatanganBongkarPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _endKmController = TextEditingController();
+  File? _kmAkhirImage;
+  File? _kedatanganBongkarImage;
+
+  @override
+  void initState() {
+    super.initState();
+    _endKmController.text = widget.trip.endKm?.toString() ?? '';
+  }
+
+  Future<Trip?> validateAndSubmit() {
+    final isRevision =
+        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
+    if (!isRevision) {
+      if (!(_formKey.currentState?.validate() ?? false) ||
+          _kmAkhirImage == null ||
+          _kedatanganBongkarImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Semua field dan foto wajib diisi.'),
+            backgroundColor: Colors.red));
+        return Future.value(null);
+      }
+    } else {
+      bool needsUpdate =
+          (widget.trip.endKmPhotoStatus.isRejected && _kmAkhirImage == null) ||
+              (widget.trip.kedatanganBongkarPhotoStatus.isRejected &&
+                  _kedatanganBongkarImage == null);
+      if (needsUpdate) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Unggah ulang foto yang ditolak.'),
+            backgroundColor: Colors.orange));
+        return Future.value(null);
+      }
+    }
+
+    return context.read<TripProvider>().submitKedatanganBongkar(
+          token: context.read<AuthProvider>().token!,
+          tripId: widget.trip.id,
+          endKm: _endKmController.text,
+          endKmPhoto: _kmAkhirImage,
+          kedatanganBongkarPhoto: _kedatanganBongkarImage,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isFormEnabled = !widget.trip.endKmPhotoStatus.isApproved;
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          TextFormField(
+            enabled: isFormEnabled,
+            controller: _endKmController,
+            decoration: InputDecoration(
+                labelText: 'KM Akhir Kendaraan',
+                filled: true,
+                fillColor: isFormEnabled ? Colors.grey[100] : Colors.grey[200],
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                prefixIcon: const Icon(Icons.speed_outlined)),
+            keyboardType: TextInputType.number,
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'KM Akhir tidak boleh kosong';
+              final endKm = int.tryParse(v);
+              if (endKm == null) return 'KM Akhir harus berupa angka';
+              if (widget.trip.startKm != null && endKm <= widget.trip.startKm!)
+                return 'KM Akhir harus > KM Awal (${widget.trip.startKm})';
+              return null;
+            },
+          ),
+          const SizedBox(height: 24),
+          if (!widget.trip.endKmPhotoStatus.isApproved)
+            _PhotoSection(
+                title: 'Foto KM Akhir',
+                icon: Icons.camera_alt_outlined,
+                onImageChanged: (f) => _kmAkhirImage = f,
+                rejectionReason: widget.trip.endKmPhotoStatus.rejectionReason,
+                isApproved: widget.trip.endKmPhotoStatus.isApproved)
+          else
+            const _ApprovedDocumentPlaceholder(title: 'Foto KM Akhir'),
+          const SizedBox(height: 24),
+          if (!widget.trip.kedatanganBongkarPhotoStatus.isApproved)
+            _PhotoSection(
+                title: 'Foto Tiba di Lokasi Bongkar',
+                icon: Icons.location_on_outlined,
+                onImageChanged: (f) => _kedatanganBongkarImage = f,
+                rejectionReason:
+                    widget.trip.kedatanganBongkarPhotoStatus.rejectionReason,
+                isApproved: widget.trip.kedatanganBongkarPhotoStatus.isApproved)
+          else
+            const _ApprovedDocumentPlaceholder(
+                title: 'Foto Tiba di Lokasi Bongkar'),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProsesBongkarPage extends StatefulWidget {
+  final Trip trip;
+  const _ProsesBongkarPage({Key? key, required this.trip}) : super(key: key);
+  @override
+  State<_ProsesBongkarPage> createState() => _ProsesBongkarPageState();
+}
+
+class _ProsesBongkarPageState extends State<_ProsesBongkarPage> {
+  List<File> _bongkarImages = [];
+
+  Future<Trip?> validateAndSubmit() {
+    final isRevision =
+        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
+    if ((!isRevision && _bongkarImages.isEmpty) ||
+        (isRevision &&
+            widget.trip.bongkarPhotoStatus.isRejected &&
+            _bongkarImages.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isRevision
+              ? 'Unggah Ulang Foto Proses Bongkar & Selesai Bongkar.'
+              : 'Foto proses bongkar wajib diisi.'),
+          backgroundColor: Colors.red));
+      return Future.value(null);
+    }
+    return context.read<TripProvider>().submitProsesBongkar(
+          token: context.read<AuthProvider>().token!,
+          tripId: widget.trip.id,
+          bongkarPhotos: _bongkarImages,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return !widget.trip.bongkarPhotoStatus.isApproved
+        ? _MultiPhotoSection(
+            title: 'Foto Proses Bongkar & Selesai Bongkar',
+            icon: Icons.inventory_outlined,
+            onImagesChanged: (files) => _bongkarImages = files,
+            rejectionReason: widget.trip.bongkarPhotoStatus.rejectionReason,
+            isApproved: widget.trip.bongkarPhotoStatus.isApproved)
+        : const _ApprovedDocumentPlaceholder(title: 'Foto Proses Bongkar');
+  }
+}
+
+class _SelesaiBongkarPage extends StatefulWidget {
+  final Trip trip;
+  const _SelesaiBongkarPage({Key? key, required this.trip}) : super(key: key);
+  @override
+  State<_SelesaiBongkarPage> createState() => _SelesaiBongkarPageState();
+}
+
+class _SelesaiBongkarPageState extends State<_SelesaiBongkarPage> {
+  List<File> _suratJalanAkhirImages = [];
+
+  Future<Trip?> validateAndSubmit() {
+    final isRevision =
+        widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
+    if ((!isRevision && _suratJalanAkhirImages.isEmpty) ||
+        (isRevision &&
+            widget.trip.deliveryLetterFinalStatus.isRejected &&
+            _suratJalanAkhirImages.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isRevision
+              ? 'Unggah ulang surat jalan akhir.'
+              : 'Surat jalan akhir wajib diisi.'),
+          backgroundColor: Colors.red));
+      return Future.value(null);
+    }
+    return context.read<TripProvider>().submitSelesaiBongkar(
+          token: context.read<AuthProvider>().token!,
+          tripId: widget.trip.id,
+          deliveryLetters: _suratJalanAkhirImages,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return !widget.trip.deliveryLetterFinalStatus.isApproved
+        ? _MultiPhotoSection(
+            title: 'Foto Surat Jalan Akhir (Telah Ditandatangani)',
+            icon: Icons.document_scanner_outlined,
+            onImagesChanged: (files) => _suratJalanAkhirImages = files,
+            rejectionReason:
+                widget.trip.deliveryLetterFinalStatus.rejectionReason,
+            isApproved: widget.trip.deliveryLetterFinalStatus.isApproved)
+        : const _ApprovedDocumentPlaceholder(title: 'Foto Surat Jalan Akhir');
   }
 }
 

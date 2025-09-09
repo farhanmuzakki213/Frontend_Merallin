@@ -25,6 +25,8 @@ class User {
 
   @HiveField(6)
   final String profilePhotoUrl;
+  // ID KARYAWAN
+  final String? idCardUrl;
 
   const User({
     required this.id,
@@ -34,6 +36,7 @@ class User {
     this.phoneNumber,
     required this.roles,
     required this.profilePhotoUrl,
+    this.idCardUrl, // <-- Tambahkan constructor ID KARYAWAN
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -55,6 +58,7 @@ class User {
         phoneNumber: json['no_telepon'] ?? 'No. telp tidak tersedia',
         profilePhotoUrl: json['profile_photo_url'] ?? '',
         roles: roleNames,
+        idCardUrl: json['id_card_url'],
       );
     } catch (e) {
       debugPrint('Error parsing User from JSON: $e');
@@ -71,6 +75,7 @@ class User {
       'no_telepon': phoneNumber,
       'roles': roles,
       'profile_photo_url': profilePhotoUrl,
+      'id_card_url': idCardUrl,
     };
   }
 }

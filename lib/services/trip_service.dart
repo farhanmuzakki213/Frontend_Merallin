@@ -164,21 +164,15 @@ class TripService {
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> finishLoading(
-      {required String token, required int tripId}) async {
-    final response = await _postRequest(token, '$tripId/finish-loading');
-    return Trip.fromJson(json.decode(response.body)['data']);
-  }
-
-  Future<Trip> updateAfterLoading({
+  Future<Trip> updateKedatanganMuat({
     required String token,
     required int tripId,
     File? kmMuatPhoto,
     File? kedatanganMuatPhoto,
     File? deliveryOrderPhoto,
-    List<File>? muatPhotos,
   }) async {
-    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/after-loading');
+    final url =
+        Uri.parse('$_baseUrl/driver/trips/$tripId/update-kedatangan-muat');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
@@ -198,6 +192,21 @@ class TripService {
           'delivery_order_photo', deliveryOrderPhoto.path,
           filename: basename(deliveryOrderPhoto.path)));
     }
+
+    final response = await multipartPostRequest(request);
+    return Trip.fromJson(json.decode(response.body)['data']);
+  }
+
+  Future<Trip> updateProsesMuat({
+    required String token,
+    required int tripId,
+    List<File>? muatPhotos,
+  }) async {
+    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/update-proses-muat');
+    final request = http.MultipartRequest('POST', url)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json';
+
     if (muatPhotos != null) {
       for (var file in muatPhotos) {
         request.files.add(await http.MultipartFile.fromPath(
@@ -210,14 +219,14 @@ class TripService {
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> uploadTripDocuments({
+  Future<Trip> uploadSelesaiMuat({
     required String token,
     required int tripId,
     List<File>? deliveryLetters,
     File? segelPhoto,
     File? timbanganPhoto,
   }) async {
-    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/upload-documents');
+    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/upload-selesai-muat');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
@@ -243,29 +252,21 @@ class TripService {
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-
   Future<Trip> updateToUnloadingPoint(
       {required String token, required int tripId}) async {
     final response = await _postRequest(token, '$tripId/at-unloading');
     return Trip.fromJson(json.decode(response.body)['data']);
   }
 
-  Future<Trip> finishUnloading(
-      {required String token, required int tripId}) async {
-    final response = await _postRequest(token, '$tripId/finish-unloading');
-    return Trip.fromJson(json.decode(response.body)['data']);
-  }
-
-  Future<Trip> updateFinishTrip({
+  Future<Trip> updateKedatanganBongkar({
     required String token,
     required int tripId,
     String? endKm,
     File? endKmPhoto,
     File? kedatanganBongkarPhoto,
-    List<File>? bongkarPhotos,
-    List<File>? deliveryLetters,
   }) async {
-    final url = Uri.parse('$_baseUrl/driver/trips/$tripId/finish');
+    final url =
+        Uri.parse('$_baseUrl/driver/trips/$tripId/update-kedatangan-bongkar');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
@@ -282,6 +283,22 @@ class TripService {
           'kedatangan_bongkar_photo', kedatanganBongkarPhoto.path,
           filename: basename(kedatanganBongkarPhoto.path)));
     }
+
+    final response = await multipartPostRequest(request);
+    return Trip.fromJson(json.decode(response.body)['data']);
+  }
+
+  Future<Trip> updateProsesBongkar({
+    required String token,
+    required int tripId,
+    List<File>? bongkarPhotos,
+  }) async {
+    final url =
+        Uri.parse('$_baseUrl/driver/trips/$tripId/update-proses-bongkar');
+    final request = http.MultipartRequest('POST', url)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json';
+
     if (bongkarPhotos != null) {
       for (var file in bongkarPhotos) {
         request.files.add(await http.MultipartFile.fromPath(
@@ -289,6 +306,21 @@ class TripService {
             filename: basename(file.path)));
       }
     }
+    final response = await multipartPostRequest(request);
+    return Trip.fromJson(json.decode(response.body)['data']);
+  }
+
+  Future<Trip> updateSelesaiBongkar({
+    required String token,
+    required int tripId,
+    List<File>? deliveryLetters,
+  }) async {
+    final url =
+        Uri.parse('$_baseUrl/driver/trips/$tripId/update-selesai-bongkar');
+    final request = http.MultipartRequest('POST', url)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json';
+
     if (deliveryLetters != null) {
       for (var file in deliveryLetters) {
         request.files.add(await http.MultipartFile.fromPath(

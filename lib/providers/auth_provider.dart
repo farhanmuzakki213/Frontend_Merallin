@@ -126,6 +126,18 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ===== MULAI KODE TAMBAHAN =====
+  /// Fungsi ini dipanggil ketika API mengembalikan error 401 (Unauthorized).
+  Future<void> handleInvalidSession() async {
+    // Cek apakah pengguna memang sedang dalam status login sebelumnya.
+    // Ini untuk mencegah logout ganda yang tidak perlu.
+    if (_authStatus == AuthStatus.authenticated) {
+      debugPrint("Sesi tidak valid terdeteksi. Melakukan logout paksa.");
+      await logout();
+      // Di sini kita bisa menambahkan logika untuk menampilkan snackbar atau pesan
+      // bahwa sesi telah berakhir, yang bisa di-handle di UI.
+    }
+  }
   Future<void> setPendingTripForVerification(int tripId) async {
     _pendingTripId = tripId;
     await _authBox.put('pendingTripId', tripId);
@@ -196,6 +208,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<String?> updatePassword({
+    // ===== 1. TAMBAHKAN 'context' DI SINI =====
+    required BuildContext context, 
     required String currentPassword,
     required String newPassword,
     required String newPasswordConfirmation,
@@ -207,6 +221,8 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authService.updatePassword(
+        // ===== 2. OPER 'context' KE SERVICE =====
+        context: context, 
         token: _token!,
         currentPassword: currentPassword,
         newPassword: newPassword,

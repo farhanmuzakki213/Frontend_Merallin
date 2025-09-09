@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart'; // <-- Tambahkan ini
+import 'package:frontend_merallin/utils/http_interceptor.dart'; // <-- Tambahkan ini
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
@@ -98,7 +100,9 @@ class AuthService {
     }
   }
 
+  // Kita perlu context untuk membuat interceptor
   Future<void> updatePassword({
+    required BuildContext context, // <-- Tambahkan context
     required String token,
     required String currentPassword,
     required String newPassword,
@@ -106,42 +110,31 @@ class AuthService {
   }) async {
     final url = Uri.parse('$_baseUrl/user/password');
     try {
-      // Menambahkan token otentikasi ke header
+      // Buat instance interceptor
+      final client = HttpInterceptor(context);
+
       final headers = {
         ..._headers,
         'Authorization': 'Bearer $token',
       };
 
-      // Backend Laravel mengharapkan field: 'current_password', 'password', 'password_confirmation'
       final body = json.encode({
         'current_password': currentPassword,
         'password': newPassword,
         'password_confirmation': newPasswordConfirmation,
       });
 
-      final response = await http.post(url, headers: headers, body: body);
+      // Ganti http.post dengan client.post
+      final response = await client.post(url, headers: headers, body: body);
 
       if (response.statusCode == 200) {
-        // Password berhasil diubah
         return;
-      } else if (response.statusCode == 422) {
-        // Error validasi dari Laravel
-        final responseBody = json.decode(response.body);
-        // Mengambil pesan error dari field 'current_password' atau 'password'
-        final errors = responseBody['errors'] as Map<String, dynamic>;
-        final errorMessage = errors.values.map((e) => e[0]).join('\n');
-        throw Exception(errorMessage);
-      } else if (response.statusCode == 401) {
-        // Unauthorized, token tidak valid
-        throw Exception('Sesi Anda telah berakhir. Silakan login kembali.');
       } else {
-        // Error lainnya
         final responseBody = json.decode(response.body);
         throw Exception(responseBody['message'] ?? 'Gagal mengubah password.');
       }
-    } on SocketException {
-      throw Exception('Tidak dapat terhubung ke server.');
     } catch (e) {
+      // Error dari interceptor atau error lain akan ditangkap di sini
       throw Exception(e.toString());
     }
   }

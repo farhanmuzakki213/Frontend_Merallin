@@ -2,7 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:frontend_merallin/bbm_list_screen.dart';
+import 'package:frontend_merallin/home_screen.dart';
 import 'package:provider/provider.dart';
 import 'bbm_waiting_verification.dart';
 import 'models/bbm_model.dart';
@@ -82,7 +82,10 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
           content: Text('Tugas ini sudah selesai.'),
           backgroundColor: Colors.green,
         ));
-        Navigator.of(context).pop(true);
+        Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
         return; // Hentikan eksekusi lebih lanjut
       }
 
@@ -180,7 +183,10 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
             content: Text('Pengisian BBM telah selesai sepenuhnya!'),
             backgroundColor: Colors.blue));
         
-        Navigator.of(context).pop(true);
+        Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
         return;
       }
         setState(() {

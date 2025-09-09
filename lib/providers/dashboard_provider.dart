@@ -67,7 +67,23 @@ class DashboardProvider with ChangeNotifier {
             izinDate.year == now.year;
       }).length;
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
+        // =======================================================================
+        // ===== MULAI KODE PERBAIKAN: INILAH SATU-SATUNYA BAGIAN YANG DIUBAH ====
+        // =======================================================================
+
+        final errorString = e.toString();
+        // Cek apakah error berisi pesan 'Unauthenticated'
+        if (errorString.contains('Unauthenticated')) {
+            // Jika ya, teruskan pesan error spesifik ini tanpa modifikasi
+            _errorMessage = 'Unauthenticated.';
+        } else {
+            // Jika error lain, bersihkan "Exception: " seperti sebelumnya
+            _errorMessage = errorString.replaceAll('Exception: ', '');
+        }
+        
+        // ===========================
+        // ===== AKHIR KODE PERBAIKAN ====
+        // ===========================
     } finally {
       _isLoading = false;
       notifyListeners();

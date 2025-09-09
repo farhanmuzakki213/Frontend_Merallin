@@ -2,7 +2,15 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:frontend_merallin/home_screen.dart'; 
+import 'package:frontend_merallin/providers/payslip_provider.dart'; //LIST GAJI
+import 'package:frontend_merallin/services/notification_service.dart';
+import 'package:firebase_core/firebase_core.dart'; // <-- Impor Firebase Core
+import 'package:firebase_messaging/firebase_messaging.dart'; // <-- Impor Firebase Messaging
+// ===== MULAI KODE TAMBAHAN =====
+// Impor file permission_service.dart yang sudah kita modifikasi
+import 'package:frontend_merallin/services/permission_service.dart';
+// ===== AKHIR KODE TAMBAHAN =====
+import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/login_screen.dart';
 import 'package:frontend_merallin/models/user_model.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
@@ -21,16 +29,49 @@ import 'package:frontend_merallin/providers/leave_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:frontend_merallin/providers/id_card_provider.dart';
+
+
+// ===== MULAI KODE TAMBAHAN: Handler untuk notifikasi di background =====
+// =======================================================================
+/// Fungsi ini harus berada di level atas (top-level), di luar kelas manapun.
+/// Fungsinya untuk menangani notifikasi saat aplikasi tidak berjalan di foreground.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Pastikan Firebase diinisialisasi
+  await Firebase.initializeApp();
+
+  // Cek apakah notifikasi berisi perintah untuk logout paksa
+  if (message.data['type'] == 'force_logout') {
+    debugPrint("Force logout message received in background. Clearing auth box.");
+    // Buka authBox yang terenkripsi
+    final encryptionKeyString = dotenv.env['HIVE_ENCRYPTION_KEY'];
+    if (encryptionKeyString != null) {
+      final encryptionKey = base64Url.decode(encryptionKeyString);
+      final authBox = await Hive.openBox(
+        'authBox',
+        encryptionCipher: HiveAesCipher(encryptionKey),
+      );
+      // Hapus semua data sesi
+      await authBox.clear();
+      debugPrint("Auth box cleared due to background force logout.");
+    }
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize();
+  // ===== MULAI KODE TAMBAHAN =====
+  // Mendaftarkan background handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // ===== AKHIR KODE TAMBAHAN =====
   await initializeDateFormatting('id_ID', null);
   tz.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
   await dotenv.load(fileName: ".env");
   await Hive.initFlutter();
-  
-  await Hive.initFlutter();
+
   Hive.registerAdapter(UserAdapter());
 
   final encryptionKeyString = dotenv.env['HIVE_ENCRYPTION_KEY'];
@@ -43,11 +84,9 @@ Future<void> main() async {
     'authBox',
     encryptionCipher: HiveAesCipher(encryptionKey),
   );
-
-  // await Hive.openBox<Trip>('tripsBox', encryptionCipher: HiveAesCipher(encryptionKey));
-  // await Hive.openBox('performanceBox', encryptionCipher: HiveAesCipher(encryptionKey));
-  // await Hive.openBox('historyBox', encryptionCipher: HiveAesCipher(encryptionKey));
-
+  
+  await Hive.openBox<int>('downloadedSlipsBox');
+  await Hive.openBox<bool>('idCardStatusBox');
   runApp(const MyApp());
 }
 
@@ -66,13 +105,27 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => BbmProvider()),
         ChangeNotifierProvider(create: (context) => VehicleLocationProvider()),
         ChangeNotifierProvider(create: (context) => LemburProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, PayslipProvider>(
+          create: (context) => PayslipProvider(),
+          update: (context, auth, payslip) {
+            payslip!.updateToken(auth.token);
+            return payslip;
+          },
+        ),
         ChangeNotifierProxyProvider<AuthProvider, DashboardProvider>(
-  create: (context) => DashboardProvider(),
-  update: (context, auth, dashboard) {
-    dashboard!.updateToken(auth.token);
-    return dashboard;
-  },
-),
+          create: (context) => DashboardProvider(),
+          update: (context, auth, dashboard) {
+            dashboard!.updateToken(auth.token);
+            return dashboard;
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, IdCardProvider>(
+          create: (context) => IdCardProvider(),
+          update: (context, auth, idCard) {
+            idCard!.updateToken(auth.token);
+            return idCard;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Merallin Group',
@@ -91,14 +144,65 @@ class MyApp extends StatelessWidget {
           Locale('en', ''),
         ],
         locale: const Locale('id', 'ID'),
+        // Halaman utama sekarang adalah AuthGate, tidak ada perubahan di sini
         home: const AuthGate(),
       ),
     );
   }
 }
 
-class AuthGate extends StatelessWidget {
+// =======================================================================
+// ===== MULAI KODE PERUBAHAN: Mengubah AuthGate menjadi StatefulWidget =====
+// =======================================================================
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    // Hanya setup listener jika widget sudah ter-build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupFirebaseMessagingListener();
+    });
+  }
+
+  void _setupFirebaseMessagingListener() {
+    // Listener untuk notifikasi saat aplikasi berjalan di foreground
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint('Foreground message received: ${message.data}');
+      // Periksa apakah notifikasi berisi perintah untuk logout paksa
+      if (message.data['type'] == 'force_logout') {
+        // Tampilkan dialog informasi sebelum logout
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Sesi Berakhir'),
+              content: const Text(
+                  'Sesi Anda telah berakhir karena akun ini login di perangkat lain.'),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () {
+                    // Tutup dialog dan panggil fungsi logout
+                    Navigator.of(context).pop();
+                    Provider.of<AuthProvider>(context, listen: false)
+                        .handleInvalidSession();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,10 +210,13 @@ class AuthGate extends StatelessWidget {
       builder: (context, authProvider, child) {
         switch (authProvider.authStatus) {
           case AuthStatus.uninitialized:
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
           case AuthStatus.updating:
-          case AuthStatus.authenticated:            
-            return const HomeScreen(); // Selalu arahkan ke HomeScreen
+          case AuthStatus.authenticated:
+            return const PermissionGate(
+              child: HomeScreen(),
+            );
           case AuthStatus.authenticating:
           case AuthStatus.unauthenticated:
             return const LoginScreen();
