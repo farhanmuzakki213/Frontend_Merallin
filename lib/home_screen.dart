@@ -15,9 +15,6 @@ import 'package:frontend_merallin/providers/dashboard_provider.dart';
 import 'package:frontend_merallin/profile_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
-// ===== KODE DI BAWAH INI DIHAPUS KARENA SUDAH TIDAK DIPERLUKAN =====
-// import 'package:frontend_merallin/services/permission_service.dart'; 
-// =================================================================
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend_merallin/my_trip_screen.dart';
@@ -91,9 +88,6 @@ class HomeScreenContent extends StatefulWidget {
 }
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
-  // ===== KODE DI BAWAH INI DIHAPUS KARENA SUDAH TIDAK DIPERLUKAN =====
-  // final PermissionService _permissionService = PermissionService();
-  // =================================================================
 
   @override
   void initState() {

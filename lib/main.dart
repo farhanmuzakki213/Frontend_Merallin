@@ -11,6 +11,9 @@ import 'package:firebase_messaging/firebase_messaging.dart'; // <-- Impor Fireba
 import 'package:frontend_merallin/services/permission_service.dart';
 // ===== AKHIR KODE TAMBAHAN =====
 import 'package:frontend_merallin/home_screen.dart';
+import 'package:frontend_merallin/providers/permission_provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:frontend_merallin/login_screen.dart';
 import 'package:frontend_merallin/models/user_model.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
@@ -105,6 +108,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => BbmProvider()),
         ChangeNotifierProvider(create: (context) => VehicleLocationProvider()),
         ChangeNotifierProvider(create: (context) => LemburProvider()),
+        ChangeNotifierProvider(create: (context) => PermissionProvider()),
         ChangeNotifierProxyProvider<AuthProvider, PayslipProvider>(
           create: (context) => PayslipProvider(),
           update: (context, auth, payslip) {
