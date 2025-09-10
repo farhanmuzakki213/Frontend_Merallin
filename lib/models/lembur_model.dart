@@ -85,6 +85,7 @@ enum StatusPersetujuan {
   ditolak,
   diterima,
   menungguPersetujuan,
+  menungguKonfirmasiAdmin,
 }
 
 // Helper extension untuk mengubah String menjadi Enum StatusPersetujuan dan sebaliknya
@@ -97,6 +98,10 @@ extension StatusPersetujuanExtension on StatusPersetujuan {
         return 'Diterima';
       case StatusPersetujuan.menungguPersetujuan:
         return 'Menunggu Persetujuan';
+      case StatusPersetujuan.menungguKonfirmasiAdmin:
+        return 'Menunggu Konformasi Admin';
+      default:
+        return 'Menunggu Persetujuan';
     }
   }
 
@@ -108,6 +113,8 @@ extension StatusPersetujuanExtension on StatusPersetujuan {
         return StatusPersetujuan.diterima;
       case 'Menunggu Persetujuan':
         return StatusPersetujuan.menungguPersetujuan;
+      case 'Menunggu Konfirmasi Admin':
+        return StatusPersetujuan.menungguKonfirmasiAdmin;
       default:
         return StatusPersetujuan.menungguPersetujuan; // Fallback default
     }
@@ -116,6 +123,7 @@ extension StatusPersetujuanExtension on StatusPersetujuan {
 
 class Lembur {
   final String id;
+  final String? uuid;
   final String userId;
   final JenisHariLembur jenisHari;
   final DepartmentLembur department;
@@ -126,11 +134,19 @@ class Lembur {
   final StatusPersetujuan statusLembur;
   final StatusPersetujuan persetujuanDireksi;
   final StatusPersetujuan persetujuanManajer;
+  final String? alasanPenolakan;
+  final String? fileFinalUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  final DateTime? jamMulaiAktual;
+  final DateTime? jamSelesaiAktual;
+  final String? fotoMulaiPath;
+  final String? fotoSelesaiPath;
+
   const Lembur({
     required this.id,
+    this.uuid,
     required this.userId,
     required this.jenisHari,
     required this.department,
@@ -141,39 +157,102 @@ class Lembur {
     required this.statusLembur,
     required this.persetujuanDireksi,
     required this.persetujuanManajer,
+    this.alasanPenolakan,
+    this.fileFinalUrl,
     this.createdAt,
     this.updatedAt,
+
+    this.jamMulaiAktual,
+    this.jamSelesaiAktual,
+    this.fotoMulaiPath,
+    this.fotoSelesaiPath,
   });
 
   factory Lembur.fromJson(Map<String, dynamic> json) {
     try {
+      // Helper untuk parsing tanggal yang WAJIB ADA (tidak boleh null)
+      DateTime _parseDate(String? dateString) {
+        if (dateString == null) return DateTime.now(); // Fallback ke tanggal sekarang
+        return DateTime.parse(dateString);
+      }
+      DateTime? _parseNullableDate(String? dateString) {
+        return dateString != null ? DateTime.parse(dateString) : null;
+      }
+
       return Lembur(
         id: json['id']?.toString() ?? '',
+        uuid: json['uuid']?.toString(),
         userId: json['user_id']?.toString() ?? '',
         jenisHari:
             JenisHariLemburExtension.fromString(json['jenis_hari'] ?? 'Kerja'),
         department:
             DepartmentLemburExtension.fromString(json['department'] ?? 'Admin'),
-        tanggalLembur: DateTime.parse(json['tanggal_lembur']),
+        tanggalLembur: _parseDate(json['tanggal_lembur']),
+        
         keteranganLembur: json['keterangan_lembur'] ?? '',
         mulaiJamLembur: json['mulai_jam_lembur'] ?? '00:00:00',
         selesaiJamLembur: json['selesai_jam_lembur'] ?? '00:00:00',
+        
         statusLembur: StatusPersetujuanExtension.fromString(
-            json['status_lembur'] ?? 'Menunggu Persetujuan'),
+            json['status_final'] ?? json['status_lembur'] ?? 'Menunggu Persetujuan'),
+
         persetujuanDireksi: StatusPersetujuanExtension.fromString(
             json['persetujuan_direksi'] ?? 'Menunggu Persetujuan'),
+            
         persetujuanManajer: StatusPersetujuanExtension.fromString(
             json['persetujuan_manajer'] ?? 'Menunggu Persetujuan'),
-        createdAt: json['created_at'] != null
-            ? DateTime.parse(json['created_at'])
-            : null,
-        updatedAt: json['updated_at'] != null
-            ? DateTime.parse(json['updated_at'])
-            : null,
+
+        alasanPenolakan: json['alasan_penolakan'] ?? json['alasan'],
+        fileFinalUrl: json['file_final_url'] ?? json['file_url'],
+        
+        createdAt: _parseNullableDate(json['created_at'] ?? json['diajukan_pada']),
+            
+        updatedAt: _parseNullableDate(json['updated_at']),
+
+        jamMulaiAktual: _parseNullableDate(json['jam_mulai_aktual']),
+        jamSelesaiAktual: _parseNullableDate(json['jam_selesai_aktual']),
+        fotoMulaiPath: json['foto_mulai_path'],
+        fotoSelesaiPath: json['foto_selesai_path'],
       );
     } catch (e) {
       debugPrint('Error parsing Lembur from JSON: $e');
       rethrow;
     }
+  }
+
+  Lembur copyWith({
+    StatusPersetujuan? statusLembur,
+    StatusPersetujuan? persetujuanDireksi,
+    StatusPersetujuan? persetujuanManajer,
+    String? alasanPenolakan,
+    String? fileFinalUrl,
+    DateTime? jamMulaiAktual,
+    DateTime? jamSelesaiAktual,
+    String? fotoMulaiPath,
+    String? fotoSelesaiPath,
+  }) {
+    return Lembur(
+      id: id,
+      uuid: uuid,
+      userId: userId,
+      jenisHari: jenisHari,
+      department: department,
+      tanggalLembur: tanggalLembur,
+      keteranganLembur: keteranganLembur,
+      mulaiJamLembur: mulaiJamLembur,
+      selesaiJamLembur: selesaiJamLembur,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      // Gunakan nilai baru jika ada, jika tidak, pakai nilai lama (this)
+      statusLembur: statusLembur ?? this.statusLembur,
+      persetujuanDireksi: persetujuanDireksi ?? this.persetujuanDireksi,
+      persetujuanManajer: persetujuanManajer ?? this.persetujuanManajer,
+      alasanPenolakan: alasanPenolakan ?? this.alasanPenolakan,
+      fileFinalUrl: fileFinalUrl ?? this.fileFinalUrl,
+      jamMulaiAktual: jamMulaiAktual ?? this.jamMulaiAktual,
+      jamSelesaiAktual: jamSelesaiAktual ?? this.jamSelesaiAktual,
+      fotoMulaiPath: fotoMulaiPath ?? this.fotoMulaiPath,
+      fotoSelesaiPath: fotoSelesaiPath ?? this.fotoSelesaiPath,
+    );
   }
 }

@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_saver/file_saver.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 class DownloadService {
   // Fungsi untuk mengambil data file dari server
@@ -49,5 +51,28 @@ class DownloadService {
     final file = File(savePath);
     await file.writeAsBytes(fileBytes);
     return savePath;
+  }
+
+  Future<String> saveAndOpenFile({
+    required String filename,
+    required Uint8List fileBytes,
+  }) async {
+    try {
+      // 1. Dapatkan direktori sementara aplikasi
+      final directory = await getTemporaryDirectory();
+      
+      // 2. Buat path lengkap untuk file (dengan ekstensi .pdf)
+      final filePath = p.join(directory.path, '$filename.pdf');
+      
+      // 3. Tulis data byte ke file
+      final file = File(filePath);
+      await file.writeAsBytes(fileBytes);
+
+      // 4. Kembalikan path file yang sudah disimpan
+      return filePath;
+
+    } catch (e) {
+      throw Exception('Gagal menyimpan file sementara: $e');
+    }
   }
 }

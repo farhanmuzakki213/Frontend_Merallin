@@ -181,9 +181,9 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Form Pengajuan Lembur'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.black87,
+        // backgroundColor: Colors.transparent,
+        // elevation: 0,
+        // foregroundColor: Colors.black87,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),

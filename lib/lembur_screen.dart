@@ -93,11 +93,20 @@ class _LemburScreenState extends State<LemburScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lemburProvider = context.watch<LemburProvider>();
+    
+    // Cek apakah ada lembur yang sedang berlangsung
+    final bool hasOngoingLembur = lemburProvider.overtimeHistory.any((lembur) {
+      // Kondisi untuk "Berlangsung": status Diterima TAPI belum clock-out
+      return lembur.statusLembur == StatusPersetujuan.diterima &&
+             lembur.jamMulaiAktual != null &&
+             lembur.jamSelesaiAktual == null;
+    });
     return Scaffold(
       appBar: AppBar(
         title: const Text('Riwayat Lembur Saya'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        // backgroundColor: Colors.blue,
+        // foregroundColor: Colors.black87,
         elevation: 1,
         actions: [
           IconButton(
@@ -132,17 +141,27 @@ class _LemburScreenState extends State<LemburScreen> {
       ),
       // Tombol ini sekarang akan bernavigasi ke AjukanLemburScreen
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          // Navigasi ke halaman pengajuan.
-          // Provider akan otomatis refresh data jika pengajuan berhasil.
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AjukanLemburScreen()),
-          );
+        onPressed: () {
+          // Jika ada lembur yang sedang berlangsung
+          if (hasOngoingLembur) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Anda tidak bisa mengajukan lembur baru saat sesi lain sedang berlangsung.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          } else {
+            // Jika tidak ada, navigasi ke halaman pengajuan
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AjukanLemburScreen()),
+            );
+          }
         },
         label: const Text('Ajukan Lembur'),
         icon: const Icon(Icons.add_alarm),
-        backgroundColor: Theme.of(context).primaryColor,
+        // Ubah warna tombol menjadi abu-abu jika disabled
+        backgroundColor: hasOngoingLembur ? Colors.grey : Theme.of(context).primaryColor,
       ),
     );
   }
@@ -173,7 +192,7 @@ class _LemburScreenState extends State<LemburScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetailLemburScreen(lembur: lembur),
+            builder: (context) => DetailLemburScreen(lemburAwal: lembur),
           ),
         );
       },
@@ -195,7 +214,7 @@ class _LemburScreenState extends State<LemburScreen> {
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  _buildStatusChip(lembur.statusLembur),
+                  _buildStatusChip(lembur),
                 ],
               ),
               const Divider(height: 24),
@@ -234,28 +253,42 @@ class _LemburScreenState extends State<LemburScreen> {
     );
   }
 
-  Widget _buildStatusChip(StatusPersetujuan status) {
+  Widget _buildStatusChip(Lembur lembur) {
     Color chipColor;
     Color textColor;
     String chipText;
 
-    switch (status) {
-      case StatusPersetujuan.diterima:
+    if (lembur.statusLembur != StatusPersetujuan.diterima) {
+      // Jika belum disetujui, gunakan status persetujuan (Pending/Ditolak)
+      switch (lembur.statusLembur) {
+        case StatusPersetujuan.ditolak:
+          chipColor = Colors.red.shade100;
+          textColor = Colors.red.shade800;
+          chipText = 'Ditolak';
+          break;
+        case StatusPersetujuan.menungguPersetujuan:
+        case StatusPersetujuan.menungguKonfirmasiAdmin:
+        default:
+          chipColor = Colors.orange.shade100;
+          textColor = Colors.orange.shade800;
+          chipText = 'Pending';
+          break;
+      }
+    } else {
+      // Jika sudah disetujui, cek status clock-in/out
+      if (lembur.jamSelesaiAktual != null) {
         chipColor = Colors.green.shade100;
         textColor = Colors.green.shade800;
+        chipText = 'Selesai';
+      } else if (lembur.jamMulaiAktual != null) {
+        chipColor = Colors.purple.shade100;
+        textColor = Colors.purple.shade800;
+        chipText = 'Berlangsung';
+      } else {
+        chipColor = Colors.blue.shade100;
+        textColor = Colors.blue.shade800;
         chipText = 'Disetujui';
-        break;
-      case StatusPersetujuan.ditolak:
-        chipColor = Colors.red.shade100;
-        textColor = Colors.red.shade800;
-        chipText = 'Ditolak';
-        break;
-      case StatusPersetujuan.menungguPersetujuan:
-      default:
-        chipColor = Colors.orange.shade100;
-        textColor = Colors.orange.shade800;
-        chipText = 'Pending';
-        break;
+      }
     }
 
     return Chip(
