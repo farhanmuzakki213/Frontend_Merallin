@@ -187,13 +187,13 @@ class TripProvider with ChangeNotifier {
   Future<Trip?> submitProsesMuat({
     required String token,
     required int tripId,
-    List<File>? muatPhotos,
+    required Map<String, List<File>> photosByWarehouse,
   }) async {
     try {
       return await _tripService.updateProsesMuat(
         token: token,
         tripId: tripId,
-        muatPhotos: muatPhotos,
+        photosByWarehouse: photosByWarehouse, // Kirim data map
       );
     } on ApiException {
       rethrow;
@@ -266,13 +266,14 @@ class TripProvider with ChangeNotifier {
   Future<Trip?> submitProsesBongkar({
     required String token,
     required int tripId,
-    List<File>? bongkarPhotos,
+    // Sesuaikan tipe data parameter
+    required Map<String, List<File>> photosByWarehouse,
   }) async {
     try {
       return await _tripService.updateProsesBongkar(
         token: token,
         tripId: tripId,
-        bongkarPhotos: bongkarPhotos,
+        photosByWarehouse: photosByWarehouse, // Kirim data map
       );
     } on ApiException {
       rethrow;
