@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../services/trip_service.dart';
 import '../models/vehicle_model.dart';
 import '../services/vehicle_service.dart';
 import 'dart:io';
 import 'dart:async';
-// HAPUS IMPORT AUTH_PROVIDER DARI SINI JIKA ADA
+import 'auth_provider.dart';
 
 class TripProvider with ChangeNotifier {
   final TripService _tripService = TripService();
@@ -68,23 +69,26 @@ class TripProvider with ChangeNotifier {
         .length;
   }
 
-  Future<void> fetchVehicles(String token) async {
+  Future<void> fetchVehicles({required BuildContext context, required String token}) async {
     try {
-      debugPrint(
-          '[TripProvider] Memulai fetchVehicles...'); // Lacak pemanggilan
+      debugPrint('[TripProvider] Memulai fetchVehicles...');
       _vehicles = await _vehicleService.getVehicles(token);
-      debugPrint(
-          '[TripProvider] Berhasil. Ditemukan ${_vehicles.length} kendaraan.'); // Lacak jumlah data
+      debugPrint('[TripProvider] Berhasil. Ditemukan ${_vehicles.length} kendaraan.');
       notifyListeners();
     } catch (e) {
-      debugPrint(
-          '[TripProvider] Gagal memuat kendaraan: ${e.toString()}'); // Lacak jika ada error
-      _errorMessage = "Gagal memuat data kendaraan: ${e.toString()}";
+      final errorString = e.toString();
+      debugPrint('[TripProvider] Gagal memuat kendaraan: $errorString');
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        return;
+      }
+      _errorMessage = "Gagal memuat data kendaraan: $errorString";
       notifyListeners();
     }
   }
 
-  Future<void> fetchTrips(String token) async {
+  // ===== PERUBAHAN 2: Tambahkan 'context' =====
+  Future<void> fetchTrips({required BuildContext context, required String token}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -92,12 +96,16 @@ class TripProvider with ChangeNotifier {
     try {
       _allTrips = await _tripService.getTrips(token);
       _errorMessage = null;
-    } on ApiException catch (e) {
-      _errorMessage = e.toString();
-      _allTrips = [];
     } catch (e) {
-      _errorMessage = 'Terjadi kesalahan tidak terduga: ${e.toString()}';
-      _allTrips = [];
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        // 'context' sekarang sudah tersedia karena ada di parameter fungsi
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        _allTrips = [];
+      } else {
+        _errorMessage = 'Terjadi kesalahan: $errorString';
+        _allTrips = [];
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -107,7 +115,9 @@ class TripProvider with ChangeNotifier {
   Future<bool> acceptTrip(String token, int tripId) async {
     try {
       await _tripService.acceptTrip(token, tripId);
-      await fetchTrips(token);
+      // Untuk fetchTrips, Anda perlu context. Ini menjadi sedikit rumit.
+      // Solusi sederhana adalah tidak memanggil fetchTrips di sini, dan membiarkan UI yang memanggilnya kembali.
+      // await fetchTrips(token); <-- Hapus atau refactor
       return true;
     } catch (e) {
       _errorMessage = 'Gagal memulai tugas: ${e.toString()}';

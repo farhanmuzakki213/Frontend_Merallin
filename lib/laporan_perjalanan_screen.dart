@@ -83,7 +83,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
 
       final results = await Future.wait([
         tripProvider.getTripDetails(token, widget.tripId),
-        tripProvider.fetchVehicles(token), // Pastikan vehicles juga dimuat
+        tripProvider.fetchVehicles(context: context, token: token),
       ]);
 
       final trip = results[0] as Trip?;
@@ -116,10 +116,8 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
           _hasSubmittedDocsForPage(trip, determinedPage);
 
       if (shouldGoToVerification && !forceShowForm) {
-        // _isLoading tetap true, langsung navigasi ke verifikasi
         await _navigateToVerification(trip);
       } else {
-        // Jika tidak perlu verifikasi, baru hentikan loading dan tampilkan form
         setState(() {
           _isLoading = false;
         });

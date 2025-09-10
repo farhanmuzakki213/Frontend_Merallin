@@ -32,23 +32,29 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
   Future<void> _reloadData() async {
     final authProvider = context.read<AuthProvider>();
     if (authProvider.token != null) {
-      await context.read<VehicleLocationProvider>().fetchHistory(authProvider.token!);
+      await context.read<VehicleLocationProvider>().fetchHistory(
+            context: context,
+            token: authProvider.token!,
+          );
     }
   }
-  
+
   Future<void> _showCreateDialog() async {
     final locationProvider = context.read<VehicleLocationProvider>();
     final authProvider = context.read<AuthProvider>();
-    
-    // Tampilkan loading indicator saat mengambil data kendaraan
+
     if (locationProvider.vehicles.isEmpty) {
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
-      await locationProvider.fetchVehicles(authProvider.token!);
-      if (mounted) Navigator.of(context).pop(); // Hilangkan loading
+      // ===== PERUBAHAN DI SINI =====
+      await locationProvider.fetchVehicles(
+        context: context,
+        token: authProvider.token!,
+      );
+      if (mounted) Navigator.of(context).pop();
     }
 
     if (!mounted) return;
@@ -61,10 +67,12 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.add_road_rounded, color: Theme.of(context).primaryColor),
+              Icon(Icons.add_road_rounded,
+                  color: Theme.of(context).primaryColor,),
               const SizedBox(width: 10),
               const Text('Mulai Trip Geser Baru'),
             ],
@@ -140,30 +148,37 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   formKey.currentState!.save();
-                  
-                  // Tampilkan loading saat proses pembuatan
+
                   showDialog(
                     context: context,
                     barrierDismissible: false,
-                    builder: (context) => const Center(child: CircularProgressIndicator()),
+                    builder: (context) =>
+                        const Center(child: CircularProgressIndicator()),
                   );
 
+                  // ===== PERUBAHAN DI SINI =====
                   final newLocation = await locationProvider.create(
-                      authProvider.token!, selectedVehicle!.id, keterangan!);
-                  
-                  if (mounted) Navigator.of(context).pop(); // Hilangkan loading
+                    context: context,
+                    token: authProvider.token!,
+                    vehicleId: selectedVehicle!.id,
+                    keterangan: keterangan!,
+                  );
+
+                  if (mounted) Navigator.of(context).pop();
 
                   if (newLocation != null && mounted) {
-                    Navigator.of(context).pop(); // Tutup dialog
+                    Navigator.of(context).pop();
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => VehicleLocationProgressScreen(
-                            locationId: newLocation.id),
+                            locationId: newLocation.id,),
                       ),
                     );
                     if (result == true) {
-                       setState(() { _dataWasChanged = true; });
+                      setState(() {
+                        _dataWasChanged = true;
+                      });
                       _reloadData();
                     }
                   }

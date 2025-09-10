@@ -28,11 +28,13 @@ class _MyTripScreenState extends State<MyTripScreen> {
     final authProvider = context.read<AuthProvider>();
     if (authProvider.token != null) {
       // Panggil method fetch dari TripProvider
-      await context.read<TripProvider>().fetchTrips(authProvider.token!);
+       await context.read<TripProvider>().fetchTrips(
+            context: context,
+            token: authProvider.token!,
+          );
     }
   }
 
-  // <-- Logika accept trip dipindahkan ke provider, UI hanya memanggilnya -->
   Future<void> _handleStartTrip(int tripId) async {
     final authProvider = context.read<AuthProvider>();
     final tripProvider = context.read<TripProvider>();
@@ -47,13 +49,14 @@ class _MyTripScreenState extends State<MyTripScreen> {
     if (mounted && success) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Tugas berhasil dimulai!'),
-          backgroundColor: Colors.green));
+          backgroundColor: Colors.green,),);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(tripProvider.errorMessage ?? 'Gagal memulai tugas'),
-          backgroundColor: Colors.red));
+          backgroundColor: Colors.red,),);
     }
   }
+
 
   void _showStartTripConfirmation(Trip trip) {
     showDialog(

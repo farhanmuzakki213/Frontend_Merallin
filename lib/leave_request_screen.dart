@@ -28,8 +28,10 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (authProvider.token != null) {
-        Provider.of<LeaveProvider>(context, listen: false)
-            .fetchLeaveHistory(authProvider.token!);
+        Provider.of<LeaveProvider>(context, listen: false).fetchLeaveHistory(
+          context: context,
+          token: authProvider.token!,
+        );
       }
     });
   }
@@ -70,8 +72,12 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen>
               final authProvider =
                   Provider.of<AuthProvider>(context, listen: false);
               if (authProvider.token != null) {
+                // ===== PERUBAHAN DI SINI =====
                 Provider.of<LeaveProvider>(context, listen: false)
-                    .fetchLeaveHistory(authProvider.token!);
+                    .fetchLeaveHistory(
+                  context: context,
+                  token: authProvider.token!,
+                );
               }
             },
           ),
@@ -82,7 +88,6 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen>
   }
 }
 
-// --- BAGIAN FORM PENGAJUAN IZIN (WIDGET TERPISAH) ---
 class LeaveRequestForm extends StatefulWidget {
   final VoidCallback onSuccess;
   const LeaveRequestForm({super.key, required this.onSuccess});
@@ -96,7 +101,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
   final TextEditingController _reasonController = TextEditingController();
   DateTime? _startDate;
   DateTime? _endDate;
-  File? _pickedFile; 
+  File? _pickedFile;
   bool _isLoadingPhoto = false;
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
@@ -130,9 +135,11 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     );
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
-      if (await file.length() > 2048 * 1024) { // 2MB
+      if (await file.length() > 2048 * 1024) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ukuran file tidak boleh melebihi 2MB.'), backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Ukuran file tidak boleh melebihi 2MB.'),
+              backgroundColor: Colors.red,),);
         }
         return;
       }
@@ -143,17 +150,23 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
   }
 
   Future<void> _handleTakePhoto() async {
-    setState(() { _isLoadingPhoto = true; });
+    setState(() {
+      _isLoadingPhoto = true;
+    });
 
     final newPhoto = await ImageHelper.takeGeotaggedPhoto(context);
 
     if (!mounted) return;
 
     if (newPhoto != null) {
-      setState(() { _pickedFile = newPhoto; });
+      setState(() {
+        _pickedFile = newPhoto;
+      });
     }
 
-    setState(() { _isLoadingPhoto = false; });
+    setState(() {
+      _isLoadingPhoto = false;
+    });
   }
 
   Future<void> _submitLeaveNotification() async {
@@ -162,13 +175,13 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     if (_startDate == null || _endDate == null) {
       scaffoldMessenger.showSnackBar(const SnackBar(
           content: Text('Tanggal mulai dan selesai wajib diisi.'),
-          backgroundColor: Colors.red));
+          backgroundColor: Colors.red,),);
       return;
     }
     if (_pickedFile == null) {
       scaffoldMessenger.showSnackBar(const SnackBar(
           content: Text('Bukti izin wajib diunggah.'),
-          backgroundColor: Colors.red));
+          backgroundColor: Colors.red,),);
       return;
     }
 
@@ -178,11 +191,13 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     if (authProvider.token == null) {
       scaffoldMessenger.showSnackBar(const SnackBar(
           content: Text('Sesi Anda berakhir, silakan login ulang.'),
-          backgroundColor: Colors.red));
+          backgroundColor: Colors.red,),);
       return;
     }
 
+    // ===== PERUBAHAN DI SINI =====
     await leaveProvider.submitLeave(
+      context: context,
       token: authProvider.token!,
       jenisIzin: _selectedLeaveType!,
       tanggalMulai: _startDate!,
@@ -194,13 +209,13 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     if (leaveProvider.submissionStatus == DataStatus.success) {
       scaffoldMessenger.showSnackBar(const SnackBar(
           content: Text('Pemberitahuan izin berhasil dikirim.'),
-          backgroundColor: Colors.green));
+          backgroundColor: Colors.green,),);
       widget.onSuccess();
     } else {
       scaffoldMessenger.showSnackBar(SnackBar(
           content:
               Text(leaveProvider.submissionMessage ?? 'Terjadi kesalahan.'),
-          backgroundColor: Colors.red));
+          backgroundColor: Colors.red,),);
     }
   }
 

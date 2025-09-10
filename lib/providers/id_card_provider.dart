@@ -1,8 +1,10 @@
 // lib/providers/id_card_provider.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import Provider
 import 'package:frontend_merallin/services/id_card_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'auth_provider.dart'; // Import AuthProvider
 
 enum IdCardStatus { initial, loading, success, error }
 
@@ -10,12 +12,9 @@ class IdCardProvider with ChangeNotifier {
   final IdCardService _idCardService = IdCardService();
   String? _token;
 
-  // ===== KODE UNTUK RIWAYAT DOWNLOAD =====
   final Box<bool> _statusBox = Hive.box<bool>('idCardStatusBox');
-  // Cek apakah ID Card sudah pernah di-download
   bool get hasBeenDownloaded => _statusBox.get('idCardDownloaded', defaultValue: false) ?? false;
 
-  // Tandai bahwa ID Card sudah di-download
   void setAsDownloaded() {
     _statusBox.put('idCardDownloaded', true);
     notifyListeners();
@@ -33,11 +32,12 @@ class IdCardProvider with ChangeNotifier {
     _token = token;
   }
 
-  Future<void> fetchIdCard() async {
+  Future<void> fetchIdCard({required BuildContext context}) async {
     if (_token == null) {
       _status = IdCardStatus.error;
       _errorMessage = "Sesi tidak valid.";
       notifyListeners();
+      Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
       return;
     }
 
@@ -55,8 +55,15 @@ class IdCardProvider with ChangeNotifier {
       _pdfPath = await _idCardService.downloadAndCachePdf(idCardUrl, _token!);
       _status = IdCardStatus.success;
     } catch (e) {
-      _status = IdCardStatus.error;
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      // ===== MULAI PERBAIKAN =====
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      } else {
+        _status = IdCardStatus.error;
+        _errorMessage = errorString.replaceFirst('Exception: ', '');
+      }
+      // ===== AKHIR PERBAIKAN =====
     }
     notifyListeners();
   }

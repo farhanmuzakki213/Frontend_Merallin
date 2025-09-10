@@ -92,16 +92,21 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     }
     
     try {
-      // Fetch both histories in parallel
-      final tripFuture = context.read<TripProvider>().fetchTrips(authProvider.token!);
-      final locationFuture = context.read<VehicleLocationProvider>().fetchHistory(authProvider.token!);
+      // ===== PERUBAHAN DI SINI =====
+      final tripFuture = context.read<TripProvider>().fetchTrips(
+            context: context,
+            token: authProvider.token!,
+          );
+      final locationFuture = context.read<VehicleLocationProvider>().fetchHistory(
+            context: context,
+            token: authProvider.token!,
+          );
       
       await Future.wait([tripFuture, locationFuture]);
 
       final tripProvider = context.read<TripProvider>();
       final locationProvider = context.read<VehicleLocationProvider>();
 
-      // Combine and sort
       final List<HistoryItem> combined = [];
 
       final completedTrips = tripProvider.allTrips.where((t) => t.statusTrip == 'selesai');
@@ -110,7 +115,6 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       final completedLocations = locationProvider.history.where((l) => l.statusVehicleLocation == 'selesai');
       combined.addAll(completedLocations.map((l) => VehicleLocationHistoryItem(l)));
 
-      // Sort by completion date, newest first
       combined.sort((a, b) => b.completionDate.compareTo(a.completionDate));
       
       setState(() {

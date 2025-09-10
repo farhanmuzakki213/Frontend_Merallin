@@ -2,8 +2,10 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import Provider
 import 'package:frontend_merallin/models/izin_model.dart';
 import 'package:frontend_merallin/services/izin_service.dart';
+import 'auth_provider.dart'; // Import AuthProvider
 
 enum DataStatus { initial, loading, success, error }
 
@@ -22,26 +24,36 @@ class LeaveProvider extends ChangeNotifier {
   String? get historyMessage => _historyMessage;
   List<Izin> get leaveHistory => _leaveHistory;
 
-  Future<void> fetchLeaveHistory(String token) async {
+  Future<void> fetchLeaveHistory({
+    required BuildContext context,
+    required String token,
+  }) async {
     _historyStatus = DataStatus.loading;
     notifyListeners();
     try {
       _leaveHistory = await _izinService.getLeaveHistory(token);
       _historyStatus = DataStatus.success;
     } catch (e) {
-      _historyStatus = DataStatus.error;
-      _historyMessage = e.toString().replaceFirst('Exception: ', '');
+      // ===== MULAI PERBAIKAN =====
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      } else {
+        _historyStatus = DataStatus.error;
+        _historyMessage = errorString.replaceFirst('Exception: ', '');
+      }
+      // ===== AKHIR PERBAIKAN =====
     }
     notifyListeners();
   }
 
   Future<void> submitLeave({
+    required BuildContext context,
     required String token,
     required LeaveType jenisIzin,
     required DateTime tanggalMulai,
     required DateTime tanggalSelesai,
     String? alasan,
-    // Menggunakan File, agar sesuai dengan Service
     File? fileBukti,
   }) async {
     _submissionStatus = DataStatus.loading;
@@ -54,15 +66,21 @@ class LeaveProvider extends ChangeNotifier {
         tanggalMulai: tanggalMulai,
         tanggalSelesai: tanggalSelesai,
         alasan: alasan,
-        // Mengirim parameter fileBukti
         fileBukti: fileBukti,
       );
 
       _leaveHistory.insert(0, newLeaveRequest);
       _submissionStatus = DataStatus.success;
     } catch (e) {
-      _submissionStatus = DataStatus.error;
-      _submissionMessage = e.toString().replaceFirst('Exception: ', '');
+      // ===== MULAI PERBAIKAN =====
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      } else {
+        _submissionStatus = DataStatus.error;
+        _submissionMessage = errorString.replaceFirst('Exception: ', '');
+      }
+      // ===== AKHIR PERBAIKAN =====
     }
     notifyListeners();
   }

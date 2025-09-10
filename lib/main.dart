@@ -1,6 +1,7 @@
 // lib/main.dart
 
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/providers/payslip_provider.dart'; //LIST GAJI
 import 'package:frontend_merallin/services/notification_service.dart';
@@ -8,6 +9,7 @@ import 'package:firebase_core/firebase_core.dart'; // <-- Impor Firebase Core
 import 'package:firebase_messaging/firebase_messaging.dart'; // <-- Impor Firebase Messaging
 // ===== MULAI KODE TAMBAHAN =====
 // Impor file permission_service.dart yang sudah kita modifikasi
+import 'package:frontend_merallin/services/navigation_service.dart';
 import 'package:frontend_merallin/services/permission_service.dart';
 // ===== AKHIR KODE TAMBAHAN =====
 import 'package:frontend_merallin/home_screen.dart';
@@ -113,7 +115,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthProvider, DashboardProvider>(
           create: (context) => DashboardProvider(),
           update: (context, auth, dashboard) {
-            dashboard!.updateToken(auth.token);
+            // ===== PERUBAHAN DI SINI =====
+            // Kirim context saat mengupdate token agar bisa digunakan untuk fetch data
+            dashboard!.updateToken(auth.token, context);
             return dashboard;
           },
         ),
@@ -126,6 +130,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        navigatorKey: NavigationService.navigatorKey,
         title: 'Merallin Group',
         theme: ThemeData(
           primarySwatch: Colors.blue,
@@ -142,16 +147,12 @@ class MyApp extends StatelessWidget {
           Locale('en', ''),
         ],
         locale: const Locale('id', 'ID'),
-        // Halaman utama sekarang adalah AuthGate, tidak ada perubahan di sini
         home: const AuthGate(),
       ),
     );
   }
 }
 
-// =======================================================================
-// ===== MULAI KODE PERUBAHAN: Mengubah AuthGate menjadi StatefulWidget =====
-// =======================================================================
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -163,47 +164,25 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    // Hanya setup listener jika widget sudah ter-build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupFirebaseMessagingListener();
     });
   }
 
   void _setupFirebaseMessagingListener() {
-    // Listener untuk notifikasi saat aplikasi berjalan di foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('Foreground message received: ${message.data}');
-      // Periksa apakah notifikasi berisi perintah untuk logout paksa
       if (message.data['type'] == 'force_logout') {
-        // Tampilkan dialog informasi sebelum logout
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Sesi Berakhir'),
-              content: const Text(
-                  'Sesi Anda telah berakhir karena akun ini login di perangkat lain.'),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('OK'),
-                  onPressed: () {
-                    // Tutup dialog dan panggil fungsi logout
-                    Navigator.of(context).pop();
-                    Provider.of<AuthProvider>(context, listen: false)
-                        .handleInvalidSession();
-                  },
-                ),
-              ],
-            );
-          },
-        );
+        Provider.of<AuthProvider>(context, listen: false)
+            .handleInvalidSession();
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // AuthGate sekarang sangat sederhana, hanya menukar layar berdasarkan status.
+    // Tidak ada lagi logika timer di sini.
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         switch (authProvider.authStatus) {

@@ -2,10 +2,12 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import Provider
 import '../models/bbm_model.dart';
 import '../models/vehicle_model.dart';
-import '../services/bbm_service.dart';
+import '../services/bbm_service.dart'; // Untuk ApiException
 import '../services/vehicle_service.dart';
+import 'auth_provider.dart'; // Import AuthProvider
 
 class BbmProvider with ChangeNotifier {
   final BbmService _bbmService = BbmService();
@@ -23,29 +25,40 @@ class BbmProvider with ChangeNotifier {
   bool get isCreating => _isCreating;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchBbmRequests(String token) async {
+  Future<void> fetchBbmRequests({
+    required BuildContext context,
+    required String token,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
-      // Muat data BBM dan Kendaraan secara bersamaan
       final bbmFuture = _bbmService.getBbmRequests(token);
       final vehicleFuture = _vehicleService.getVehicles(token);
 
       final results = await Future.wait([bbmFuture, vehicleFuture]);
       _bbmRequests = results[0] as List<BbmKendaraan>;
       _vehicles = results[1] as List<Vehicle>;
-    } on ApiException catch (e) {
-      _errorMessage = e.toString();
     } catch (e) {
-      _errorMessage = "Terjadi kesalahan tidak terduga: ${e.toString()}";
+      // ===== MULAI PERBAIKAN =====
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        return;
+      }
+      _errorMessage = "Terjadi kesalahan: $errorString";
+      // ===== AKHIR PERBAIKAN =====
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<BbmKendaraan?> createBbmRequest(String token, int vehicleId) async {
+  Future<BbmKendaraan?> createBbmRequest({
+    required BuildContext context,
+    required String token,
+    required int vehicleId,
+  }) async {
     _isCreating = true;
     _errorMessage = null;
     notifyListeners();
@@ -54,14 +67,23 @@ class BbmProvider with ChangeNotifier {
       _bbmRequests.insert(0, newRequest);
       return newRequest;
     } on ApiException catch (e) {
-      _errorMessage = e.toString();
+      // ===== MULAI PERBAIKAN =====
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        return null;
+      }
+      _errorMessage = errorString;
       return null;
+      // ===== AKHIR PERBAIKAN =====
     } finally {
       _isCreating = false;
       notifyListeners();
     }
   }
 
+  // Fungsi-fungsi di bawah ini yang menggunakan 'rethrow' tidak perlu diubah.
+  // Penanganan error akan dilakukan di UI saat memanggilnya.
   Future<BbmKendaraan?> getBbmDetails(String token, int bbmId) async {
     try {
       return await _bbmService.getBbmDetails(token, bbmId);
