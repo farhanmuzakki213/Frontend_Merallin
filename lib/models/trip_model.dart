@@ -64,6 +64,8 @@ class Trip {
   final int? vehicleId;
   final String? slotTime;
   final String? jenisBerat;
+  final int? jumlahGudangMuat;
+  final int? jumlahGudangBongkar;
   final int? startKm;
   final int? endKm;
   final String? statusTrip;
@@ -80,13 +82,13 @@ class Trip {
   final String? kmMuatPhotoPath;
   final String? kedatanganMuatPhotoPath;
   final String? deliveryOrderPath;
-  final List<String> muatPhotoPath;
+  final Map<String, List<String>> muatPhotoPath;
   final Map<String, List<String>> deliveryLetterPath;
   final String? timbanganKendaraanPhotoPath;
   final String? segelPhotoPath;
   final String? endKmPhotoPath;
   final String? kedatanganBongkarPhotoPath;
-  final List<String> bongkarPhotoPath;
+  final Map<String, List<String>> bongkarPhotoPath;
 
   // Statuses
   final PhotoVerificationStatus startKmPhotoStatus;
@@ -107,13 +109,13 @@ class Trip {
   final String? fullKmMuatPhotoUrl;
   final String? fullKedatanganMuatPhotoUrl;
   final String? fullDeliveryOrderUrl;
-  final List<String> fullMuatPhotoUrls;
+  final Map<String, List<String>> fullMuatPhotoUrls;
   final Map<String, List<String>> fullDeliveryLetterUrls;
   final String? fullTimbanganKendaraanPhotoUrl;
   final String? fullSegelPhotoUrl;
   final String? fullEndKmPhotoUrl;
   final String? fullKedatanganBongkarPhotoUrl;
-  final List<String> fullBongkarPhotoUrls;
+  final Map<String, List<String>> fullBongkarPhotoUrls;
 
   Trip({
     required this.id,
@@ -126,6 +128,8 @@ class Trip {
     this.vehicleId,
     this.slotTime,
     this.jenisBerat,
+    this.jumlahGudangMuat,
+    this.jumlahGudangBongkar,
     this.startKm,
     this.endKm,
     this.statusTrip,
@@ -237,7 +241,7 @@ class Trip {
             [fullDeliveryOrderUrl].whereType<String>().toList()),
       if (muatPhotoPath.isNotEmpty)
         DocumentInfo('muat_photo', 'Foto Muat Barang', muatPhotoStatus,
-            fullMuatPhotoUrls),
+            fullMuatPhotoUrls.values.expand((list) => list).toList()),
       if (deliveryLetterPath['initial_letters']?.isNotEmpty ?? false)
         DocumentInfo(
             'delivery_letter_initial',
@@ -261,7 +265,7 @@ class Trip {
             [fullKedatanganBongkarPhotoUrl].whereType<String>().toList()),
       if (bongkarPhotoPath.isNotEmpty)
         DocumentInfo('bongkar_photo', 'Foto Bongkar Barang', bongkarPhotoStatus,
-            fullBongkarPhotoUrls),
+            fullBongkarPhotoUrls.values.expand((list) => list).toList()),
       if (endKmPhotoPath != null)
         DocumentInfo('end_km_photo', 'Foto KM Akhir', endKmPhotoStatus,
             [fullEndKmPhotoUrl].whereType<String>().toList()),
@@ -329,6 +333,19 @@ class Trip {
     return null;
   }
 
+  static Map<String, List<String>> _parseToMapStringList(dynamic jsonValue) {
+    if (jsonValue is Map) {
+      return jsonValue.map((key, value) {
+        if (value is List) {
+          return MapEntry(
+              key.toString(), value.map((e) => e.toString()).toList());
+        }
+        return MapEntry(key.toString(), <String>[]);
+      });
+    }
+    return {};
+  }
+
   static List<String> _parseToListString(dynamic jsonValue) {
     if (jsonValue is List) {
       return List<String>.from(jsonValue.map((e) => e.toString()));
@@ -368,6 +385,12 @@ class Trip {
       return _parseToListString(pathList)
           .map((path) => buildFullUrl(path))
           .toList();
+    }
+
+    Map<String, List<String>> buildFullUrlMapNested(dynamic pathMap) {
+      if (pathMap is! Map) return {};
+      return pathMap.map(
+          (key, value) => MapEntry(key.toString(), buildFullUrlList(value)));
     }
 
     Map<String, List<String>> buildFullUrlMap(dynamic pathMap) {
@@ -428,19 +451,21 @@ class Trip {
       user: json['user'] != null ? User.fromJson(json['user']) : null,
       vehicle:
           json['vehicle'] != null ? Vehicle.fromJson(json['vehicle']) : null,
+      jumlahGudangMuat: _parseToInt(json['jumlah_gudang_muat']),
+      jumlahGudangBongkar: _parseToInt(json['jumlah_gudang_bongkar']),
 
       // Paths
       startKmPhotoPath: json['start_km_photo_path'],
       kmMuatPhotoPath: json['km_muat_photo_path'],
       kedatanganMuatPhotoPath: json['kedatangan_muat_photo_path'],
       deliveryOrderPath: json['delivery_order_photo_path'],
-      muatPhotoPath: _parseToListString(json['muat_photo_path']),
+      muatPhotoPath: _parseToMapStringList(json['muat_photo_path']),
       deliveryLetterPath: parseDeliveryLetterPath(json['delivery_letter_path']),
       timbanganKendaraanPhotoPath: json['timbangan_kendaraan_photo_path'],
       segelPhotoPath: json['segel_photo_path'],
       endKmPhotoPath: json['end_km_photo_path'],
       kedatanganBongkarPhotoPath: json['kedatangan_bongkar_photo_path'],
-      bongkarPhotoPath: _parseToListString(json['bongkar_photo_path']),
+      bongkarPhotoPath: _parseToMapStringList(json['bongkar_photo_path']),
 
       // Statuses
       startKmPhotoStatus:
@@ -471,7 +496,7 @@ class Trip {
       fullKedatanganMuatPhotoUrl:
           buildFullUrl(json['full_kedatangan_muat_photo_url']),
       fullDeliveryOrderUrl: buildFullUrl(json['full_delivery_order_photo_url']),
-      fullMuatPhotoUrls: buildFullUrlList(json['full_muat_photo_urls']),
+      fullMuatPhotoUrls: buildFullUrlMapNested(json['full_muat_photo_urls']),
       fullDeliveryLetterUrls:
           buildFullUrlMap(json['full_delivery_letter_urls']),
       fullTimbanganKendaraanPhotoUrl:
@@ -480,7 +505,8 @@ class Trip {
       fullEndKmPhotoUrl: buildFullUrl(json['full_end_km_photo_url']),
       fullKedatanganBongkarPhotoUrl:
           buildFullUrl(json['full_kedatangan_bongkar_photo_url']),
-      fullBongkarPhotoUrls: buildFullUrlList(json['full_bongkar_photo_urls']),
+      fullBongkarPhotoUrls:
+          buildFullUrlMapNested(json['full_bongkar_photo_urls']),
     );
   }
 }

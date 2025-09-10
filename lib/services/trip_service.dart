@@ -200,17 +200,22 @@ class TripService {
   Future<Trip> updateProsesMuat({
     required String token,
     required int tripId,
-    List<File>? muatPhotos,
+    // Tipe data diubah dari List<File> menjadi Map<String, List<File>>
+    required Map<String, List<File>> photosByWarehouse,
   }) async {
     final url = Uri.parse('$_baseUrl/driver/trips/$tripId/update-proses-muat');
     final request = http.MultipartRequest('POST', url)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
 
-    if (muatPhotos != null) {
-      for (var file in muatPhotos) {
+    // Loop melalui setiap entri gudang di dalam map
+    for (var entry in photosByWarehouse.entries) {
+      final warehouseName = entry.key;
+      final files = entry.value;
+      for (var file in files) {
+        // Membuat key dinamis: muat_photo[NAMA GUDANG][]
         request.files.add(await http.MultipartFile.fromPath(
-            'muat_photo[]', file.path,
+            'muat_photo[$warehouseName][]', file.path,
             filename: basename(file.path)));
       }
     }
@@ -291,7 +296,8 @@ class TripService {
   Future<Trip> updateProsesBongkar({
     required String token,
     required int tripId,
-    List<File>? bongkarPhotos,
+    // Tipe data diubah dari List<File> menjadi Map<String, List<File>>
+    required Map<String, List<File>> photosByWarehouse,
   }) async {
     final url =
         Uri.parse('$_baseUrl/driver/trips/$tripId/update-proses-bongkar');
@@ -299,13 +305,18 @@ class TripService {
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
 
-    if (bongkarPhotos != null) {
-      for (var file in bongkarPhotos) {
+    // Loop melalui setiap entri gudang di dalam map
+    for (var entry in photosByWarehouse.entries) {
+      final warehouseName = entry.key;
+      final files = entry.value;
+      for (var file in files) {
+        // Membuat key dinamis: bongkar_photo[NAMA GUDANG][]
         request.files.add(await http.MultipartFile.fromPath(
-            'bongkar_photo[]', file.path,
+            'bongkar_photo[$warehouseName][]', file.path,
             filename: basename(file.path)));
       }
     }
+
     final response = await multipartPostRequest(request);
     return Trip.fromJson(json.decode(response.body)['data']);
   }
