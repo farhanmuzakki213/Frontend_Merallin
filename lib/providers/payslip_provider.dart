@@ -1,23 +1,21 @@
 // lib/providers/payslip_provider.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import Provider
 import 'package:frontend_merallin/models/payslip_model.dart';
 import 'package:frontend_merallin/services/payslip_service.dart';
-import 'package:hive_flutter/hive_flutter.dart'; // <-- TAMBAHKAN IMPOR HIVE
+import 'package:hive_flutter/hive_flutter.dart';
+import 'auth_provider.dart'; // Import AuthProvider
 
 class PayslipProvider with ChangeNotifier {
   String? _token;
   final PayslipService _payslipService = PayslipService();
 
-  // Ambil referensi ke kotak Hive yang sudah kita buka di main.dart
   final Box<int> _historyBox = Hive.box<int>('downloadedSlipsBox');
   
-  // Getter untuk riwayat download sekarang membaca langsung dari Hive
   Set<int> get downloadedSlipIds => _historyBox.values.toSet();
 
-  // Fungsi untuk menambah riwayat sekarang menulis ke Hive
   void addDownloadedSlipId(int id) {
-    // Menggunakan ID slip sebagai kunci untuk mencegah duplikat
     _historyBox.put(id, id); 
     notifyListeners();
   }
@@ -34,10 +32,12 @@ class PayslipProvider with ChangeNotifier {
     _token = token;
   }
 
-  Future<void> fetchPayslipSummaries() async {
+  Future<void> fetchPayslipSummaries({required BuildContext context}) async {
     if (_token == null) {
       _errorMessage = "Sesi tidak valid. Silakan login ulang.";
       notifyListeners();
+      // Panggil juga handleInvalidSession untuk kasus di mana token sudah null
+      Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
       return;
     }
 
@@ -48,7 +48,14 @@ class PayslipProvider with ChangeNotifier {
     try {
       _summaries = await _payslipService.getSummaries(_token!);
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      // ===== MULAI PERBAIKAN =====
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      } else {
+        _errorMessage = errorString.replaceFirst('Exception: ', '');
+      }
+      // ===== AKHIR PERBAIKAN =====
     } finally {
       _isLoading = false;
       notifyListeners();

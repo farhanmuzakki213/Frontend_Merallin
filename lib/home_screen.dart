@@ -88,23 +88,32 @@ class HomeScreenContent extends StatefulWidget {
 }
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPendingTasks();
-
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (authProvider.token != null) {
-        Provider.of<AttendanceProvider>(context, listen: false)
-            .checkTodayAttendanceStatus(authProvider.token!);
-        if (authProvider.user?.roles.contains('driver') ?? false) {
-          Provider.of<TripProvider>(context, listen: false)
-              .fetchTrips(authProvider.token!);
-        }
-      }
+      _loadInitialData();
     });
+  }
+
+  Future<void> _loadInitialData() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.token != null) {
+      Provider.of<AttendanceProvider>(context, listen: false)
+          .checkTodayAttendanceStatus(
+              context: context, token: authProvider.token!);
+
+      // DashboardProvider dipanggil lewat ProxyProvider di main.dart,
+      // tapi kita bisa panggil lagi di sini untuk memastikan refresh.
+      Provider.of<DashboardProvider>(context, listen: false)
+          .fetchDashboardData(context: context);
+
+      if (authProvider.user?.roles.contains('driver') ?? false) {
+        Provider.of<TripProvider>(context, listen: false)
+            .fetchTrips(context: context, token: authProvider.token!);
+      }
+    }
   }
 
   Future<void> _checkPendingTasks() async {
@@ -146,17 +155,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Future<void> _startStampedClockIn(BuildContext context) async {
-    // ===== BLOK PENGECEKAN IZIN DI BAWAH INI DIHAPUS =====
-    // final bool permissionsGranted =
-    //     await _permissionService.requestAttendancePermissions();
-    // if (!mounted) return;
-    //
-    // if (!permissionsGranted) {
-    //   showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
-    //   return;
-    // }
-    // ======================================================
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final attendanceProvider =
         Provider.of<AttendanceProvider>(context, listen: false);
@@ -168,8 +166,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
     final imageResult = await ImageHelper.takePhotoWithLocation(context);
 
-    if (imageResult == null) return;
-    if (!mounted) return;
+    if (imageResult == null || !mounted) return;
 
     if (imageResult.position == null) {
       showErrorSnackBar(
@@ -199,7 +196,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
     try {
       await attendanceProvider.performClockInWithLocation(
-          imageResult.file, authProvider.token!, imageResult.position!);
+          context: context,
+          image: imageResult.file,
+          token: authProvider.token!,
+          position: imageResult.position!);
 
       if (!mounted) return;
       final status = attendanceProvider.status;
@@ -210,7 +210,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       if (status == AttendanceProcessStatus.success) {
         showInfoSnackBar(context, message);
       } else if (status == AttendanceProcessStatus.error) {
-        showErrorSnackBar(context, message);
+        if (attendanceProvider.message != null) {
+          showErrorSnackBar(context, message);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -220,17 +222,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Future<void> _startStampedClockOut(BuildContext context) async {
-    // ===== BLOK PENGECEKAN IZIN DI BAWAH INI DIHAPUS =====
-    // final bool permissionsGranted =
-    //     await _permissionService.requestAttendancePermissions();
-    // if (!mounted) return;
-    //
-    // if (!permissionsGranted) {
-    //   showErrorSnackBar(context, 'Izin kamera dan lokasi dibutuhkan.');
-    //   return;
-    // }
-    // ======================================================
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final attendanceProvider =
         Provider.of<AttendanceProvider>(context, listen: false);
@@ -242,8 +233,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
     final imageResult = await ImageHelper.takePhotoWithLocation(context);
 
-    if (imageResult == null) return;
-    if (!mounted) return;
+    if (imageResult == null || !mounted) return;
 
     showDialog(
       context: context,
@@ -267,7 +257,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
     try {
       await attendanceProvider.performClockOut(
-          imageResult.file, authProvider.token!);
+        context: context,
+        image: imageResult.file,
+        token: authProvider.token!,
+      );
 
       if (!mounted) return;
       final status = attendanceProvider.status;
@@ -278,7 +271,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       if (status == AttendanceProcessStatus.success) {
         showInfoSnackBar(context, message);
       } else if (status == AttendanceProcessStatus.error) {
-        showErrorSnackBar(context, message);
+        if (attendanceProvider.message != null) {
+          showErrorSnackBar(context, message);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -297,16 +292,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     }
 
     return SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeader(user?.name ?? 'User'),
-            _buildTimeCard(),
-            _buildDashboardStats(),
-            if (userRole == 'driver') const _TripCalculatorCard(),
-            _buildMenuGrid(context, userRole),
-            const SizedBox(height: 20),
-          ],
+      child: RefreshIndicator(
+        onRefresh: _loadInitialData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              _buildHeader(user?.name ?? 'User'),
+              _buildTimeCard(),
+              _buildDashboardStats(),
+              if (userRole == 'driver') const _TripCalculatorCard(),
+              _buildMenuGrid(context, userRole),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
@@ -322,20 +321,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           }
 
           if (provider.errorMessage != null) {
-            // ===== MULAI KODE TAMBAHAN =====
-            // Cek apakah pesan error menandakan sesi tidak valid (unauthenticated)
-            if (provider.errorMessage == 'Unauthenticated.') {
-              // Menjadwalkan pemanggilan logout setelah frame selesai di-build
-              // untuk menghindari error render.
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                // Memanggil fungsi logout untuk membersihkan sesi dan token,
-                // yang akan secara otomatis mengarahkan ke halaman login via AuthGate.
-                Provider.of<AuthProvider>(context, listen: false).logout();
-              });
-
-              // Saat proses logout dan redirect, tampilkan loading indicator.
-              return const Center(child: CircularProgressIndicator());
-            }
             return Center(
               child: Text(
                 'Gagal memuat statistik: ${provider.errorMessage}',
@@ -429,9 +414,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             label: 'Datang',
             onTap: () {
               if (attendanceProvider.status ==
-                  AttendanceProcessStatus.processing) {
-                return;
-              }
+                  AttendanceProcessStatus.processing) return;
               if (attendanceProvider.hasClockedIn) {
                 showInfoSnackBar(context, 'Anda sudah absen datang hari ini.');
               } else {
@@ -483,7 +466,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 );
                 if (mounted) {
                   Provider.of<DashboardProvider>(context, listen: false)
-                      .fetchDashboardData();
+                      .fetchDashboardData(context: context);
                 }
               }),
           AnimatedMenuItem(
@@ -501,7 +484,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PayslipListScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const PayslipListScreen()),
               );
             },
           ),
@@ -549,7 +533,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     Provider.of<AuthProvider>(context, listen: false);
                 if (authProvider.token != null) {
                   Provider.of<TripProvider>(context, listen: false)
-                      .fetchTrips(authProvider.token!);
+                      .fetchTrips(context: context, token: authProvider.token!);
                 }
               }
             },
@@ -581,13 +565,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Widget _buildHeader(String userName) {
+    final user = context.watch<AuthProvider>().user;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 25,
-            backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=56'),
+            backgroundImage: NetworkImage(
+                user?.profilePhotoUrl ?? 'https://i.pravatar.cc/150?img=56'),
+            onBackgroundImageError: (exception, stackTrace) {},
           ),
           const SizedBox(width: 12),
           Column(
@@ -624,7 +611,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           end: Alignment.bottomRight,
           colors: [
             Color.fromARGB(255, 20, 171, 247),
-            Color.fromARGB(74, 19, 171, 247),
+            Color.fromARGB(255, 73, 191, 252),
           ],
         ),
         borderRadius: BorderRadius.circular(20.0),

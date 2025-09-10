@@ -1,12 +1,15 @@
 // lib/providers/auth_provider.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/navigation_service.dart';
 import '../services/profile_service.dart';
+import '../main.dart';
 
 enum AuthStatus {
   uninitialized,
@@ -21,6 +24,8 @@ class AuthProvider extends ChangeNotifier {
   final ProfileService _profileService = ProfileService();
   final Box _authBox = Hive.box('authBox');
   bool _isUpdating = false;
+
+  Timer? _sessionCheckTimer;
 
   User? _user;
   String? _token;
@@ -55,37 +60,27 @@ class AuthProvider extends ChangeNotifier {
     }
 
     try {
-      // PERBAIKAN UTAMA: Muat semua data dari cache terlebih dahulu
       _token = storedToken as String;
       _user = User.fromJson(json.decode(storedUser as String));
-
+      
       final storedPendingTripId = _authBox.get('pendingTripId');
       if (storedPendingTripId != null) {
         _pendingTripId = storedPendingTripId as int;
-        debugPrint(
-            'AuthProvider: Pending tripId $storedPendingTripId dimuat dari cache.');
       }
-
       final storedPendingBbmId = _authBox.get('pendingBbmId');
       if (storedPendingBbmId != null) {
         _pendingBbmId = storedPendingBbmId as int;
-        debugPrint(
-            'AuthProvider: Pending bbmId $storedPendingBbmId dimuat dari cache.');
       }
-
       final storedPendingLocationId = _authBox.get('pendingVehicleLocationId');
       if (storedPendingLocationId != null) {
         _pendingVehicleLocationId = storedPendingLocationId as int;
-        debugPrint(
-            'AuthProvider: Pending bbmId $storedPendingLocationId dimuat dari cache.');
       }
 
-      // Setelah semua data sesi (termasuk pendingTripId) siap, baru set status dan beritahu aplikasi
       _authStatus = AuthStatus.authenticated;
       notifyListeners();
 
-      // Sinkronkan profil di background setelah UI utama muncul
-      syncUserProfile();
+      startSessionTimer(); // <-- Mulai "Detak Jantung"
+      await syncUserProfile(); // Lakukan cek awal
     } catch (e) {
       debugPrint("Gagal memuat sesi dari Hive: $e. Sesi dibersihkan.");
       await logout();
@@ -95,17 +90,16 @@ class AuthProvider extends ChangeNotifier {
   Future<String?> login(String email, String password) async {
     _authStatus = AuthStatus.authenticating;
     notifyListeners();
-
     try {
       final result = await _authService.login(email, password);
       _user = result['user'];
       _token = result['token'];
-
       await _authBox.put('token', _token);
       await _authBox.put('user', json.encode(_user!.toJson()));
-
       _authStatus = AuthStatus.authenticated;
       notifyListeners();
+      
+      startSessionTimer(); // <-- Mulai "Detak Jantung"
       return null;
     } catch (e) {
       _errorMessage = e.toString();
@@ -116,39 +110,107 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    stopSessionTimer();
+
+    // 1. Bersihkan data sesi dan ubah status menjadi unauthenticated
     _user = null;
     _token = null;
     await _authBox.clear();
-    _authStatus = AuthStatus.unauthenticated;
     await clearPendingTripForVerification();
     await clearPendingBbmForVerification();
     await clearPendingVehicleLocationForVerification();
+    _authStatus = AuthStatus.unauthenticated;
+    
+    // 2. Beritahu UI tentang perubahan status (ini opsional tapi baik)
     notifyListeners();
-  }
 
-  // ===== MULAI KODE TAMBAHAN =====
-  /// Fungsi ini dipanggil ketika API mengembalikan error 401 (Unauthorized).
-  Future<void> handleInvalidSession() async {
-    // Cek apakah pengguna memang sedang dalam status login sebelumnya.
-    // Ini untuk mencegah logout ganda yang tidak perlu.
-    if (_authStatus == AuthStatus.authenticated) {
-      debugPrint("Sesi tidak valid terdeteksi. Melakukan logout paksa.");
-      await logout();
-      // Di sini kita bisa menambahkan logika untuk menampilkan snackbar atau pesan
-      // bahwa sesi telah berakhir, yang bisa di-handle di UI.
+    // 3. (LANGKAH KUNCI) Reset total navigasi ke AuthGate
+    // Ini akan membersihkan semua halaman dan memulai ulang dari AuthGate.
+    // Karena status sudah 'unauthenticated', AuthGate akan menampilkan LoginScreen.
+    final navigator = NavigationService.navigatorKey.currentState;
+    if (navigator != null) {
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+        (Route<dynamic> route) => false,
+      );
     }
   }
+
+  Future<void> handleInvalidSession() async {
+    if (_authStatus == AuthStatus.authenticated) {
+      debugPrint("5. DIALOG 'SESI BERAKHIR' SEHARUSNYA MUNCUL SEKARANG.");
+      stopSessionTimer();
+      final BuildContext? context = NavigationService.currentContext;
+      if (context != null && context.mounted) {
+        if (ModalRoute.of(context)?.isCurrent != true) {
+            Navigator.of(context).pop();
+        }
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('Sesi Berakhir'),
+              content: const Text('Sesi Anda telah berakhir atau login dari perangkat lain.'),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ],
+            );
+          },
+        );
+      }
+      await logout();
+    }
+  }
+
+  void startSessionTimer() {
+    stopSessionTimer();
+    debugPrint("--- TIMER 'DETAK JANTUNG' DIMULAI ---");
+    _sessionCheckTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      debugPrint("1. TIMER BERJALAN: Mengecek sesi...");
+      syncUserProfile();
+    });
+  }
+
+  void stopSessionTimer() {
+    if (_sessionCheckTimer != null) {
+      debugPrint("--- TIMER 'DETAK JANTUNG' DIHENTIKAN ---");
+      _sessionCheckTimer!.cancel();
+    }
+  }
+
+  Future<void> syncUserProfile() async {
+    if (token == null) {
+      stopSessionTimer();
+      return;
+    }
+    try {
+      debugPrint("2. API PROFIL DIPANGGIL...");
+      await _profileService.getProfile(token: token!);
+      debugPrint("   -> Panggilan API Profil Berhasil (Sesi Masih Valid).");
+    } catch (e) {
+      final errorString = e.toString();
+      debugPrint("3. API PROFIL GAGAL! Eror: $errorString");
+      if (errorString.contains('Unauthenticated')) {
+        debugPrint("4. SESI TIDAK VALID TERDETEKSI! Memanggil handleInvalidSession...");
+        handleInvalidSession();
+      }
+    }
+  }
+  
+  // Sisa fungsi lainnya
   Future<void> setPendingTripForVerification(int tripId) async {
     _pendingTripId = tripId;
     await _authBox.put('pendingTripId', tripId);
-    debugPrint('AuthProvider: Set pending trip: $tripId (tersimpan di cache)');
     notifyListeners();
   }
 
   Future<void> setPendingBbmForVerification(int bbmId) async {
     _pendingBbmId = bbmId;
     await _authBox.put('pendingBbmId', bbmId);
-    debugPrint('AuthProvider: Set pending bbm: $bbmId (tersimpan di cache)');
     notifyListeners();
   }
 
@@ -208,7 +270,6 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<String?> updatePassword({
-    // ===== 1. TAMBAHKAN 'context' DI SINI =====
     required BuildContext context, 
     required String currentPassword,
     required String newPassword,
@@ -221,7 +282,6 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authService.updatePassword(
-        // ===== 2. OPER 'context' KE SERVICE =====
         context: context, 
         token: _token!,
         currentPassword: currentPassword,
@@ -268,23 +328,6 @@ class AuthProvider extends ChangeNotifier {
       _authStatus = AuthStatus.authenticated;
       notifyListeners();
       return false;
-    }
-  }
-
-  Future<void> syncUserProfile() async {
-    if (token == null) {
-      debugPrint("Tidak ada token, sinkronisasi profil dibatalkan.");
-      return;
-    }
-
-    try {
-      final freshUser = await _profileService.getProfile(token: token!);
-      _user = freshUser;
-      await _authBox.put('user', json.encode(_user!.toJson()));
-      notifyListeners();
-      debugPrint("Profil pengguna berhasil disinkronkan dan di-cache.");
-    } catch (e) {
-      debugPrint("Gagal sinkronisasi profil: $e");
     }
   }
 }

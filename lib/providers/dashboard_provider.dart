@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:frontend_merallin/models/izin_model.dart';
 import 'package:frontend_merallin/services/attendance_service.dart';
 import 'package:frontend_merallin/services/izin_service.dart';
+import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 
 class DashboardProvider with ChangeNotifier {
   final AttendanceService _attendanceService = AttendanceService();
@@ -22,14 +24,16 @@ class DashboardProvider with ChangeNotifier {
   int get sakitCount => _sakitCount;
   int get izinCount => _izinCount;
 
-  void updateToken(String? newToken) {
+ // ===== PERUBAHAN 1: Tambahkan 'context' di sini =====
+  void updateToken(String? newToken, BuildContext context) {
     if (newToken != null && _token != newToken) {
       _token = newToken;
-      fetchDashboardData();
+      fetchDashboardData(context: context); // <-- Kirim context saat memanggil
     }
   }
 
-  Future<void> fetchDashboardData() async {
+  // ===== PERUBAHAN 2: Tambahkan 'context' di sini =====
+  Future<void> fetchDashboardData({required BuildContext context}) async {
     if (_token == null) return;
 
     _isLoading = true;
@@ -42,7 +46,6 @@ class DashboardProvider with ChangeNotifier {
         _izinService.getLeaveHistory(_token!),
       ]);
 
-      // --- PERBAIKAN 1: Menghapus 'as List<dynamic>' yang tidak perlu ---
       final attendances = results[0];
       final now = DateTime.now();
       _hadirCount = (attendances as List).where((att) {
@@ -50,8 +53,7 @@ class DashboardProvider with ChangeNotifier {
         return attendanceDate.month == now.month &&
             attendanceDate.year == now.year;
       }).length;
-
-      // --- PERBAIKAN 2: Menghapus 'as List<Izin>' yang tidak perlu ---
+      
       final leaveRequests = results[1];
       _sakitCount = (leaveRequests as List).where((izin) {
         final izinDate = izin.tanggalMulai;
@@ -67,23 +69,13 @@ class DashboardProvider with ChangeNotifier {
             izinDate.year == now.year;
       }).length;
     } catch (e) {
-        // =======================================================================
-        // ===== MULAI KODE PERBAIKAN: INILAH SATU-SATUNYA BAGIAN YANG DIUBAH ====
-        // =======================================================================
-
         final errorString = e.toString();
-        // Cek apakah error berisi pesan 'Unauthenticated'
         if (errorString.contains('Unauthenticated')) {
-            // Jika ya, teruskan pesan error spesifik ini tanpa modifikasi
-            _errorMessage = 'Unauthenticated.';
+          Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+          return;
         } else {
-            // Jika error lain, bersihkan "Exception: " seperti sebelumnya
-            _errorMessage = errorString.replaceAll('Exception: ', '');
+          _errorMessage = errorString.replaceAll('Exception: ', '');
         }
-        
-        // ===========================
-        // ===== AKHIR KODE PERBAIKAN ====
-        // ===========================
     } finally {
       _isLoading = false;
       notifyListeners();

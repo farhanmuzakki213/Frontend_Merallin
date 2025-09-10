@@ -25,8 +25,9 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ===== PERUBAHAN DI SINI =====
       Provider.of<PayslipProvider>(context, listen: false)
-          .fetchPayslipSummaries();
+          .fetchPayslipSummaries(context: context);
     });
   }
 
@@ -140,7 +141,6 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (Isi dari build widget tidak berubah, sama seperti sebelumnya)
     return Scaffold(
       appBar: AppBar(
         title: const Text('Slip Gaji'),

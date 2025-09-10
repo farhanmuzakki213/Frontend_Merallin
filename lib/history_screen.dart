@@ -1,3 +1,5 @@
+// lib/history_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -17,49 +19,50 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   DateTime _selectedDate = DateTime.now();
 
-  // PERBAIKAN: Tambahkan ScrollController dan perkiraan lebar item
   late ScrollController _dateScrollController;
-  final double _dateCardWidth = 68.0; // Lebar 60 + margin 8
+  final double _dateCardWidth = 68.0;
 
   @override
   void initState() {
     super.initState();
-    // PERBAIKAN: Inisialisasi controller
     _dateScrollController = ScrollController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchHistoryForSelectedDate();
-      // PERBAIKAN: Panggil fungsi scroll saat pertama kali layar dimuat
       _scrollToSelectedDate(animate: false);
     });
   }
 
-  // PERBAIKAN: Tambahkan dispose untuk membersihkan controller
   @override
   void dispose() {
     _dateScrollController.dispose();
     super.dispose();
   }
 
-  /// Mengambil data riwayat dari API berdasarkan tanggal yang dipilih.
   void _fetchHistoryForSelectedDate() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.token != null) {
-      Provider.of<HistoryProvider>(context, listen: false)
-          .getHistory(authProvider.token!, _selectedDate);
+      // ===== PERUBAHAN DI SINI =====
+      Provider.of<HistoryProvider>(context, listen: false).getHistory(
+        context: context,
+        token: authProvider.token!,
+        date: _selectedDate,
+      );
     }
   }
 
-  // PERBAIKAN: Fungsi untuk menggerakkan scroll agar tanggal aktif di tengah
   void _scrollToSelectedDate({bool animate = true}) {
     if (!_dateScrollController.hasClients) return;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final selectedDayIndex = _selectedDate.day - 1;
 
-    double targetOffset = (selectedDayIndex * _dateCardWidth) - (screenWidth / 2) + (_dateCardWidth / 2);
+    double targetOffset = (selectedDayIndex * _dateCardWidth) -
+        (screenWidth / 2) +
+        (_dateCardWidth / 2);
 
-    targetOffset = targetOffset.clamp(0.0, _dateScrollController.position.maxScrollExtent);
+    targetOffset = targetOffset.clamp(
+        0.0, _dateScrollController.position.maxScrollExtent);
 
     if (animate) {
       _dateScrollController.animateTo(
@@ -72,13 +75,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  /// Fungsi yang dipanggil saat pengguna memilih tanggal baru.
   void _onDateSelected(DateTime newDate) {
     setState(() {
       _selectedDate = newDate;
     });
     _fetchHistoryForSelectedDate();
-    // PERBAIKAN: Panggil fungsi scroll setiap kali tanggal baru dipilih
     _scrollToSelectedDate();
   }
 
@@ -86,7 +87,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Riwayat Absensi', style: TextStyle(color: Colors.white)),
+        title: const Text('Riwayat Absensi',
+            style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue.shade800,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -104,7 +106,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   return Center(child: Text('Error: ${provider.message}'));
                 }
                 if (provider.historyList.isEmpty) {
-                  return Center(child: Text('Tidak ada riwayat untuk tanggal ${DateFormat('d MMMM yyyy', 'id_ID').format(_selectedDate)}.'));
+                  return Center(
+                      child: Text(
+                          'Tidak ada riwayat untuk tanggal ${DateFormat('d MMMM yyyy', 'id_ID').format(_selectedDate)}.',),);
                 }
                 return _buildDetailedHistoryView(provider.historyList);
               },
@@ -115,29 +119,39 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  /// Membangun UI untuk memilih tanggal (date selector).
   Widget _buildDateSelector() {
-    final daysInMonth = DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day;
+    final daysInMonth =
+        DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day;
     final monthName = DateFormat('MMMM yyyy', 'id_ID').format(_selectedDate);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
-      decoration: BoxDecoration(color: Colors.blue.shade800, boxShadow: [
-        BoxShadow(color: Colors.black.withOpacity(0.1), spreadRadius: 1, blurRadius: 3, offset: const Offset(0, 2))
-      ]),
+      decoration: BoxDecoration(
+          color: Colors.blue.shade800,
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 3,
+                offset: const Offset(0, 2),)
+          ],),
       child: Column(
         children: [
-          Text(monthName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+          Text(monthName,
+              style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,),),
           const SizedBox(height: 16),
           SingleChildScrollView(
-            // PERBAIKAN: Hubungkan scroll controller ke widget
             controller: _dateScrollController,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Row(
               children: List.generate(daysInMonth, (index) {
                 final day = index + 1;
-                final date = DateTime(_selectedDate.year, _selectedDate.month, day);
+                final date =
+                    DateTime(_selectedDate.year, _selectedDate.month, day);
                 final isSelected = day == _selectedDate.day;
                 final dayName = DateFormat('E', 'id_ID').format(date);
 
@@ -157,13 +171,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  /// Membangun tampilan detail riwayat (kartu absen datang & pulang).
   Widget _buildDetailedHistoryView(List<AttendanceHistory> history) {
-    // ... Sisa kode tidak ada perubahan ...
-    final fullDayName = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(_selectedDate);
+    final fullDayName =
+        DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(_selectedDate);
 
-    final clockIn = history.firstWhere((h) => h.tipeAbsensi == 'datang', orElse: () => history.first);
-    final clockOut = history.firstWhere((h) => h.tipeAbsensi == 'pulang', orElse: () => history.last);
+    final clockIn = history.firstWhere((h) => h.tipeAbsensi == 'datang',
+        orElse: () => history.first,);
+    final clockOut = history.firstWhere((h) => h.tipeAbsensi == 'pulang',
+        orElse: () => history.last,);
     final hasClockOut = history.any((h) => h.tipeAbsensi == 'pulang');
 
     return ListView(
@@ -173,7 +188,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
           padding: const EdgeInsets.only(bottom: 16.0),
           child: Text(
             fullDayName,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,),
           ),
         ),
         _HistoryDetailCard(
@@ -198,7 +216,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 class _DateCard extends StatelessWidget {
-  // ... Sisa kode tidak ada perubahan ...
   final String day;
   final String dayName;
   final bool isSelected;
@@ -250,7 +267,6 @@ class _DateCard extends StatelessWidget {
 }
 
 class _HistoryDetailCard extends StatelessWidget {
-  // ... Sisa kode tidak ada perubahan ...
   final String title;
   final String time;
   final String status;
@@ -265,9 +281,9 @@ class _HistoryDetailCard extends StatelessWidget {
     required this.longitude,
   });
 
-  /// Fungsi untuk membuka URL Google Maps dengan koordinat yang benar.
   Future<void> _launchMap() async {
-    final Uri googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
+    final Uri googleMapsUrl =
+        Uri.parse('https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
 
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl);
@@ -278,7 +294,8 @@ class _HistoryDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = status == 'Terlambat' ? Colors.red.shade700 : Colors.green.shade700;
+    final statusColor =
+        status == 'Terlambat' ? Colors.red.shade700 : Colors.green.shade700;
 
     return Card(
       elevation: 3,
@@ -291,24 +308,31 @@ class _HistoryDetailCard extends StatelessWidget {
           children: [
             Text(
               title,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade900,),
             ),
             const Divider(height: 20),
             _buildInfoRow(Icons.access_time_filled, 'Jam', time),
             const SizedBox(height: 12),
-            _buildInfoRow(Icons.check_circle, 'Status', status, valueColor: statusColor),
+            _buildInfoRow(Icons.check_circle, 'Status', status,
+                valueColor: statusColor,),
             const SizedBox(height: 12),
-            _buildInfoRow(Icons.map_outlined, 'Koordinat', '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}'),
+            _buildInfoRow(Icons.map_outlined, 'Koordinat',
+                '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',),
             const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton.icon(
                 onPressed: _launchMap,
                 icon: const Icon(Icons.map, color: Colors.white, size: 18),
-                label: const Text('Lihat di Peta', style: TextStyle(color: Colors.white)),
+                label: const Text('Lihat di Peta',
+                    style: TextStyle(color: Colors.white),),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade700,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),),
                 ),
               ),
             ),
@@ -318,8 +342,8 @@ class _HistoryDetailCard extends StatelessWidget {
     );
   }
 
-  /// Widget helper untuk membuat baris info (ikon + label + nilai).
-  Widget _buildInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
+  Widget _buildInfoRow(IconData icon, String label, String value,
+      {Color? valueColor,}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -331,7 +355,10 @@ class _HistoryDetailCard extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,),
               ),
               const SizedBox(height: 2),
               Text(

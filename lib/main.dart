@@ -1,6 +1,7 @@
 // lib/main.dart
 
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/providers/payslip_provider.dart'; //LIST GAJI
 import 'package:frontend_merallin/services/notification_service.dart';
@@ -8,12 +9,9 @@ import 'package:firebase_core/firebase_core.dart'; // <-- Impor Firebase Core
 import 'package:firebase_messaging/firebase_messaging.dart'; // <-- Impor Firebase Messaging
 // ===== MULAI KODE TAMBAHAN =====
 // Impor file permission_service.dart yang sudah kita modifikasi
-import 'package:frontend_merallin/services/permission_service.dart';
+import 'package:frontend_merallin/services/navigation_service.dart';
 // ===== AKHIR KODE TAMBAHAN =====
 import 'package:frontend_merallin/home_screen.dart';
-import 'package:frontend_merallin/providers/permission_provider.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:frontend_merallin/login_screen.dart';
 import 'package:frontend_merallin/models/user_model.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
@@ -23,6 +21,7 @@ import 'package:frontend_merallin/providers/lembur_provider.dart';
 import 'package:frontend_merallin/providers/trip_provider.dart';
 import 'package:frontend_merallin/providers/vehicle_location_provider.dart';
 import 'package:frontend_merallin/providers/dashboard_provider.dart';
+import 'package:frontend_merallin/providers/permission_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -108,7 +107,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => BbmProvider()),
         ChangeNotifierProvider(create: (context) => VehicleLocationProvider()),
         ChangeNotifierProvider(create: (context) => LemburProvider()),
-        ChangeNotifierProvider(create: (context) => PermissionProvider()),
+        Provider(
+          create: (_) => PermissionProvider(navigatorKey: NavigationService.navigatorKey),
+          lazy: false,
+        ),
         ChangeNotifierProxyProvider<AuthProvider, PayslipProvider>(
           create: (context) => PayslipProvider(),
           update: (context, auth, payslip) {
@@ -119,7 +121,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthProvider, DashboardProvider>(
           create: (context) => DashboardProvider(),
           update: (context, auth, dashboard) {
-            dashboard!.updateToken(auth.token);
+            // ===== PERUBAHAN DI SINI =====
+            // Kirim context saat mengupdate token agar bisa digunakan untuk fetch data
+            dashboard!.updateToken(auth.token, context);
             return dashboard;
           },
         ),
@@ -132,6 +136,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        navigatorKey: NavigationService.navigatorKey,
         title: 'Merallin Group',
         theme: ThemeData(
           primarySwatch: Colors.blue,
@@ -148,16 +153,12 @@ class MyApp extends StatelessWidget {
           Locale('en', ''),
         ],
         locale: const Locale('id', 'ID'),
-        // Halaman utama sekarang adalah AuthGate, tidak ada perubahan di sini
         home: const AuthGate(),
       ),
     );
   }
 }
 
-// =======================================================================
-// ===== MULAI KODE PERUBAHAN: Mengubah AuthGate menjadi StatefulWidget =====
-// =======================================================================
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -169,47 +170,25 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    // Hanya setup listener jika widget sudah ter-build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupFirebaseMessagingListener();
     });
   }
 
   void _setupFirebaseMessagingListener() {
-    // Listener untuk notifikasi saat aplikasi berjalan di foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('Foreground message received: ${message.data}');
-      // Periksa apakah notifikasi berisi perintah untuk logout paksa
       if (message.data['type'] == 'force_logout') {
-        // Tampilkan dialog informasi sebelum logout
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Sesi Berakhir'),
-              content: const Text(
-                  'Sesi Anda telah berakhir karena akun ini login di perangkat lain.'),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('OK'),
-                  onPressed: () {
-                    // Tutup dialog dan panggil fungsi logout
-                    Navigator.of(context).pop();
-                    Provider.of<AuthProvider>(context, listen: false)
-                        .handleInvalidSession();
-                  },
-                ),
-              ],
-            );
-          },
-        );
+        Provider.of<AuthProvider>(context, listen: false)
+            .handleInvalidSession();
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // AuthGate sekarang sangat sederhana, hanya menukar layar berdasarkan status.
+    // Tidak ada lagi logika timer di sini.
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         switch (authProvider.authStatus) {
@@ -218,9 +197,7 @@ class _AuthGateState extends State<AuthGate> {
                 body: Center(child: CircularProgressIndicator()));
           case AuthStatus.updating:
           case AuthStatus.authenticated:
-            return const PermissionGate(
-              child: HomeScreen(),
-            );
+            return const HomeScreen();
           case AuthStatus.authenticating:
           case AuthStatus.unauthenticated:
             return const LoginScreen();

@@ -1,3 +1,5 @@
+// lib/services/profile_service.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -12,18 +14,22 @@ class ProfileService {
   Future<User> getProfile({required String token}) async {
     final url = Uri.parse('$_baseUrl/user/profile');
     try {
-      final response = await http.get(
+      // ===== PERUBAHAN DI SINI: get diubah menjadi post =====
+      final response = await http.post(
         url,
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
+      // ===== AKHIR PERUBAHAN =====
 
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         return User.fromJson(decoded['user'] ?? decoded);
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthenticated.');
       } else {
         throw Exception(decoded['message'] ?? 'Gagal mengambil data profil');
       }

@@ -28,9 +28,12 @@ class _BbmListScreenState extends State<BbmListScreen> {
   Future<void> _reloadData() async {
     final authProvider = context.read<AuthProvider>();
     if (authProvider.token != null) {
-      await context.read<BbmProvider>().fetchBbmRequests(authProvider.token!);
-    }
+      await context.read<BbmProvider>().fetchBbmRequests(
+          context: context, 
+          token: authProvider.token!
+        );
   }
+}
 
   void _showVehicleSelectionDialog() {
     final bbmProvider = context.read<BbmProvider>();
@@ -105,8 +108,12 @@ class _BbmListScreenState extends State<BbmListScreen> {
   Future<void> _handleCreateRequest(int vehicleId) async {
     final bbmProvider = context.read<BbmProvider>();
     final authProvider = context.read<AuthProvider>();
-
-    final newRequest = await bbmProvider.createBbmRequest(authProvider.token!, vehicleId);
+  //=== perubahan ===
+  final newRequest = await bbmProvider.createBbmRequest(
+      context: context,
+      token: authProvider.token!,
+      vehicleId: vehicleId,
+    );
 
     if (mounted && newRequest != null) {
       final result = await Navigator.push(

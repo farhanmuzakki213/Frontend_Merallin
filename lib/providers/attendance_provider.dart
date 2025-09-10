@@ -1,7 +1,11 @@
+// lib/providers/attendance_provider.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import Provider
 import 'package:frontend_merallin/services/attendance_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'auth_provider.dart'; // Import AuthProvider
 
 enum AttendanceProcessStatus { idle, processing, success, error }
 
@@ -18,37 +22,59 @@ class AttendanceProvider extends ChangeNotifier {
   bool get hasClockedIn => _hasClockedIn;
   bool get hasClockedOut => _hasClockedOut;
 
-  Future<void> checkTodayAttendanceStatus(String token) async {
+  // Pola perbaikan diterapkan di semua fungsi yang memanggil API
+  
+  Future<void> checkTodayAttendanceStatus({
+    required BuildContext context,
+    required String token,
+  }) async {
     try {
       final statusResult = await _attendanceService.checkStatusToday(token);
       _hasClockedIn = statusResult['has_clocked_in'] ?? false;
       _hasClockedOut = statusResult['has_clocked_out'] ?? false;
       notifyListeners();
     } catch (e) {
-      print("Gagal cek status: $e");
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      } else {
+        print("Gagal cek status: $e");
+      }
     }
   }
 
-  Future<void> performClockIn(File image, String token) async {
+  Future<void> performClockIn({
+    required BuildContext context,
+    required File image,
+    required String token,
+  }) async {
     _status = AttendanceProcessStatus.processing;
     notifyListeners();
     try {
       await _attendanceService.clockIn(image, token);
       _status = AttendanceProcessStatus.success;
       _message = 'Absensi Datang berhasil direkam!';
-      await checkTodayAttendanceStatus(token);
+      await checkTodayAttendanceStatus(context: context, token: token);
     } catch (e) {
-      _status = AttendanceProcessStatus.error;
-      _message = e.toString();
-      notifyListeners();
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      } else {
+        _status = AttendanceProcessStatus.error;
+        _message = errorString;
+      }
     } finally {
       _status = AttendanceProcessStatus.idle;
       notifyListeners();
     }
   }
 
-  Future<void> performClockInWithLocation(
-      File image, String token, Position position) async {
+  Future<void> performClockInWithLocation({
+    required BuildContext context,
+    required File image,
+    required String token,
+    required Position position,
+  }) async {
     _status = AttendanceProcessStatus.processing;
     notifyListeners();
     try {
@@ -56,29 +82,41 @@ class AttendanceProvider extends ChangeNotifier {
           image, token, position.latitude, position.longitude);
       _status = AttendanceProcessStatus.success;
       _message = 'Absensi Datang berhasil direkam!';
-      await checkTodayAttendanceStatus(token);
+      await checkTodayAttendanceStatus(context: context, token: token);
     } catch (e) {
-      _status = AttendanceProcessStatus.error;
-      _message = e.toString();
-      notifyListeners();
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      } else {
+        _status = AttendanceProcessStatus.error;
+        _message = errorString;
+      }
     } finally {
       _status = AttendanceProcessStatus.idle;
       notifyListeners();
     }
   }
 
-  Future<void> performClockOut(File image, String token) async {
+  Future<void> performClockOut({
+    required BuildContext context,
+    required File image,
+    required String token,
+  }) async {
     _status = AttendanceProcessStatus.processing;
     notifyListeners();
     try {
       await _attendanceService.clockOut(image, token);
       _status = AttendanceProcessStatus.success;
       _message = 'Absensi Pulang berhasil direkam!';
-      await checkTodayAttendanceStatus(token);
+      await checkTodayAttendanceStatus(context: context, token: token);
     } catch (e) {
-      _status = AttendanceProcessStatus.error;
-      _message = e.toString();
-      notifyListeners();
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated')) {
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      } else {
+        _status = AttendanceProcessStatus.error;
+        _message = errorString;
+      }
     } finally {
       _status = AttendanceProcessStatus.idle;
       notifyListeners();

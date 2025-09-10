@@ -25,11 +25,12 @@ class _IdCardScreenState extends State<IdCardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<IdCardProvider>(context, listen: false).fetchIdCard();
+      // ===== PERUBAHAN DI SINI =====
+      Provider.of<IdCardProvider>(context, listen: false)
+          .fetchIdCard(context: context);
     });
   }
   
-  // ===== FUNGSI BARU UNTUK MENGELOLA KLIK DOWNLOAD =====
   Future<void> _handleDownload(String? tempPdfPath) async {
     if (tempPdfPath == null || _isSaving) return;
 
@@ -87,7 +88,7 @@ class _IdCardScreenState extends State<IdCardScreen> {
     final fileName = 'ID-Card-$userName';
 
     try {
-      scaffoldMessenger.showSnackBar(SnackBar(content: Text('Mempersiapkan file...')));
+      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Mempersiapkan file...')));
       
       final fileBytes = await File(tempPdfPath).readAsBytes();
       if (!mounted) return;
@@ -104,7 +105,6 @@ class _IdCardScreenState extends State<IdCardScreen> {
         }
       }
       
-      // Tandai sudah di-download
       context.read<IdCardProvider>().setAsDownloaded();
       
       scaffoldMessenger.removeCurrentSnackBar();
@@ -138,7 +138,6 @@ class _IdCardScreenState extends State<IdCardScreen> {
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
                   : const Icon(Icons.download_rounded),
               tooltip: 'Simpan ke Perangkat',
-              // Panggil _handleDownload yang baru
               onPressed: () => _handleDownload(idCardProvider.pdfPath),
             ),
         ],
