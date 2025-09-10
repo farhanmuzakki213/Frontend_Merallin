@@ -5,7 +5,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:frontend_merallin/models/lembur_model.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 class LemburService {
   final String _baseUrl = dotenv.env['API_BASE_URL']!;
@@ -84,6 +87,102 @@ class LemburService {
           'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<Lembur> getOvertimeDetail(String token, String uuid) async {
+    final url = Uri.parse('$_baseUrl/lembur/$uuid');
+    try {
+      final response = await http.get(url, headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        // API detail mengembalikan data tunggal di dalam 'data'
+        return Lembur.fromJson(decoded['data']);
+      } else {
+        throw Exception(decoded['message'] ?? 'Gagal memuat detail lembur.');
+      }
+    } on SocketException {
+      throw Exception('Tidak dapat terhubung ke server.');
+    } catch (e) {
+      debugPrint('Error di getOvertimeDetail: $e');
+      rethrow;
+    }
+  }
+
+  /// Mengirim data clock-in lembur ke server.
+  Future<Lembur> clockIn({
+    required String token,
+    required String uuid,
+    required File image,
+    required Position position,
+  }) async {
+    final url = Uri.parse('$_baseUrl/lembur/$uuid/clock-in');
+    var request = http.MultipartRequest('POST', url);
+    
+    request.headers['Accept'] = 'application/json';
+    request.headers['Authorization'] = 'Bearer $token';
+
+    // Tambahkan field data
+    request.fields['latitude'] = position.latitude.toString();
+    request.fields['longitude'] = position.longitude.toString();
+
+    // Tambahkan file gambar
+    final mimeTypeData = lookupMimeType(image.path)?.split('/');
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'foto_mulai', // Sesuaikan dengan nama di controller Laravel
+        image.path,
+        contentType: mimeTypeData != null ? MediaType(mimeTypeData[0], mimeTypeData[1]) : null,
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    final decoded = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return Lembur.fromJson(decoded['data']);
+    } else {
+      throw Exception(decoded['message'] ?? 'Gagal melakukan clock-in.');
+    }
+  }
+
+  /// Mengirim data clock-out lembur ke server.
+  Future<Lembur> clockOut({
+    required String token,
+    required String uuid,
+    required File image,
+    required Position position,
+  }) async {
+    final url = Uri.parse('$_baseUrl/lembur/$uuid/clock-out');
+    var request = http.MultipartRequest('POST', url);
+    
+    request.headers['Accept'] = 'application/json';
+    request.headers['Authorization'] = 'Bearer $token';
+
+    request.fields['latitude'] = position.latitude.toString();
+    request.fields['longitude'] = position.longitude.toString();
+
+    final mimeTypeData = lookupMimeType(image.path)?.split('/');
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'foto_selesai', // Sesuaikan dengan nama di controller Laravel
+        image.path,
+        contentType: mimeTypeData != null ? MediaType(mimeTypeData[0], mimeTypeData[1]) : null,
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    final decoded = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return Lembur.fromJson(decoded['data']);
+    } else {
+      throw Exception(decoded['message'] ?? 'Gagal melakukan clock-out.');
     }
   }
 }

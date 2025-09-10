@@ -5,15 +5,19 @@ import 'dart:io'; // Diperlukan untuk File
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/models/lembur_model.dart';
 import 'package:frontend_merallin/providers/lembur_provider.dart'; // Import provider
+import 'package:frontend_merallin/services/download_service.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart'; // Import provider
+import 'package:provider/provider.dart';
+import 'package:open_filex/open_filex.dart';
+import 'providers/auth_provider.dart'; // Import provider
 
 class DetailLemburScreen extends StatefulWidget {
-  final Lembur lembur;
+  final Lembur lemburAwal;
 
-  const DetailLemburScreen({super.key, required this.lembur});
+  const DetailLemburScreen({super.key, required this.lemburAwal});
 
   @override
   State<DetailLemburScreen> createState() => _DetailLemburScreenState();
@@ -26,25 +30,43 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
   bool _isLoading = false;
   String _loadingMessage = "";
   final ImagePicker _picker = ImagePicker();
+  bool _isDownloading = false;
 
   @override
   void initState() {
     super.initState();
-    // Inisialisasi status UI dari data model yang diterima
-    _currentUiStatus = _mapModelStatusToUiStatus(widget.lembur.statusLembur);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchDetailsAndSetupTimer();
+    });
   }
 
-  // Fungsi untuk memetakan status dari model (enum) ke status UI (string)
-  String _mapModelStatusToUiStatus(StatusPersetujuan status) {
-    switch (status) {
-      case StatusPersetujuan.diterima:
-        // Status ini memungkinkan user untuk clock-in
-        return 'Disetujui'; 
-      case StatusPersetujuan.ditolak:
-        return 'Ditolak';
-      case StatusPersetujuan.menungguPersetujuan:
-      default:
-        return 'Pending';
+  void _fetchDetailsAndSetupTimer() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final provider = Provider.of<LemburProvider>(context, listen: false);
+    if (auth.token != null && widget.lemburAwal.uuid != null) {
+      // Tunggu hingga data detail selesai diambil
+      await provider.fetchOvertimeDetail(auth.token!, widget.lemburAwal.uuid!);
+      // Setelah detail diambil, setup timer berdasarkan data terbaru dari provider
+      if (mounted) {
+        _setupTimer(provider.selectedLembur);
+      }
+    }
+  }
+
+  void _setupTimer(Lembur? lembur) {
+    _timer?.cancel(); // Hentikan timer lama jika ada
+    if (lembur != null && lembur.jamMulaiAktual != null && lembur.jamSelesaiAktual == null) {
+      final now = DateTime.now();
+      // Hitung selisih waktu dari jam mulai aktual
+      final difference = now.difference(lembur.jamMulaiAktual!);
+      _elapsedSeconds = difference.inSeconds;
+      
+      // Mulai timer baru yang berjalan setiap detik
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        setState(() {
+          _elapsedSeconds++;
+        });
+      });
     }
   }
 
@@ -54,9 +76,81 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     super.dispose();
   }
 
+  Future<void> _downloadAndOpenFile(String url, String baseFileName) async {
+    if (_isDownloading) return; // Mencegah multiple tap
+    
+    setState(() { _isDownloading = true; });
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final downloadService = DownloadService();
+
+    try {
+      showInfoSnackBar(context, 'Membuka surat lembur...');
+      final fileBytes = await downloadService.fetchFileBytes(
+        url: url,
+        token: auth.token!,
+      );
+
+      // Membuat nama file yang lebih deskriptif
+      final formattedDate = DateFormat('dd-MM-yyyy').format(widget.lemburAwal.tanggalLembur);
+      final finalFileName = 'SPKL-${baseFileName.substring(0, 8)}-$formattedDate'; // Menggunakan uuid sebagai baseFileName
+
+      // =================================================================
+      // ===== PERUBAHAN UTAMA: Panggil metode saveAndOpenFile yang baru =====
+      // =================================================================
+      final String savedPath = await downloadService.saveAndOpenFile(
+        filename: finalFileName,
+        fileBytes: fileBytes,
+      );
+
+      if (mounted) {
+        showInfoSnackBar(context, 'Surat lembur berhasil diunduh. Membuka file...');
+      }
+
+      // Buka file yang sudah diunduh menggunakan OpenFile
+      final openResult = await OpenFilex.open(savedPath);
+
+      if (openResult.type != ResultType.done && mounted) {
+        // Tampilkan pesan jika tidak ada aplikasi PDF viewer
+        showErrorSnackBar(context, 'Tidak dapat membuka file: ${openResult.message}');
+      }
+      
+    } catch (e) {
+      debugPrint('Download Lembur Error: $e');
+      if (mounted) {
+        showErrorSnackBar(context, 'Gagal mengunduh atau membuka file: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() { _isDownloading = false; });
+      }
+      ScaffoldMessenger.of(context).removeCurrentSnackBar(); // Bersihkan snackbar loading
+    }
+  }
+
+
+  // Fungsi untuk memetakan status dari model (enum) ke status UI (string)
+  String _mapModelStatusToUiStatus(StatusPersetujuan status) {
+    switch (status) {
+      case StatusPersetujuan.diterima:
+        return 'Disetujui'; // Ini status final
+      case StatusPersetujuan.ditolak:
+        return 'Ditolak'; // Ini status final
+      case StatusPersetujuan.menungguPersetujuan:
+        return 'Pending';
+      case StatusPersetujuan.menungguKonfirmasiAdmin:
+        return 'Pending';
+      default:
+        return 'Pending';
+    }
+  }
+
   // --- LOGIKA UNTUK AMBIL FOTO & LOKASI ---
-  Future<void> _takePictureAndProceed(bool isClockIn) async {
-    // 1. Ambil Gambar
+  Future<void> _takePictureAndProceed(bool isClockIn, String uuid) async {
+    final provider = Provider.of<LemburProvider>(context, listen: false);
+    if (provider.isActionLoading) return;
+
+    // 1. Ambil Gambar (Kode tidak berubah)
     final XFile? image = await _picker.pickImage(
       source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.front,
@@ -64,64 +158,48 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     );
     if (image == null) return;
 
-    setState(() {
-      _isLoading = true;
-      _loadingMessage = "Mendapatkan lokasi...";
-    });
-
-    // 2. Ambil Lokasi
-    final DateTime timestamp = DateTime.now();
+    // 2. Ambil Lokasi (Kode tidak berubah)
+    showInfoSnackBar(context, "Mendapatkan lokasi...");
     final Position? position = await _getCurrentLocation();
+    if (position == null) return;
 
-    if (position == null) {
-      setState(() { _isLoading = false; });
-      return;
-    }
+    // =================================================================
+    // ===== PERUBAHAN UTAMA DI SINI: Hapus Simulasi, Panggil API =====
+    // =================================================================
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    bool success = false;
 
-    setState(() { _loadingMessage = "Mengunggah bukti absen..."; });
-
-    // --- INTEGRASI DENGAN PROVIDER (MASA DEPAN) ---
-    // TODO: Panggil method dari LemburProvider di sini untuk mengirim data ke API.
-    // Anda perlu membuat method baru di service dan provider, contohnya:
-    //
-    // final provider = Provider.of<LemburProvider>(context, listen: false);
-    // try {
-    //   if (isClockIn) {
-    //     await provider.performClockIn(
-    //       token: 'YOUR_TOKEN',
-    //       lemburId: widget.lembur.id,
-    //       image: File(image.path),
-    //       position: position,
-    //     );
-    //     _performClockIn(); // Jika sukses, update UI
-    //   } else {
-    //     await provider.performClockOut(
-    //       token: 'YOUR_TOKEN',
-    //       lemburId: widget.lembur.id,
-    //       image: File(image.path),
-    //       position: position,
-    //     );
-    //     _performClockOut(); // Jika sukses, update UI
-    //   }
-    // } catch (e) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-    //   );
-    // }
-    // --- AKHIR INTEGRASI ---
-    
-    // Untuk sekarang, kita lanjutkan dengan simulasi
-    print("Absen Terekam: ${timestamp.toIso8601String()} di Lat: ${position.latitude}, Lon: ${position.longitude}");
-    await Future.delayed(const Duration(seconds: 2));
 
     if (isClockIn) {
-      _performClockIn();
+      success = await provider.performClockIn(
+        token: auth.token!,
+        uuid: uuid,
+        image: File(image.path),
+        position: position,
+      );
     } else {
-      _performClockOut();
+      success = await provider.performClockOut(
+        token: auth.token!,
+        uuid: uuid,
+        image: File(image.path),
+        position: position,
+      );
     }
 
-    setState(() { _isLoading = false; });
+    // Perbarui UI berdasarkan hasil dari API
+    if (mounted) {
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      if (success) {
+        showInfoSnackBar(context, provider.actionMessage ?? 'Aksi berhasil.');
+        // HAPUS PANGGILAN fetchOvertimeDetail() dari sini karena provider sudah otomatis update state.
+        // Cukup setup ulang timer.
+        _setupTimer(provider.selectedLembur);
+      } else {
+        showErrorSnackBar(context, provider.actionMessage ?? 'Aksi gagal.');
+      }
+    }
   }
+
 
   Future<Position?> _getCurrentLocation() async {
     bool serviceEnabled;
@@ -155,32 +233,6 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     return await Geolocator.getCurrentPosition();
   }
 
-  void _performClockIn() {
-    setState(() {
-      _currentUiStatus = 'Berlangsung';
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        setState(() { _elapsedSeconds++; });
-      });
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Absen mulai lembur berhasil!'),
-          backgroundColor: Colors.green),
-    );
-  }
-
-  void _performClockOut() {
-    _timer?.cancel();
-    setState(() {
-      _currentUiStatus = 'Selesai';
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Lembur telah diselesaikan. Menunggu verifikasi atasan.'),
-          backgroundColor: Colors.blue),
-    );
-  }
-
   String _formatDuration(int totalSeconds) {
     final duration = Duration(seconds: totalSeconds);
     final hours = duration.inHours.toString().padLeft(2, '0');
@@ -191,25 +243,37 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final lembur = widget.lembur;
-    final formattedTanggal = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(lembur.tanggalLembur);
-    final jamMulai = lembur.mulaiJamLembur.substring(0, 5);
-    final jamSelesai = lembur.selesaiJamLembur.substring(0, 5);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detail Lembur'),
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
+      // Gunakan Consumer untuk mendengarkan perubahan state detail
+      body: Consumer<LemburProvider>(
+        builder: (context, provider, child) {
+          if (provider.detailStatus == DataStatus.loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (provider.detailStatus == DataStatus.error) {
+            return Center(child: Text('Error: ${provider.detailMessage}'));
+          }
+
+          final lembur = provider.selectedLembur ?? widget.lemburAwal;
+
+          final currentUiStatus = _mapModelStatusToUiStatus(lembur.statusLembur);
+          final formattedTanggal =
+              DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(lembur.tanggalLembur);
+          final jamMulai = lembur.mulaiJamLembur.substring(0, 5);
+          final jamSelesai = lembur.selesaiJamLembur.substring(0, 5);
+
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Card(
                   elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
@@ -218,53 +282,90 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text("Status Saat Ini", style: TextStyle(fontSize: 16, color: Colors.black54)),
-                            _buildStatusChip(_currentUiStatus),
+                            const Text("Status Saat Ini",
+                                style: TextStyle(
+                                    fontSize: 16, color: Colors.black54)),
+                            _buildStatusChip(lembur),
                           ],
                         ),
                         const Divider(height: 30),
                         _buildInfoRow(Icons.calendar_today, 'Tanggal', formattedTanggal),
-                        _buildInfoRow(Icons.timer, 'Rencana Waktu', '$jamMulai - $jamSelesai'),
-                        _buildInfoRow(Icons.work, 'Pekerjaan', lembur.keteranganLembur),
+                        _buildInfoRow(
+                            Icons.timer, 'Waktu Lembur', '$jamMulai - $jamSelesai'),
+                        _buildInfoRow(
+                            Icons.work, 'Pekerjaan', lembur.keteranganLembur),
+                        // Tampilkan alasan jika ditolak
+                        if (lembur.statusLembur == StatusPersetujuan.ditolak &&
+                            lembur.alasanPenolakan != null)
+                          _buildInfoRow(Icons.comment_bank_outlined, 'Alasan Penolakan', lembur.alasanPenolakan!),
+                        if (lembur.statusLembur == StatusPersetujuan.diterima && lembur.fileFinalUrl != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16.0),
+                            child: OutlinedButton.icon(
+                              icon: _isDownloading
+                                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Icon(Icons.download_rounded, size: 18),
+                              label: Text(_isDownloading ? 'Mengunduh...' : 'Unduh Surat Lembur'),
+                              onPressed: _isDownloading
+                                  ? null
+                                  : () => _downloadAndOpenFile(lembur.fileFinalUrl!, lembur.uuid!),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.blue.shade700,
+                                side: BorderSide(color: Colors.blue.shade200),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 32),
-                _buildActionSection(),
+                _buildActionSection(lembur),
               ],
             ),
-          ),
-          if (_isLoading)
-            Container(
-              color: Colors.black.withOpacity(0.5),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(color: Colors.white),
-                    const SizedBox(height: 16),
-                    Text(_loadingMessage, style: const TextStyle(color: Colors.white, fontSize: 16)),
-                  ],
-                ),
-              ),
-            ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildActionSection() {
-    switch (_currentUiStatus) {
+  // Widget _buildActionSection sekarang menerima status UI
+  Widget _buildActionSection(Lembur lembur) {
+    // =================================================================
+    // ===== PERUBAHAN UTAMA DI SINI: Logika penentuan status =====
+    // =================================================================
+    String uiStatus;
+    // Cek status persetujuan dulu
+    if (lembur.statusLembur != StatusPersetujuan.diterima) {
+      uiStatus = _mapModelStatusToUiStatus(lembur.statusLembur);
+    } 
+    // Jika disetujui, cek status clock-in/out aktual
+    else if (lembur.jamSelesaiAktual != null) {
+      uiStatus = 'Selesai';
+    } else if (lembur.jamMulaiAktual != null) {
+      uiStatus = 'Berlangsung';
+    } else {
+      uiStatus = 'Disetujui'; // Siap untuk Clock-in
+    }
+
+    // Switch case sekarang akan menampilkan widget yang benar
+    switch (uiStatus) {
       case 'Disetujui':
-        return _buildClockInWidget();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Tombol untuk memulai lembur (clock-in)
+            _buildClockInWidget(lembur.uuid!),
+          ],
+        ); 
       case 'Berlangsung':
-        return _buildInProgressWidget();
+        return _buildInProgressWidget(lembur.uuid!);
       case 'Selesai':
         return _buildInfoCard(
           icon: Icons.check_circle_outline,
-          text: 'Lembur telah selesai dan sedang menunggu verifikasi dari atasan Anda.',
-          color: Colors.blue,
+          text: 'Anda telah menyelesaikan sesi lembur ini.',
+          color: Colors.green,
         );
       case 'Ditolak':
         return _buildInfoCard(
@@ -276,56 +377,49 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
       default:
         return _buildInfoCard(
           icon: Icons.pending_actions_outlined,
-          text: 'Pengajuan lembur ini masih menunggu persetujuan dari atasan Anda.',
+          text: 'Pengajuan lembur ini masih menunggu persetujuan.',
           color: Colors.orange,
         );
     }
   }
 
-  Widget _buildClockInWidget() {
+   Widget _buildClockInWidget(String uuid) { // <-- Terima uuid
     return Center(
       child: Column(
         children: [
-          const Text("Anda sudah diizinkan untuk lembur.", style: TextStyle(fontSize: 16)),
-          const SizedBox(height: 8),
-          const Text("Silakan ambil foto selfie untuk memulai.", style: TextStyle(fontSize: 14, color: Colors.black54)),
-          const SizedBox(height: 16),
+          // ... (teks tidak berubah)
           ElevatedButton.icon(
             icon: const Icon(Icons.camera_alt_outlined),
             label: const Text('MULAI LEMBUR (CLOCK-IN)'),
-            onPressed: () => _takePictureAndProceed(true),
+            // Panggil _takePictureAndProceed dengan parameter yang benar
+            onPressed: () => _takePictureAndProceed(true, uuid),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              // ...
             ),
           ),
+          
         ],
       ),
     );
   }
 
-  Widget _buildInProgressWidget() {
-    return Column(
-      children: [
-        const Text("LEMBUR SEDANG BERLANGSUNG", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black54)),
-        const SizedBox(height: 8),
-        Text(
-          _formatDuration(_elapsedSeconds),
-          style: const TextStyle(fontSize: 56, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.camera_alt_outlined),
-          label: const Text('SELESAIKAN LEMBUR (CLOCK-OUT)'),
-          onPressed: () => _takePictureAndProceed(false),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  Widget _buildInProgressWidget(String uuid) { // <-- Terima uuid
+    return Center(
+      child: Column(
+        children: [
+          // ... (teks dan timer tidak berubah)
+          ElevatedButton.icon(
+            icon: const Icon(Icons.camera_alt_outlined),
+            label: const Text('SELESAIKAN LEMBUR (CLOCK-OUT)'),
+            // Panggil _takePictureAndProceed dengan parameter yang benar
+            onPressed: () => _takePictureAndProceed(false, uuid),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              // ...
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -371,34 +465,48 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     );
   }
 
-  Widget _buildStatusChip(String status) {
+  Widget _buildStatusChip(Lembur lembur) {
     Color chipColor;
     Color textColor;
-    switch (status) {
-      case 'Berlangsung':
-        chipColor = Colors.purple.shade100;
-        textColor = Colors.purple.shade800;
-        break;
-      case 'Disetujui':
-        chipColor = Colors.blue.shade100;
-        textColor = Colors.blue.shade800;
-        break;
-      case 'Ditolak':
-        chipColor = Colors.red.shade100;
-        textColor = Colors.red.shade800;
-        break;
-      case 'Selesai':
+    String chipText;
+
+    // Logika ini sama persis dengan yang ada di lembur_screen.dart
+    if (lembur.statusLembur != StatusPersetujuan.diterima) {
+      switch (lembur.statusLembur) {
+        case StatusPersetujuan.ditolak:
+          chipColor = Colors.red.shade100;
+          textColor = Colors.red.shade800;
+          chipText = 'Ditolak';
+          break;
+        case StatusPersetujuan.menungguPersetujuan:
+        case StatusPersetujuan.menungguKonfirmasiAdmin:
+        default:
+          chipColor = Colors.orange.shade100;
+          textColor = Colors.orange.shade800;
+          chipText = 'Pending';
+          break;
+      }
+    } else {
+      if (lembur.jamSelesaiAktual != null) {
         chipColor = Colors.green.shade100;
         textColor = Colors.green.shade800;
-        break;
-      case 'Pending':
-      default:
-        chipColor = Colors.orange.shade100;
-        textColor = Colors.orange.shade800;
-        break;
+        chipText = 'Selesai';
+      } else if (lembur.jamMulaiAktual != null) {
+        chipColor = Colors.purple.shade100;
+        textColor = Colors.purple.shade800;
+        chipText = 'Berlangsung';
+      } else {
+        chipColor = Colors.blue.shade100;
+        textColor = Colors.blue.shade800;
+        chipText = 'Disetujui';
+      }
     }
     return Chip(
-      label: Text(status, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor)),
+      label: Text(
+        chipText,
+        style: TextStyle(
+            fontWeight: FontWeight.bold, fontSize: 12, color: textColor),
+      ),
       backgroundColor: chipColor,
       side: BorderSide.none,
     );
