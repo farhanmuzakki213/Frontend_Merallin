@@ -245,6 +245,7 @@ class AuthProvider extends ChangeNotifier {
     required String passwordConfirmation,
     required String phone,
     required String address,
+    required String nik,
   }) async {
     _authStatus = AuthStatus.authenticating;
     notifyListeners();
@@ -257,6 +258,7 @@ class AuthProvider extends ChangeNotifier {
         passwordConfirmation: passwordConfirmation,
         phone: phone,
         address: address,
+        nik: nik,
       );
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
@@ -302,6 +304,7 @@ class AuthProvider extends ChangeNotifier {
     required String name,
     required String address,
     required String phone,
+    required String nik,
     File? profilePhoto,
   }) async {
     if (_user == null || _token == null) return false;
@@ -316,6 +319,7 @@ class AuthProvider extends ChangeNotifier {
         email: _user!.email,
         address: address,
         phone: phone,
+        nik: nik,
         profilePhoto: profilePhoto,
       );
       _user = updatedUser;
