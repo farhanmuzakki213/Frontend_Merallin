@@ -12,7 +12,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'providers/auth_provider.dart'; // Import provider
+import 'providers/auth_provider.dart';
+import 'utils/image_absen_helper.dart'; // Import provider
 
 class DetailLemburScreen extends StatefulWidget {
   final Lembur lemburAwal;
@@ -29,7 +30,6 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
   int _elapsedSeconds = 0;
   bool _isLoading = false;
   String _loadingMessage = "";
-  final ImagePicker _picker = ImagePicker();
   bool _isDownloading = false;
 
   @override
@@ -150,41 +150,39 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     final provider = Provider.of<LemburProvider>(context, listen: false);
     if (provider.isActionLoading) return;
 
-    // 1. Ambil Gambar (Kode tidak berubah)
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-      imageQuality: 80,
-    );
-    if (image == null) return;
+    // 2. Panggil ImageHelper untuk mengambil foto dengan timestamp & lokasi
+    final imageResult = await ImageHelper.takePhotoWithLocation(context);
 
-    // 2. Ambil Lokasi (Kode tidak berubah)
-    showInfoSnackBar(context, "Mendapatkan lokasi...");
-    final Position? position = await _getCurrentLocation();
-    if (position == null) return;
+    // Hentikan proses jika pengguna membatalkan pengambilan foto
+    if (imageResult == null) return;
+    if (!mounted) return;
 
-    // =================================================================
-    // ===== PERUBAHAN UTAMA DI SINI: Hapus Simulasi, Panggil API =====
-    // =================================================================
+    // Pastikan kita mendapatkan lokasi
+    if (imageResult.position == null) {
+      showErrorSnackBar(context, "Gagal mendapatkan data lokasi. Mohon coba lagi.");
+      return;
+    }
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     bool success = false;
 
-
+    // Kirim data ke provider menggunakan hasil dari ImageHelper
     if (isClockIn) {
       success = await provider.performClockIn(
         token: auth.token!,
         uuid: uuid,
-        image: File(image.path),
-        position: position,
+        image: imageResult.file, // <-- Gunakan imageResult.file
+        position: imageResult.position!, // <-- Gunakan imageResult.position
       );
     } else {
       success = await provider.performClockOut(
         token: auth.token!,
         uuid: uuid,
-        image: File(image.path),
-        position: position,
+        image: imageResult.file, // <-- Gunakan imageResult.file
+        position: imageResult.position!, // <-- Gunakan imageResult.position
       );
     }
+
 
     // Perbarui UI berdasarkan hasil dari API
     if (mounted) {
