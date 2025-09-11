@@ -3,14 +3,11 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:frontend_merallin/providers/payslip_provider.dart'; //LIST GAJI
+import 'package:frontend_merallin/providers/payslip_provider.dart';
 import 'package:frontend_merallin/services/notification_service.dart';
-import 'package:firebase_core/firebase_core.dart'; // <-- Impor Firebase Core
-import 'package:firebase_messaging/firebase_messaging.dart'; // <-- Impor Firebase Messaging
-// ===== MULAI KODE TAMBAHAN =====
-// Impor file permission_service.dart yang sudah kita modifikasi
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:frontend_merallin/services/navigation_service.dart';
-// ===== AKHIR KODE TAMBAHAN =====
 import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/login_screen.dart';
 import 'package:frontend_merallin/models/user_model.dart';
@@ -33,20 +30,13 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:frontend_merallin/providers/id_card_provider.dart';
 
-
-// ===== MULAI KODE TAMBAHAN: Handler untuk notifikasi di background =====
-// =======================================================================
-/// Fungsi ini harus berada di level atas (top-level), di luar kelas manapun.
-/// Fungsinya untuk menangani notifikasi saat aplikasi tidak berjalan di foreground.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Pastikan Firebase diinisialisasi
   await Firebase.initializeApp();
 
-  // Cek apakah notifikasi berisi perintah untuk logout paksa
   if (message.data['type'] == 'force_logout') {
-    debugPrint("Force logout message received in background. Clearing auth box.");
-    // Buka authBox yang terenkripsi
+    debugPrint(
+        "Force logout message received in background. Clearing auth box.");
     final encryptionKeyString = dotenv.env['HIVE_ENCRYPTION_KEY'];
     if (encryptionKeyString != null) {
       final encryptionKey = base64Url.decode(encryptionKeyString);
@@ -54,7 +44,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         'authBox',
         encryptionCipher: HiveAesCipher(encryptionKey),
       );
-      // Hapus semua data sesi
       await authBox.clear();
       debugPrint("Auth box cleared due to background force logout.");
     }
@@ -64,10 +53,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.initialize();
-  // ===== MULAI KODE TAMBAHAN =====
-  // Mendaftarkan background handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  // ===== AKHIR KODE TAMBAHAN =====
   await initializeDateFormatting('id_ID', null);
   tz.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
@@ -86,7 +72,7 @@ Future<void> main() async {
     'authBox',
     encryptionCipher: HiveAesCipher(encryptionKey),
   );
-  
+
   await Hive.openBox<int>('downloadedSlipsBox');
   await Hive.openBox<bool>('idCardStatusBox');
   runApp(const MyApp());
@@ -108,7 +94,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => VehicleLocationProvider()),
         ChangeNotifierProvider(create: (context) => LemburProvider()),
         Provider(
-          create: (_) => PermissionProvider(navigatorKey: NavigationService.navigatorKey),
+          create: (_) =>
+              PermissionProvider(navigatorKey: NavigationService.navigatorKey),
           lazy: false,
         ),
         ChangeNotifierProxyProvider<AuthProvider, PayslipProvider>(
@@ -121,8 +108,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthProvider, DashboardProvider>(
           create: (context) => DashboardProvider(),
           update: (context, auth, dashboard) {
-            // ===== PERUBAHAN DI SINI =====
-            // Kirim context saat mengupdate token agar bisa digunakan untuk fetch data
             dashboard!.updateToken(auth.token, context);
             return dashboard;
           },
@@ -135,25 +120,34 @@ class MyApp extends StatelessWidget {
           },
         ),
       ],
-      child: MaterialApp(
-        navigatorKey: NavigationService.navigatorKey,
-        title: 'Merallin Group',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          fontFamily: 'Poppins',
-        ),
-        debugShowCheckedModeBanner: false,
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('id', ''),
-          Locale('en', ''),
-        ],
-        locale: const Locale('id', 'ID'),
-        home: const AuthGate(),
+      child: Consumer<AuthProvider>(
+        builder: (context, auth, _) {
+          return Listener(
+            onPointerDown: (_) {
+              auth.syncUserProfile();
+            },
+            child: MaterialApp(
+              navigatorKey: NavigationService.navigatorKey,
+              title: 'Merallin Group',
+              theme: ThemeData(
+                primarySwatch: Colors.blue,
+                fontFamily: 'Poppins',
+              ),
+              debugShowCheckedModeBanner: false,
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('id', ''),
+                Locale('en', ''),
+              ],
+              locale: const Locale('id', 'ID'),
+              home: const AuthGate(),
+            ),
+          );
+        },
       ),
     );
   }
@@ -187,8 +181,6 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    // AuthGate sekarang sangat sederhana, hanya menukar layar berdasarkan status.
-    // Tidak ada lagi logika timer di sini.
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         switch (authProvider.authStatus) {
