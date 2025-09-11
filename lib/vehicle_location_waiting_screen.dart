@@ -3,7 +3,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/vehicle_location_progress_screen.dart';
 import 'package:provider/provider.dart';
 import '../models/vehicle_location_model.dart';
 import '../providers/vehicle_location_provider.dart';
@@ -113,23 +115,39 @@ class _WaitingVehicleLocationVerificationScreenState extends State<WaitingVehicl
     final bool hasRejection = relevantStatuses.any((s) => s.status?.toLowerCase() == 'rejected');
     if (hasRejection) {
       final rejectedDoc = location.firstRejectedDocumentInfo;
-      Navigator.of(context).pop(
-        VehicleLocationVerificationResult(
-          status: VehicleLocationStatus.rejected,
+      final result = VehicleLocationVerificationResult(
+        status: VehicleLocationStatus.rejected,
           rejectionReason: location.allRejectionReasons ?? "Satu atau lebih dokumen ditolak.",
           targetPage: rejectedDoc?.pageIndex ?? widget.initialPage,
           updatedLocation: location,
-        ),
       );
+      locationProvider.setAndProcessVerificationResult(result);
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+              builder: (context) =>
+                  VehicleLocationProgressScreen(locationId: widget.locationId)),
+          (route) => false);
     } else {
       final newPage = _determinePageAfterApproval(location);
-      Navigator.of(context).pop(
-        VehicleLocationVerificationResult(
+      if (location.isFullyCompleted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.clearPendingVehicleLocationForVerification();
+        Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            (route) => false);
+      } else {
+        final result = VehicleLocationVerificationResult(
           status: VehicleLocationStatus.approved,
           targetPage: newPage,
           updatedLocation: location,
-        ),
-      );
+        );
+        locationProvider.setAndProcessVerificationResult(result);
+        Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+                builder: (context) => VehicleLocationProgressScreen(
+                    locationId: widget.locationId)),
+            (route) => false);
+      }
     }
   }
 

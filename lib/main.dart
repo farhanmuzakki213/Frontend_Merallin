@@ -3,6 +3,8 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/bbm_progress_screen.dart';
+import 'package:frontend_merallin/laporan_perjalanan_screen.dart';
 import 'package:frontend_merallin/providers/payslip_provider.dart';
 import 'package:frontend_merallin/services/notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -19,6 +21,7 @@ import 'package:frontend_merallin/providers/trip_provider.dart';
 import 'package:frontend_merallin/providers/vehicle_location_provider.dart';
 import 'package:frontend_merallin/providers/dashboard_provider.dart';
 import 'package:frontend_merallin/providers/permission_provider.dart';
+import 'package:frontend_merallin/vehicle_location_progress_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -189,6 +192,27 @@ class _AuthGateState extends State<AuthGate> {
                 body: Center(child: CircularProgressIndicator()));
           case AuthStatus.updating:
           case AuthStatus.authenticated:
+            final user = authProvider.user;
+            if (user != null && user.roles.contains('driver')) {
+              if (authProvider.pendingTripId != null) {
+                return LaporanDriverScreen(
+                  tripId: authProvider.pendingTripId!,
+                  resumeVerification: true,
+                );
+              }
+              if (authProvider.pendingBbmId != null) {
+                return BbmProgressScreen(
+                  bbmId: authProvider.pendingBbmId!,
+                  resumeVerification: true,
+                );
+              }
+              if (authProvider.pendingVehicleLocationId != null) {
+                return VehicleLocationProgressScreen(
+                  locationId: authProvider.pendingVehicleLocationId!,
+                  resumeVerification: true,
+                );
+              }
+            }
             return const HomeScreen();
           case AuthStatus.authenticating:
           case AuthStatus.unauthenticated:

@@ -19,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _nikCtrl = TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -32,6 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPasswordCtrl.dispose();
     _phoneCtrl.dispose();
     _addressCtrl.dispose();
+    _nikCtrl.dispose();
     super.dispose();
   }
 
@@ -52,6 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       passwordConfirmation: _confirmPasswordCtrl.text,
       phone: _phoneCtrl.text,
       address: _addressCtrl.text,
+      nik: _nikCtrl.text,
     );
 
     if (mounted) {
@@ -135,6 +138,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
+                    controller: _nikCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.black),
+                    decoration: _inputDecoration( // Modifikasi di sini
+                      hintText: 'Enter your NIK',
+                      icon: Icons.credit_card_outlined,
+                    ),
+                    validator: (v) {
+                      if (v!.isEmpty) {
+                        return 'NIK is required';
+                      }
+                      if (v.length != 16) {
+                        return 'NIK must be 16 digits';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
                     style: const TextStyle(color: Colors.black),
@@ -142,17 +164,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Enter your phone number',
                       icon: Icons.phone_outlined,
                     ),
-                    validator: (v) => v!.isEmpty ? 'Phone number is required' : null,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
+                        return 'Phone number is required';
+                      }
+                      if (v.length < 10) {
+                        return 'minimal 10 digit';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
                     controller: _addressCtrl,
+                    keyboardType: TextInputType.streetAddress,
                     style: const TextStyle(color: Colors.black),
                     decoration: _inputDecoration(
                       hintText: 'Enter your address',
                       icon: Icons.location_on_outlined,
                     ),
-                    validator: (v) => v!.isEmpty ? 'Address is required' : null,
+                    // UBAH BAGIAN INI
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
+                        return 'Address is required';
+                      }
+                      if (v.length < 10) {
+                        return 'Alamat minimal 10 karakter';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 20),
                   TextFormField(

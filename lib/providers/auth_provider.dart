@@ -4,6 +4,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/models/bbm_model.dart';
+import 'package:frontend_merallin/models/trip_model.dart';
+import 'package:frontend_merallin/models/vehicle_location_model.dart';
+import 'package:frontend_merallin/services/bbm_service.dart';
+import 'package:frontend_merallin/services/trip_service.dart';
+import 'package:frontend_merallin/services/vehicle_location_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
@@ -22,6 +28,10 @@ enum AuthStatus {
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final ProfileService _profileService = ProfileService();
+  final TripService _tripService = TripService();
+  final BbmService _bbmService = BbmService();
+  final VehicleLocationService _vehicleLocationService =
+      VehicleLocationService();
   final Box _authBox = Hive.box('authBox');
   bool _isUpdating = false;
 
@@ -63,17 +73,30 @@ class AuthProvider extends ChangeNotifier {
       _token = storedToken as String;
       _user = User.fromJson(json.decode(storedUser as String));
 
-      final storedPendingTripId = _authBox.get('pendingTripId');
-      if (storedPendingTripId != null) {
-        _pendingTripId = storedPendingTripId as int;
-      }
-      final storedPendingBbmId = _authBox.get('pendingBbmId');
-      if (storedPendingBbmId != null) {
-        _pendingBbmId = storedPendingBbmId as int;
-      }
-      final storedPendingLocationId = _authBox.get('pendingVehicleLocationId');
-      if (storedPendingLocationId != null) {
-        _pendingVehicleLocationId = storedPendingLocationId as int;
+      if (_user!.roles.contains('driver')) {
+        // Cek Trip Aktif
+        final activeTrip = await _tripService.getActiveTrip(_token!);
+        if (activeTrip != null) {
+          await setPendingTripForVerification(activeTrip.id);
+        } else {
+          await clearPendingTripForVerification();
+        }
+
+        // Cek BBM Aktif
+        final activeBbm = await _bbmService.getActiveBbmRequest(_token!);
+        if (activeBbm != null) {
+          await setPendingBbmForVerification(activeBbm.id);
+        } else {
+          await clearPendingBbmForVerification();
+        }
+
+        // Cek Vehicle Location Aktif
+        final activeLocation = await _vehicleLocationService.getActiveLocation(_token!);
+        if (activeLocation != null) {
+          await setPendingVehicleLocationForVerification(activeLocation.id);
+        } else {
+          await clearPendingVehicleLocationForVerification();
+        }
       }
 
       _authStatus = AuthStatus.authenticated;
@@ -94,6 +117,33 @@ class AuthProvider extends ChangeNotifier {
       await _authBox.put('token', _token);
       await _authBox.put('user', json.encode(_user!.toJson()));
       _authStatus = AuthStatus.authenticated;
+
+      if (_user!.roles.contains('driver')) {
+        // Cek Trip Aktif
+        final activeTrip = await _tripService.getActiveTrip(_token!);
+        if (activeTrip != null) {
+          await setPendingTripForVerification(activeTrip.id);
+        } else {
+          await clearPendingTripForVerification();
+        }
+
+        // Cek BBM Aktif
+        final activeBbm = await _bbmService.getActiveBbmRequest(_token!);
+        if (activeBbm != null) {
+          await setPendingBbmForVerification(activeBbm.id);
+        } else {
+          await clearPendingBbmForVerification();
+        }
+
+        // Cek Vehicle Location Aktif
+        final activeLocation = await _vehicleLocationService.getActiveLocation(_token!);
+        if (activeLocation != null) {
+          await setPendingVehicleLocationForVerification(activeLocation.id);
+        } else {
+          await clearPendingVehicleLocationForVerification();
+        }
+      }
+
       notifyListeners();
 
       return null;
@@ -190,7 +240,6 @@ class AuthProvider extends ChangeNotifier {
     try {
       debugPrint(
           "1. MEMERIKSA SESI: API profil dipanggil karena ada aksi dari user...");
-
       _lastSessionCheck = now;
 
       await _profileService.getProfile(token: token!);
@@ -251,6 +300,7 @@ class AuthProvider extends ChangeNotifier {
     required String passwordConfirmation,
     required String phone,
     required String address,
+    required String nik,
   }) async {
     _authStatus = AuthStatus.authenticating;
     notifyListeners();
@@ -263,6 +313,7 @@ class AuthProvider extends ChangeNotifier {
         passwordConfirmation: passwordConfirmation,
         phone: phone,
         address: address,
+        nik: nik,
       );
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
@@ -308,6 +359,7 @@ class AuthProvider extends ChangeNotifier {
     required String name,
     required String address,
     required String phone,
+    required String nik,
     File? profilePhoto,
   }) async {
     if (_user == null || _token == null) return false;
@@ -322,6 +374,7 @@ class AuthProvider extends ChangeNotifier {
         email: _user!.email,
         address: address,
         phone: phone,
+        nik: nik,
         profilePhoto: profilePhoto,
       );
       _user = updatedUser;
