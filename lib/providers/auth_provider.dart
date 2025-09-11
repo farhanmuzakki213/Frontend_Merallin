@@ -4,6 +4,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/services/bbm_service.dart';
+import 'package:frontend_merallin/services/trip_service.dart';
+import 'package:frontend_merallin/services/vehicle_location_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
@@ -22,10 +25,14 @@ enum AuthStatus {
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final ProfileService _profileService = ProfileService();
+  final TripService _tripService = TripService();
+  final BbmService _bbmService = BbmService();
+  final VehicleLocationService _vehicleLocationService =
+      VehicleLocationService();
   final Box _authBox = Hive.box('authBox');
   bool _isUpdating = false;
 
-  Timer? _sessionCheckTimer;
+  DateTime? _lastSessionCheck;
 
   User? _user;
   String? _token;
@@ -62,25 +69,35 @@ class AuthProvider extends ChangeNotifier {
     try {
       _token = storedToken as String;
       _user = User.fromJson(json.decode(storedUser as String));
-      
-      final storedPendingTripId = _authBox.get('pendingTripId');
-      if (storedPendingTripId != null) {
-        _pendingTripId = storedPendingTripId as int;
-      }
-      final storedPendingBbmId = _authBox.get('pendingBbmId');
-      if (storedPendingBbmId != null) {
-        _pendingBbmId = storedPendingBbmId as int;
-      }
-      final storedPendingLocationId = _authBox.get('pendingVehicleLocationId');
-      if (storedPendingLocationId != null) {
-        _pendingVehicleLocationId = storedPendingLocationId as int;
+
+      if (_user!.roles.contains('driver')) {
+        // Cek Trip Aktif
+        final activeTrip = await _tripService.getActiveTrip(_token!);
+        if (activeTrip != null) {
+          await setPendingTripForVerification(activeTrip.id);
+        } else {
+          await clearPendingTripForVerification();
+        }
+
+        // Cek BBM Aktif
+        final activeBbm = await _bbmService.getActiveBbmRequest(_token!);
+        if (activeBbm != null) {
+          await setPendingBbmForVerification(activeBbm.id);
+        } else {
+          await clearPendingBbmForVerification();
+        }
+
+        // Cek Vehicle Location Aktif
+        final activeLocation = await _vehicleLocationService.getActiveLocation(_token!);
+        if (activeLocation != null) {
+          await setPendingVehicleLocationForVerification(activeLocation.id);
+        } else {
+          await clearPendingVehicleLocationForVerification();
+        }
       }
 
       _authStatus = AuthStatus.authenticated;
       notifyListeners();
-
-      startSessionTimer(); // <-- Mulai "Detak Jantung"
-      await syncUserProfile(); // Lakukan cek awal
     } catch (e) {
       debugPrint("Gagal memuat sesi dari Hive: $e. Sesi dibersihkan.");
       await logout();
@@ -97,9 +114,35 @@ class AuthProvider extends ChangeNotifier {
       await _authBox.put('token', _token);
       await _authBox.put('user', json.encode(_user!.toJson()));
       _authStatus = AuthStatus.authenticated;
+
+      if (_user!.roles.contains('driver')) {
+        // Cek Trip Aktif
+        final activeTrip = await _tripService.getActiveTrip(_token!);
+        if (activeTrip != null) {
+          await setPendingTripForVerification(activeTrip.id);
+        } else {
+          await clearPendingTripForVerification();
+        }
+
+        // Cek BBM Aktif
+        final activeBbm = await _bbmService.getActiveBbmRequest(_token!);
+        if (activeBbm != null) {
+          await setPendingBbmForVerification(activeBbm.id);
+        } else {
+          await clearPendingBbmForVerification();
+        }
+
+        // Cek Vehicle Location Aktif
+        final activeLocation = await _vehicleLocationService.getActiveLocation(_token!);
+        if (activeLocation != null) {
+          await setPendingVehicleLocationForVerification(activeLocation.id);
+        } else {
+          await clearPendingVehicleLocationForVerification();
+        }
+      }
+
       notifyListeners();
-      
-      startSessionTimer(); // <-- Mulai "Detak Jantung"
+
       return null;
     } catch (e) {
       _errorMessage = e.toString();
@@ -110,9 +153,6 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    stopSessionTimer();
-
-    // 1. Bersihkan data sesi dan ubah status menjadi unauthenticated
     _user = null;
     _token = null;
     await _authBox.clear();
@@ -120,13 +160,9 @@ class AuthProvider extends ChangeNotifier {
     await clearPendingBbmForVerification();
     await clearPendingVehicleLocationForVerification();
     _authStatus = AuthStatus.unauthenticated;
-    
-    // 2. Beritahu UI tentang perubahan status (ini opsional tapi baik)
+
     notifyListeners();
 
-    // 3. (LANGKAH KUNCI) Reset total navigasi ke AuthGate
-    // Ini akan membersihkan semua halaman dan memulai ulang dari AuthGate.
-    // Karena status sudah 'unauthenticated', AuthGate akan menampilkan LoginScreen.
     final navigator = NavigationService.navigatorKey.currentState;
     if (navigator != null) {
       navigator.pushAndRemoveUntil(
@@ -139,11 +175,10 @@ class AuthProvider extends ChangeNotifier {
   Future<void> handleInvalidSession() async {
     if (_authStatus == AuthStatus.authenticated) {
       debugPrint("5. DIALOG 'SESI BERAKHIR' SEHARUSNYA MUNCUL SEKARANG.");
-      stopSessionTimer();
       final BuildContext? context = NavigationService.currentContext;
       if (context != null && context.mounted) {
         if (ModalRoute.of(context)?.isCurrent != true) {
-            Navigator.of(context).pop();
+          Navigator.of(context).pop();
         }
         await showDialog(
           context: context,
@@ -151,7 +186,8 @@ class AuthProvider extends ChangeNotifier {
           builder: (BuildContext dialogContext) {
             return AlertDialog(
               title: const Text('Sesi Berakhir'),
-              content: const Text('Sesi Anda telah berakhir atau login dari perangkat lain.'),
+              content: const Text(
+                  'Sesi Anda telah berakhir atau login dari perangkat lain.'),
               actions: <Widget>[
                 TextButton(
                   child: const Text('OK'),
@@ -166,42 +202,58 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  void startSessionTimer() {
-    stopSessionTimer();
-    debugPrint("--- TIMER 'DETAK JANTUNG' DIMULAI ---");
-    _sessionCheckTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
-      debugPrint("1. TIMER BERJALAN: Mengecek sesi...");
-      syncUserProfile();
-    });
-  }
+  Future<bool> checkActiveSession() async {
+    if (token == null || _authStatus != AuthStatus.authenticated) {
+      return false;
+    }
 
-  void stopSessionTimer() {
-    if (_sessionCheckTimer != null) {
-      debugPrint("--- TIMER 'DETAK JANTUNG' DIHENTIKAN ---");
-      _sessionCheckTimer!.cancel();
+    try {
+      await _profileService.getProfile(token: token!);
+      return true;
+    } catch (e) {
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated.')) {
+        debugPrint(
+            "Sesi tidak valid terdeteksi oleh checkActiveSession! Memanggil handleInvalidSession...");
+        handleInvalidSession();
+      } else {
+        debugPrint("Error saat checkActiveSession: $errorString");
+      }
+      return false;
     }
   }
 
   Future<void> syncUserProfile() async {
-    if (token == null) {
-      stopSessionTimer();
+    if (token == null || _authStatus != AuthStatus.authenticated) {
       return;
     }
+
+    final now = DateTime.now();
+    if (_lastSessionCheck != null &&
+        now.difference(_lastSessionCheck!).inMinutes < 5) {
+      return;
+    }
+
     try {
-      debugPrint("2. API PROFIL DIPANGGIL...");
+      debugPrint(
+          "1. MEMERIKSA SESI: API profil dipanggil karena ada aksi dari user...");
+      _lastSessionCheck = now;
+
       await _profileService.getProfile(token: token!);
       debugPrint("   -> Panggilan API Profil Berhasil (Sesi Masih Valid).");
     } catch (e) {
+      _lastSessionCheck = null;
+
       final errorString = e.toString();
-      debugPrint("3. API PROFIL GAGAL! Eror: $errorString");
-      if (errorString.contains('Unauthenticated')) {
-        debugPrint("4. SESI TIDAK VALID TERDETEKSI! Memanggil handleInvalidSession...");
-        handleInvalidSession();
+      debugPrint("2. API PROFIL GAGAL! Eror: $errorString");
+      if (errorString.contains('Unauthenticated.')) {
+        debugPrint(
+            "3. SESI TIDAK VALID TERDETEKSI! Memanggil handleInvalidSession...");
+        await handleInvalidSession();
       }
     }
   }
-  
-  // Sisa fungsi lainnya
+
   Future<void> setPendingTripForVerification(int tripId) async {
     _pendingTripId = tripId;
     await _authBox.put('pendingTripId', tripId);
@@ -245,6 +297,7 @@ class AuthProvider extends ChangeNotifier {
     required String passwordConfirmation,
     required String phone,
     required String address,
+    required String nik,
   }) async {
     _authStatus = AuthStatus.authenticating;
     notifyListeners();
@@ -257,6 +310,7 @@ class AuthProvider extends ChangeNotifier {
         passwordConfirmation: passwordConfirmation,
         phone: phone,
         address: address,
+        nik: nik,
       );
       _authStatus = AuthStatus.unauthenticated;
       notifyListeners();
@@ -270,7 +324,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<String?> updatePassword({
-    required BuildContext context, 
+    required BuildContext context,
     required String currentPassword,
     required String newPassword,
     required String newPasswordConfirmation,
@@ -282,7 +336,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authService.updatePassword(
-        context: context, 
+        context: context,
         token: _token!,
         currentPassword: currentPassword,
         newPassword: newPassword,
@@ -302,6 +356,7 @@ class AuthProvider extends ChangeNotifier {
     required String name,
     required String address,
     required String phone,
+    required String nik,
     File? profilePhoto,
   }) async {
     if (_user == null || _token == null) return false;
@@ -316,6 +371,7 @@ class AuthProvider extends ChangeNotifier {
         email: _user!.email,
         address: address,
         phone: phone,
+        nik: nik,
         profilePhoto: profilePhoto,
       );
       _user = updatedUser;

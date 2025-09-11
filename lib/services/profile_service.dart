@@ -12,17 +12,16 @@ class ProfileService {
   final String _baseUrl = dotenv.env['API_BASE_URL'] ?? '';
 
   Future<User> getProfile({required String token}) async {
-    final url = Uri.parse('$_baseUrl/user/profile');
+    final url = Uri.parse('$_baseUrl/user');
     try {
       // ===== PERUBAHAN DI SINI: get diubah menjadi post =====
-      final response = await http.post(
+      final response = await http.get(
         url,
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
-      // ===== AKHIR PERUBAHAN =====
 
       final decoded = jsonDecode(response.body);
 
@@ -46,6 +45,7 @@ class ProfileService {
     required String email,
     required String address,
     required String phone,
+    required String nik,
     File? profilePhoto,
   }) async {
     final url = Uri.parse('$_baseUrl/user/profile');
@@ -59,6 +59,7 @@ class ProfileService {
       request.fields['email'] = email;
       request.fields['alamat'] = address;
       request.fields['no_telepon'] = phone;
+      request.fields['nik'] = nik;
 
       if (profilePhoto != null) {
         final mimeTypeData = lookupMimeType(profilePhoto.path)?.split('/');

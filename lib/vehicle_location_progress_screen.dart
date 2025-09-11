@@ -324,24 +324,11 @@ class _VehicleLocationProgressScreenState
     }
   }
 
-  Future<void> _showExitConfirmationDialog() async {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('Konfirmasi Keluar'),
-        content:
-            const Text('Progres Anda sudah tersimpan. Yakin ingin keluar?'),
-        actions: <Widget>[
-          TextButton(
-              child: const Text('Batal'),
-              onPressed: () => Navigator.of(context).pop()),
-          TextButton(
-              child: const Text('Keluar'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pop(true);
-              }),
-        ],
+  void _showCannotExitMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Anda harus menyelesaikan tugas ini untuk keluar.'),
+        backgroundColor: Colors.orange,
       ),
     );
   }
@@ -350,7 +337,7 @@ class _VehicleLocationProgressScreenState
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        _showExitConfirmationDialog();
+        _showCannotExitMessage();
         return false;
       },
       child: Scaffold(
@@ -420,12 +407,8 @@ class _VehicleLocationProgressScreenState
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          IconButton(
-              icon: const Icon(Icons.close, color: Colors.black54),
-              onPressed:
-                  _isSendingData ? null : () => _showExitConfirmationDialog()),
           Text(isRevision ? 'KIRIM ULANG REVISI' : _titles[_currentPage],
               style: const TextStyle(
                   fontSize: 16,

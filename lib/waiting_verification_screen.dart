@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:frontend_merallin/home_screen.dart';
+import 'package:frontend_merallin/laporan_perjalanan_screen.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
@@ -43,7 +45,7 @@ class WaitingVerificationScreen extends StatefulWidget {
   State<WaitingVerificationScreen> createState() => WaitingVerificationScreenState();
 }
 
-class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
+class WaitingVerificationScreenState extends State<WaitingVerificationScreen> with WidgetsBindingObserver {
   Timer? _pollingTimer;
   Timer? _timeoutTimer;
   bool _showTimeoutMessage = false;
@@ -54,6 +56,19 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
     super.initState();
     _startPolling();
     _startTimeoutTimer();
+    WidgetsBinding.instance.addObserver(this);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _startPolling();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint("Aplikasi kembali aktif, memeriksa status verifikasi Trip...");
+      _checkTripStatus();
+    }
   }
 
   void _startTimeoutTimer() {
@@ -70,7 +85,7 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
   void _startPolling() {
     Future.microtask(() => _checkTripStatus(isFirstCheck: true));
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       // <-- PERUBAHAN 2: Tambahkan setState untuk update counter -->
       if (mounted) {
         setState(() {
@@ -119,25 +134,39 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
     if (hasRejection) {
       // Jika ada, kembali untuk revisi.
       final rejectedDoc = trip.firstRejectedDocumentInfo;
-      Navigator.of(context).pop(
-        VerificationResult(
-          status: TripStatus.rejected,
-          rejectionReason: trip.allRejectionReasons ?? "Satu atau lebih dokumen ditolak.",
-          targetPage: rejectedDoc?.pageIndex ?? widget.initialPage,
-          updatedTrip: trip,
-        ),
+      final result = VerificationResult(
+        status: TripStatus.rejected,
+        rejectionReason: trip.allRejectionReasons ?? "Satu atau lebih dokumen ditolak.",
+        targetPage: rejectedDoc?.pageIndex ?? widget.initialPage,
+        updatedTrip: trip,
+      );
+      tripProvider.setAndProcessVerificationResult(result);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => LaporanDriverScreen(tripId: widget.tripId)),
+        (route) => false,
       );
     } else {
-      // 4. Jika tidak ada yang PENDING dan tidak ada yang REJECTED, berarti semua APPROVED.
-      // Lanjutkan ke halaman berikutnya.
-      final newPage = _determinePageAfterApproval(trip);
-      Navigator.of(context).pop(
-        VerificationResult(
+      if (trip.isFullyCompleted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.clearPendingTripForVerification();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          (route) => false,
+        );
+      } else {
+        // Jika tahap selesai, buat result dan simpan ke provider
+        final result = VerificationResult(
           status: TripStatus.approved,
-          targetPage: newPage,
+          targetPage: _determinePageAfterApproval(trip),
           updatedTrip: trip,
-        ),
-      );
+        );
+        tripProvider.setAndProcessVerificationResult(result);
+        
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => LaporanDriverScreen(tripId: widget.tripId)),
+          (route) => false,
+        );
+      }
     }
   }
 

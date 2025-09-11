@@ -2,12 +2,14 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Import Provider
+import 'package:frontend_merallin/bbm_waiting_verification.dart';
+import 'package:provider/provider.dart';
 import '../models/bbm_model.dart';
 import '../models/vehicle_model.dart';
-import '../services/bbm_service.dart'; // Untuk ApiException
+import '../services/bbm_service.dart';
 import '../services/vehicle_service.dart';
-import 'auth_provider.dart'; // Import AuthProvider
+import 'auth_provider.dart';
+
 
 class BbmProvider with ChangeNotifier {
   final BbmService _bbmService = BbmService();
@@ -24,6 +26,21 @@ class BbmProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isCreating => _isCreating;
   String? get errorMessage => _errorMessage;
+
+  BbmVerificationResult? _lastVerificationResult;
+
+  void setAndProcessVerificationResult(BbmVerificationResult result) {
+    _lastVerificationResult = result;
+    final index = _bbmRequests.indexWhere((b) => b.id == result.updatedBbm.id);
+    if (index != -1) {
+      _bbmRequests[index] = result.updatedBbm;
+    }
+    notifyListeners();
+  }
+
+  void clearLastVerificationResult() {
+    _lastVerificationResult = null;
+  }
 
   Future<void> fetchBbmRequests({
     required BuildContext context,

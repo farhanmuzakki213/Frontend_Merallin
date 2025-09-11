@@ -199,10 +199,9 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
               content: Text('Trip telah selesai!'),
               backgroundColor: Colors.blue));
           Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-            (route) => false
-          );
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+              (route) => false);
           return;
         }
 
@@ -380,33 +379,11 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
     }
   }
 
-  Future<void> _showExitConfirmationDialog() async {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('Konfirmasi Keluar'),
-        content:
-            const Text('Progres Anda sudah tersimpan. Yakin ingin keluar?'),
-        actions: <Widget>[
-          TextButton(
-              child: const Text('Batal'),
-              onPressed: () => Navigator.of(context).pop()),
-          TextButton(
-              child: const Text('Keluar'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pop(true);
-              }),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        _showExitConfirmationDialog();
+        _showCannotExitMessage();
         return false;
       },
       child: Scaffold(
@@ -454,6 +431,16 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
     );
   }
 
+  void _showCannotExitMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+            'Anda harus menyelesaikan perjalanan terlebih dahulu untuk keluar.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
   Widget _buildPageView() {
     if (_currentTrip == null) {
       return const Center(child: Text("Data perjalanan tidak tersedia."));
@@ -489,12 +476,8 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          IconButton(
-              icon: const Icon(Icons.close, color: Colors.black54),
-              onPressed:
-                  _isSendingData ? null : () => _showExitConfirmationDialog()),
           Text(isRevision ? 'KIRIM ULANG REVISI' : _titles[_currentPage],
               style: const TextStyle(
                   fontSize: 16,
@@ -730,14 +713,13 @@ class _StartTripPageState extends State<_StartTripPage> {
           const SizedBox(height: 24),
           if (!kmStatus.isApproved)
             _PhotoSection(
-                title: 'Foto KM Awal',
-                icon: Icons.camera_alt_outlined,
-                onImageChanged: (file) =>
-                    setState(() => _kmAwalImageFile = file),
-                rejectionReason: kmStatus.rejectionReason,
-                isApproved: kmStatus.isApproved,
-                existingImageUrl: widget.trip.fullStartKmPhotoUrl,
-                )
+              title: 'Foto KM Awal',
+              icon: Icons.camera_alt_outlined,
+              onImageChanged: (file) => setState(() => _kmAwalImageFile = file),
+              rejectionReason: kmStatus.rejectionReason,
+              isApproved: kmStatus.isApproved,
+              existingImageUrl: widget.trip.fullStartKmPhotoUrl,
+            )
           else
             _ApprovedDocumentPlaceholder(title: 'Foto KM Awal'),
         ],
@@ -882,18 +864,25 @@ class _KedatanganMuatPageState extends State<_KedatanganMuatPage> {
     final isRevision =
         widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
     if (!isRevision) {
-      if (_isStringNullOrEmpty(widget.trip.kmMuatPhotoPath) && _kmMuatImage == null ||
-          _isStringNullOrEmpty(widget.trip.kedatanganMuatPhotoPath) && _kedatanganMuatImage == null ||
-          _isStringNullOrEmpty(widget.trip.deliveryOrderPath) && _deliveryOrderImage == null) {
+      if (_isStringNullOrEmpty(widget.trip.kmMuatPhotoPath) &&
+              _kmMuatImage == null ||
+          _isStringNullOrEmpty(widget.trip.kedatanganMuatPhotoPath) &&
+              _kedatanganMuatImage == null ||
+          _isStringNullOrEmpty(widget.trip.deliveryOrderPath) &&
+              _deliveryOrderImage == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Semua foto wajib diisi.'),
             backgroundColor: Colors.red));
         return Future.value(null);
       }
     } else {
-      bool kmMuatNeedsUpdate = widget.trip.kmMuatPhotoStatus.isRejected && _kmMuatImage == null;
-      bool kedatanganMuatNeedsUpdate = widget.trip.kedatanganMuatPhotoStatus.isRejected && _kedatanganMuatImage == null;
-      bool doNeedsUpdate = widget.trip.deliveryOrderStatus.isRejected && _deliveryOrderImage == null;
+      bool kmMuatNeedsUpdate =
+          widget.trip.kmMuatPhotoStatus.isRejected && _kmMuatImage == null;
+      bool kedatanganMuatNeedsUpdate =
+          widget.trip.kedatanganMuatPhotoStatus.isRejected &&
+              _kedatanganMuatImage == null;
+      bool doNeedsUpdate = widget.trip.deliveryOrderStatus.isRejected &&
+          _deliveryOrderImage == null;
 
       if (kmMuatNeedsUpdate || kedatanganMuatNeedsUpdate || doNeedsUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -917,38 +906,38 @@ class _KedatanganMuatPageState extends State<_KedatanganMuatPage> {
       children: [
         if (!widget.trip.kmMuatPhotoStatus.isApproved)
           _PhotoSection(
-              title: 'Foto KM di Lokasi Muat',
-              icon: Icons.speed_outlined,
-              onImageChanged: (f) => _kmMuatImage = f,
-              rejectionReason: widget.trip.kmMuatPhotoStatus.rejectionReason,
-              isApproved: widget.trip.kmMuatPhotoStatus.isApproved,
-              existingImageUrl: widget.trip.fullKmMuatPhotoUrl,
-              )
+            title: 'Foto KM di Lokasi Muat',
+            icon: Icons.speed_outlined,
+            onImageChanged: (f) => _kmMuatImage = f,
+            rejectionReason: widget.trip.kmMuatPhotoStatus.rejectionReason,
+            isApproved: widget.trip.kmMuatPhotoStatus.isApproved,
+            existingImageUrl: widget.trip.fullKmMuatPhotoUrl,
+          )
         else
           const _ApprovedDocumentPlaceholder(title: 'Foto KM di Lokasi Muat'),
         const SizedBox(height: 24),
         if (!widget.trip.kedatanganMuatPhotoStatus.isApproved)
           _PhotoSection(
-              title: 'Foto Tiba di Lokasi Muat',
-              icon: Icons.location_on_outlined,
-              onImageChanged: (f) => _kedatanganMuatImage = f,
-              rejectionReason:
-                  widget.trip.kedatanganMuatPhotoStatus.rejectionReason,
-              isApproved: widget.trip.kedatanganMuatPhotoStatus.isApproved,
-              existingImageUrl: widget.trip.fullKedatanganMuatPhotoUrl,
-              )
+            title: 'Foto Tiba di Lokasi Muat',
+            icon: Icons.location_on_outlined,
+            onImageChanged: (f) => _kedatanganMuatImage = f,
+            rejectionReason:
+                widget.trip.kedatanganMuatPhotoStatus.rejectionReason,
+            isApproved: widget.trip.kedatanganMuatPhotoStatus.isApproved,
+            existingImageUrl: widget.trip.fullKedatanganMuatPhotoUrl,
+          )
         else
           const _ApprovedDocumentPlaceholder(title: 'Foto Tiba di Lokasi Muat'),
         const SizedBox(height: 24),
         if (!widget.trip.deliveryOrderStatus.isApproved)
           _PhotoSection(
-              title: 'Foto Delivery Order (DO)',
-              icon: Icons.receipt_long_outlined,
-              onImageChanged: (f) => _deliveryOrderImage = f,
-              rejectionReason: widget.trip.deliveryOrderStatus.rejectionReason,
-              isApproved: widget.trip.deliveryOrderStatus.isApproved,
-              existingImageUrl: widget.trip.fullDeliveryOrderUrl,
-              )
+            title: 'Foto Delivery Order (DO)',
+            icon: Icons.receipt_long_outlined,
+            onImageChanged: (f) => _deliveryOrderImage = f,
+            rejectionReason: widget.trip.deliveryOrderStatus.rejectionReason,
+            isApproved: widget.trip.deliveryOrderStatus.isApproved,
+            existingImageUrl: widget.trip.fullDeliveryOrderUrl,
+          )
         else
           const _ApprovedDocumentPlaceholder(title: 'Foto Delivery Order (DO)'),
       ],
@@ -976,8 +965,7 @@ class _ProsesMuatPageState extends State<_ProsesMuatPage> {
       if (photoPaths.isNotEmpty) {
         _gudangDataList.add(_GudangData()
           ..nameController.text = gudangName
-          ..existingPhotoUrls =
-              widget.trip.fullMuatPhotoUrls[gudangName] ?? []
+          ..existingPhotoUrls = widget.trip.fullMuatPhotoUrls[gudangName] ?? []
           ..isSaved = !isRevision);
       }
     });
@@ -1182,11 +1170,14 @@ class _SelesaiMuatPageState extends State<_SelesaiMuatPage> {
   Future<Trip?> validateAndSubmit() {
     final isRevision =
         widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
-        
-    bool sjReady = _suratJalanAwalImages.isNotEmpty || (widget.trip.deliveryLetterPath['initial_letters']?.isNotEmpty ?? false);
-    bool segelReady = _segelImage != null || !_isStringNullOrEmpty(widget.trip.segelPhotoPath);
-    bool timbanganReady = _timbanganImage != null || !_isStringNullOrEmpty(widget.trip.timbanganKendaraanPhotoPath);
 
+    bool sjReady = _suratJalanAwalImages.isNotEmpty ||
+        (widget.trip.deliveryLetterPath['initial_letters']?.isNotEmpty ??
+            false);
+    bool segelReady = _segelImage != null ||
+        !_isStringNullOrEmpty(widget.trip.segelPhotoPath);
+    bool timbanganReady = _timbanganImage != null ||
+        !_isStringNullOrEmpty(widget.trip.timbanganKendaraanPhotoPath);
 
     if (!isRevision) {
       if (!sjReady || !segelReady || !timbanganReady) {
@@ -1196,10 +1187,14 @@ class _SelesaiMuatPageState extends State<_SelesaiMuatPage> {
         return Future.value(null);
       }
     } else {
-      bool sjNeedsUpdate = widget.trip.deliveryLetterInitialStatus.isRejected && _suratJalanAwalImages.isEmpty;
-      bool segelNeedsUpdate = widget.trip.segelPhotoStatus.isRejected && _segelImage == null;
-      bool timbanganNeedsUpdate = widget.trip.timbanganKendaraanPhotoStatus.isRejected && _timbanganImage == null;
-      
+      bool sjNeedsUpdate = widget.trip.deliveryLetterInitialStatus.isRejected &&
+          _suratJalanAwalImages.isEmpty;
+      bool segelNeedsUpdate =
+          widget.trip.segelPhotoStatus.isRejected && _segelImage == null;
+      bool timbanganNeedsUpdate =
+          widget.trip.timbanganKendaraanPhotoStatus.isRejected &&
+              _timbanganImage == null;
+
       if (sjNeedsUpdate || segelNeedsUpdate || timbanganNeedsUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Silakan unggah ulang foto yang ditolak.'),
@@ -1222,40 +1217,41 @@ class _SelesaiMuatPageState extends State<_SelesaiMuatPage> {
       children: [
         if (!widget.trip.deliveryLetterInitialStatus.isApproved)
           _MultiPhotoSection(
-              title: 'Foto Surat Jalan Awal',
-              icon: Icons.document_scanner_outlined,
-              onImagesChanged: (f) => _suratJalanAwalImages = f,
-              rejectionReason:
-                  widget.trip.deliveryLetterInitialStatus.rejectionReason,
-              isApproved: widget.trip.deliveryLetterInitialStatus.isApproved,
-              isRejected: widget.trip.deliveryLetterInitialStatus.isRejected,
-              existingImageUrls: widget.trip.fullDeliveryLetterUrls['initial'] ?? [],
-              )
+            title: 'Foto Surat Jalan Awal',
+            icon: Icons.document_scanner_outlined,
+            onImagesChanged: (f) => _suratJalanAwalImages = f,
+            rejectionReason:
+                widget.trip.deliveryLetterInitialStatus.rejectionReason,
+            isApproved: widget.trip.deliveryLetterInitialStatus.isApproved,
+            isRejected: widget.trip.deliveryLetterInitialStatus.isRejected,
+            existingImageUrls:
+                widget.trip.fullDeliveryLetterUrls['initial'] ?? [],
+          )
         else
           const _ApprovedDocumentPlaceholder(title: 'Foto Surat Jalan Awal'),
         const SizedBox(height: 24),
         if (!widget.trip.segelPhotoStatus.isApproved)
           _PhotoSection(
-              title: 'Foto Segel',
-              icon: Icons.shield_outlined,
-              onImageChanged: (f) => _segelImage = f,
-              rejectionReason: widget.trip.segelPhotoStatus.rejectionReason,
-              isApproved: widget.trip.segelPhotoStatus.isApproved,
-              existingImageUrl: widget.trip.fullSegelPhotoUrl,
-              )
+            title: 'Foto Segel',
+            icon: Icons.shield_outlined,
+            onImageChanged: (f) => _segelImage = f,
+            rejectionReason: widget.trip.segelPhotoStatus.rejectionReason,
+            isApproved: widget.trip.segelPhotoStatus.isApproved,
+            existingImageUrl: widget.trip.fullSegelPhotoUrl,
+          )
         else
           const _ApprovedDocumentPlaceholder(title: 'Foto Segel'),
         const SizedBox(height: 24),
         if (!widget.trip.timbanganKendaraanPhotoStatus.isApproved)
           _PhotoSection(
-              title: 'Foto Timbangan Kendaraan',
-              icon: Icons.scale_outlined,
-              onImageChanged: (f) => _timbanganImage = f,
-              rejectionReason:
-                  widget.trip.timbanganKendaraanPhotoStatus.rejectionReason,
-              isApproved: widget.trip.timbanganKendaraanPhotoStatus.isApproved,
-              existingImageUrl: widget.trip.fullTimbanganKendaraanPhotoUrl,
-              )
+            title: 'Foto Timbangan Kendaraan',
+            icon: Icons.scale_outlined,
+            onImageChanged: (f) => _timbanganImage = f,
+            rejectionReason:
+                widget.trip.timbanganKendaraanPhotoStatus.rejectionReason,
+            isApproved: widget.trip.timbanganKendaraanPhotoStatus.isApproved,
+            existingImageUrl: widget.trip.fullTimbanganKendaraanPhotoUrl,
+          )
         else
           const _ApprovedDocumentPlaceholder(title: 'Foto Timbangan Kendaraan'),
       ],
@@ -1286,20 +1282,27 @@ class _KedatanganBongkarPageState extends State<_KedatanganBongkarPage> {
     final isRevision =
         widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
 
-    bool kmReady = _kmAkhirImage != null || !_isStringNullOrEmpty(widget.trip.endKmPhotoPath);
-    bool kedatanganReady = _kedatanganBongkarImage != null || !_isStringNullOrEmpty(widget.trip.kedatanganBongkarPhotoPath);
+    bool kmReady = _kmAkhirImage != null ||
+        !_isStringNullOrEmpty(widget.trip.endKmPhotoPath);
+    bool kedatanganReady = _kedatanganBongkarImage != null ||
+        !_isStringNullOrEmpty(widget.trip.kedatanganBongkarPhotoPath);
 
     if (!isRevision) {
-      if (!(_formKey.currentState?.validate() ?? false) || !kmReady || !kedatanganReady) {
+      if (!(_formKey.currentState?.validate() ?? false) ||
+          !kmReady ||
+          !kedatanganReady) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Semua field dan foto wajib diisi.'),
             backgroundColor: Colors.red));
         return Future.value(null);
       }
     } else {
-      bool kmNeedsUpdate = widget.trip.endKmPhotoStatus.isRejected && _kmAkhirImage == null;
-      bool kedatanganNeedsUpdate = widget.trip.kedatanganBongkarPhotoStatus.isRejected && _kedatanganBongkarImage == null;
-      
+      bool kmNeedsUpdate =
+          widget.trip.endKmPhotoStatus.isRejected && _kmAkhirImage == null;
+      bool kedatanganNeedsUpdate =
+          widget.trip.kedatanganBongkarPhotoStatus.isRejected &&
+              _kedatanganBongkarImage == null;
+
       if (kmNeedsUpdate || kedatanganNeedsUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Unggah ulang foto yang ditolak.'),
@@ -1319,7 +1322,8 @@ class _KedatanganBongkarPageState extends State<_KedatanganBongkarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isFormEnabled = !widget.trip.endKmPhotoStatus.isApproved || !widget.trip.kedatanganBongkarPhotoStatus.isApproved;
+    final isFormEnabled = !widget.trip.endKmPhotoStatus.isApproved ||
+        !widget.trip.kedatanganBongkarPhotoStatus.isApproved;
     return Form(
       key: _formKey,
       child: Column(
@@ -1350,26 +1354,26 @@ class _KedatanganBongkarPageState extends State<_KedatanganBongkarPage> {
           const SizedBox(height: 24),
           if (!widget.trip.endKmPhotoStatus.isApproved)
             _PhotoSection(
-                title: 'Foto KM Akhir',
-                icon: Icons.camera_alt_outlined,
-                onImageChanged: (f) => _kmAkhirImage = f,
-                rejectionReason: widget.trip.endKmPhotoStatus.rejectionReason,
-                isApproved: widget.trip.endKmPhotoStatus.isApproved,
-                existingImageUrl: widget.trip.fullEndKmPhotoUrl,
-                )
+              title: 'Foto KM Akhir',
+              icon: Icons.camera_alt_outlined,
+              onImageChanged: (f) => _kmAkhirImage = f,
+              rejectionReason: widget.trip.endKmPhotoStatus.rejectionReason,
+              isApproved: widget.trip.endKmPhotoStatus.isApproved,
+              existingImageUrl: widget.trip.fullEndKmPhotoUrl,
+            )
           else
             const _ApprovedDocumentPlaceholder(title: 'Foto KM Akhir'),
           const SizedBox(height: 24),
           if (!widget.trip.kedatanganBongkarPhotoStatus.isApproved)
             _PhotoSection(
-                title: 'Foto Tiba di Lokasi Bongkar',
-                icon: Icons.location_on_outlined,
-                onImageChanged: (f) => _kedatanganBongkarImage = f,
-                rejectionReason:
-                    widget.trip.kedatanganBongkarPhotoStatus.rejectionReason,
-                isApproved: widget.trip.kedatanganBongkarPhotoStatus.isApproved,
-                existingImageUrl: widget.trip.fullKedatanganBongkarPhotoUrl,
-                )
+              title: 'Foto Tiba di Lokasi Bongkar',
+              icon: Icons.location_on_outlined,
+              onImageChanged: (f) => _kedatanganBongkarImage = f,
+              rejectionReason:
+                  widget.trip.kedatanganBongkarPhotoStatus.rejectionReason,
+              isApproved: widget.trip.kedatanganBongkarPhotoStatus.isApproved,
+              existingImageUrl: widget.trip.fullKedatanganBongkarPhotoUrl,
+            )
           else
             const _ApprovedDocumentPlaceholder(
                 title: 'Foto Tiba di Lokasi Bongkar'),
@@ -1606,7 +1610,8 @@ class _SelesaiBongkarPageState extends State<_SelesaiBongkarPage> {
     final isRevision =
         widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
 
-    bool sjReady = _suratJalanAkhirImages.isNotEmpty || (widget.trip.deliveryLetterPath['final_letters']?.isNotEmpty ?? false);
+    bool sjReady = _suratJalanAkhirImages.isNotEmpty ||
+        (widget.trip.deliveryLetterPath['final_letters']?.isNotEmpty ?? false);
 
     if (!isRevision) {
       if (!sjReady) {
@@ -1616,11 +1621,11 @@ class _SelesaiBongkarPageState extends State<_SelesaiBongkarPage> {
         return Future.value(null);
       }
     } else {
-      if (widget.trip.deliveryLetterFinalStatus.isRejected && _suratJalanAkhirImages.isEmpty) {
+      if (widget.trip.deliveryLetterFinalStatus.isRejected &&
+          _suratJalanAkhirImages.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Unggah ulang surat jalan akhir.'),
-          backgroundColor: Colors.orange)
-        );
+            content: Text('Unggah ulang surat jalan akhir.'),
+            backgroundColor: Colors.orange));
         return Future.value(null);
       }
     }
@@ -1642,8 +1647,9 @@ class _SelesaiBongkarPageState extends State<_SelesaiBongkarPage> {
                 widget.trip.deliveryLetterFinalStatus.rejectionReason,
             isApproved: widget.trip.deliveryLetterFinalStatus.isApproved,
             isRejected: widget.trip.deliveryLetterFinalStatus.isRejected,
-            existingImageUrls: widget.trip.fullDeliveryLetterUrls['final'] ?? [],
-            )
+            existingImageUrls:
+                widget.trip.fullDeliveryLetterUrls['final'] ?? [],
+          )
         : const _ApprovedDocumentPlaceholder(title: 'Foto Surat Jalan Akhir');
   }
 }
@@ -1732,14 +1738,14 @@ class _PhotoSection extends StatefulWidget {
   final bool isApproved;
   final String? existingImageUrl;
 
-  const _PhotoSection(
-      {required this.title,
-      required this.icon,
-      required this.onImageChanged,
-      this.rejectionReason,
-      this.isApproved = false,
-      this.existingImageUrl,
-      });
+  const _PhotoSection({
+    required this.title,
+    required this.icon,
+    required this.onImageChanged,
+    this.rejectionReason,
+    this.isApproved = false,
+    this.existingImageUrl,
+  });
   @override
   State<_PhotoSection> createState() => _PhotoSectionState();
 }
@@ -1767,12 +1773,12 @@ class _PhotoSectionState extends State<_PhotoSection> {
   void _showPreview() {
     if (_imageFile != null) {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => _ImagePreviewScreen(imageFile: _imageFile!)
-      ));
-    } else if (widget.existingImageUrl != null && widget.existingImageUrl!.isNotEmpty) {
+          builder: (context) => _ImagePreviewScreen(imageFile: _imageFile!)));
+    } else if (widget.existingImageUrl != null &&
+        widget.existingImageUrl!.isNotEmpty) {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => _NetworkImagePreviewScreen(imageUrl: widget.existingImageUrl!)
-      ));
+          builder: (context) =>
+              _NetworkImagePreviewScreen(imageUrl: widget.existingImageUrl!)));
     }
   }
 
@@ -1780,25 +1786,29 @@ class _PhotoSectionState extends State<_PhotoSection> {
     if (_imageFile != null) {
       return Positioned.fill(child: Image.file(_imageFile!, fit: BoxFit.cover));
     }
-    if (widget.existingImageUrl != null && widget.existingImageUrl!.isNotEmpty) {
+    if (widget.existingImageUrl != null &&
+        widget.existingImageUrl!.isNotEmpty) {
       return Positioned.fill(
         child: Image.network(
           widget.existingImageUrl!,
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator()),
-          errorBuilder: (context, error, stack) => const Center(child: Icon(Icons.error_outline, color: Colors.red)),
+          loadingBuilder: (context, child, progress) => progress == null
+              ? child
+              : const Center(child: CircularProgressIndicator()),
+          errorBuilder: (context, error, stack) =>
+              const Center(child: Icon(Icons.error_outline, color: Colors.red)),
         ),
       );
     }
-    return Center(child: Icon(widget.icon, size: 50, color: Colors.grey.shade600));
+    return Center(
+        child: Icon(widget.icon, size: 50, color: Colors.grey.shade600));
   }
-
 
   @override
   Widget build(BuildContext context) {
     Color borderColor = isRejected ? Colors.red : Colors.grey.shade400;
     if (widget.isApproved) borderColor = Colors.green;
-    
+
     final String rejectionText = widget.rejectionReason?.isNotEmpty == true
         ? widget.rejectionReason!
         : "Foto ditolak, silakan unggah ulang.";
@@ -1835,29 +1845,31 @@ class _PhotoSectionState extends State<_PhotoSection> {
                   color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: borderColor, width: 1.5)),
-              child: Stack(
-                alignment: Alignment.center, 
-                children: [
-                  _buildImageWidget(),
-                  if (_imageFile != null || (widget.existingImageUrl != null && widget.existingImageUrl!.isNotEmpty))
-                    Container(
+              child: Stack(alignment: Alignment.center, children: [
+                _buildImageWidget(),
+                if (_imageFile != null ||
+                    (widget.existingImageUrl != null &&
+                        widget.existingImageUrl!.isNotEmpty))
+                  Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.2),
-                        shape: BoxShape.circle
-                      ),
-                      child: const Icon(Icons.zoom_in, color: Colors.white, size: 32)
-                    )
-                ]
-              )
-          )
-      ),
+                          color: Colors.black.withOpacity(0.2),
+                          shape: BoxShape.circle),
+                      child: const Icon(Icons.zoom_in,
+                          color: Colors.white, size: 32))
+              ]))),
       const SizedBox(height: 12),
       ElevatedButton.icon(
-          icon: Icon(_imageFile == null && (widget.existingImageUrl == null || widget.existingImageUrl!.isEmpty)
+          icon: Icon(_imageFile == null &&
+                  (widget.existingImageUrl == null ||
+                      widget.existingImageUrl!.isEmpty)
               ? Icons.camera_alt_outlined
               : Icons.replay_outlined),
-          label: Text(_imageFile == null && (widget.existingImageUrl == null || widget.existingImageUrl!.isEmpty) ? 'Ambil Foto' : 'Ambil Ulang'),
+          label: Text(_imageFile == null &&
+                  (widget.existingImageUrl == null ||
+                      widget.existingImageUrl!.isEmpty)
+              ? 'Ambil Foto'
+              : 'Ambil Ulang'),
           style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Theme.of(context).primaryColor,
@@ -1902,7 +1914,7 @@ class _MultiPhotoSectionState extends State<_MultiPhotoSection> {
     super.initState();
     _visibleExistingUrls = List.from(widget.existingImageUrls);
   }
-  
+
   @override
   void didUpdateWidget(covariant _MultiPhotoSection oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1912,7 +1924,6 @@ class _MultiPhotoSectionState extends State<_MultiPhotoSection> {
       });
     }
   }
-
 
   Future<void> _takePicture() async {
     if (widget.isApproved) {
@@ -2042,11 +2053,10 @@ class _MultiPhotoSectionState extends State<_MultiPhotoSection> {
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                              ? child
-                              : const Center(
-                                  child: CircularProgressIndicator()),
+                      loadingBuilder: (context, child, progress) => progress ==
+                              null
+                          ? child
+                          : const Center(child: CircularProgressIndicator()),
                       errorBuilder: (context, error, stack) => const Center(
                           child: Icon(Icons.error_outline, color: Colors.red)),
                     ),
@@ -2094,8 +2104,7 @@ class _MultiPhotoSectionState extends State<_MultiPhotoSection> {
                       child: const CircleAvatar(
                         radius: 14,
                         backgroundColor: Colors.red,
-                        child:
-                            Icon(Icons.close, color: Colors.white, size: 18),
+                        child: Icon(Icons.close, color: Colors.white, size: 18),
                       ),
                     ),
                   ),

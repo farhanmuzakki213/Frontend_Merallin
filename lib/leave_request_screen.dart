@@ -67,19 +67,14 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen>
         controller: _tabController,
         children: [
           LeaveRequestForm(
+            // ===== PERUBAHAN DI SINI =====
+            // Setelah sukses, kembali ke halaman sebelumnya (HomeScreen)
             onSuccess: () {
-              _tabController.animateTo(1);
-              final authProvider =
-                  Provider.of<AuthProvider>(context, listen: false);
-              if (authProvider.token != null) {
-                // ===== PERUBAHAN DI SINI =====
-                Provider.of<LeaveProvider>(context, listen: false)
-                    .fetchLeaveHistory(
-                  context: context,
-                  token: authProvider.token!,
-                );
+              if (mounted) {
+                Navigator.of(context).pop();
               }
             },
+            // ===== AKHIR PERUBAHAN =====
           ),
           const LeaveHistoryList(),
         ],
@@ -124,27 +119,6 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
         } else {
           _endDate = picked;
         }
-      });
-    }
-  }
-
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
-    );
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      if (await file.length() > 2048 * 1024) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Ukuran file tidak boleh melebihi 2MB.'),
-              backgroundColor: Colors.red,),);
-        }
-        return;
-      }
-      setState(() {
-        _pickedFile = file;
       });
     }
   }
@@ -195,7 +169,6 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
       return;
     }
 
-    // ===== PERUBAHAN DI SINI =====
     await leaveProvider.submitLeave(
       context: context,
       token: authProvider.token!,
@@ -205,6 +178,8 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
       alasan: _reasonController.text.trim(),
       fileBukti: _pickedFile,
     );
+
+    if (!mounted) return;
 
     if (leaveProvider.submissionStatus == DataStatus.success) {
       scaffoldMessenger.showSnackBar(const SnackBar(
@@ -284,13 +259,12 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                if (_selectedLeaveType == LeaveType.kepentinganKeluarga) ...[
+                if (_selectedLeaveType == LeaveType.kepentinganKeluarga ||
+                    _selectedLeaveType == LeaveType.sakit) ...[
                   _buildReasonSection(),
                   const SizedBox(height: 24),
                   _buildPhotoSection(),
                 ],
-                if (_selectedLeaveType == LeaveType.sakit)
-                  _buildUploadSection(),
                 const SizedBox(height: 40),
                 SizedBox(
                   width: double.infinity,
@@ -374,7 +348,6 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                     : null))
       ]);
 
-  // WIDGET FOTO DENGAN PREVIEW INTERAKTIF
   Widget _buildPhotoSection() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _buildSectionTitle('Bukti Foto (Wajib)'),
@@ -393,7 +366,6 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
           Padding(
               padding: const EdgeInsets.only(top: 16.0),
               child: Stack(alignment: Alignment.topRight, children: [
-                // FIX: Dibungkus dengan GestureDetector agar bisa diklik
                 GestureDetector(
                   onTap: () {
                     showDialog(
@@ -417,32 +389,6 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
                         backgroundColor: Colors.black54,
                         child:
                             Icon(Icons.close, size: 20, color: Colors.white)),
-                    onPressed: () => setState(() {
-                          _pickedFile = null;
-                        }))
-              ]))
-      ]);
-
-  Widget _buildUploadSection() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _buildSectionTitle('Bukti Izin (Wajib)'),
-        _buildCard(
-            child: _buildPickerTile(
-                icon: Icons.attach_file,
-                title: 'File Bukti',
-                value: _pickedFile != null ? _pickedFile!.path.split('/').last : 'Upload File',
-                onTap: _pickFile)),
-        if (_pickedFile != null)
-          Padding(
-              padding: const EdgeInsets.only(top: 8.0, left: 16),
-              child: Row(children: [
-                Expanded(
-                    child: Text(_pickedFile!.path.split('/').last,
-                        style: const TextStyle(color: Colors.black54),
-                        overflow: TextOverflow.ellipsis)),
-                IconButton(
-                    icon: const Icon(Icons.close,
-                        size: 20, color: Colors.redAccent),
                     onPressed: () => setState(() {
                           _pickedFile = null;
                         }))
