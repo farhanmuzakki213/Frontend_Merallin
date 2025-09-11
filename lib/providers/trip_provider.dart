@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/waiting_verification_screen.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../services/trip_service.dart';
@@ -67,6 +68,22 @@ class TripProvider with ChangeNotifier {
             trip.updatedAt!.month == now.month &&
             trip.updatedAt!.year == now.year)
         .length;
+  }
+
+  VerificationResult? _lastVerificationResult;
+
+  void setAndProcessVerificationResult(VerificationResult result) {
+    _lastVerificationResult = result;
+    // Update data trip
+    final index = _allTrips.indexWhere((t) => t.id == result.updatedTrip.id);
+    if (index != -1) {
+      _allTrips[index] = result.updatedTrip;
+    }
+    notifyListeners();
+  }
+
+  void clearLastVerificationResult() {
+    _lastVerificationResult = null;
   }
 
   Future<void> fetchVehicles({required BuildContext context, required String token}) async {

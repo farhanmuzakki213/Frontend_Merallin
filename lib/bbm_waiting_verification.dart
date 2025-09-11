@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:frontend_merallin/bbm_progress_screen.dart';
+import 'package:frontend_merallin/home_screen.dart';
 import 'package:provider/provider.dart';
 import 'models/bbm_model.dart';
 import 'providers/auth_provider.dart';
@@ -120,18 +122,24 @@ class _BbmWaitingVerificationScreenState
 
     final relevantStatuses = _getRelevantStatuses(bbm);
     if (relevantStatuses.isEmpty) {
-      // Jika tidak ada status yang relevan (misal dari halaman 1), anggap saja 'approved'
-      // dan biarkan progress screen yang menentukan halaman selanjutnya.
       _stopAllTimers();
-      Navigator.of(context).pop(BbmVerificationResult(
+      final result = BbmVerificationResult(
         status: BbmFlowStatus.approved,
         updatedBbm: bbm,
         targetPage: widget.initialPage + 1,
-      ));
+      );
+      provider.setAndProcessVerificationResult(result);
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+              builder: (context) => BbmProgressScreen(bbmId: widget.bbmId)),
+          (route) => false);
       return;
     }
 
-    final bool hasPending = relevantStatuses.any((s) => s.status == null || s.status!.isEmpty || s.status!.toLowerCase() == 'pending');
+    final bool hasPending = relevantStatuses.any((s) =>
+        s.status == null ||
+        s.status!.isEmpty ||
+        s.status!.toLowerCase() == 'pending');
     if (hasPending) {
       return; // Lanjutkan polling
     }
@@ -139,25 +147,39 @@ class _BbmWaitingVerificationScreenState
     _stopAllTimers();
 
     final bool hasRejection = relevantStatuses.any((s) => s.isRejected);
-
     if (hasRejection) {
       final rejectedInfo = bbm.firstRejectedDocumentInfo;
-      Navigator.of(context).pop(
-        BbmVerificationResult(
-          status: BbmFlowStatus.rejected,
-          updatedBbm: bbm,
-          targetPage: rejectedInfo?.pageIndex ?? widget.initialPage,
-          rejectionReason: bbm.allRejectionReasons,
-        ),
+      final result = BbmVerificationResult(
+        status: BbmFlowStatus.rejected,
+        updatedBbm: bbm,
+        targetPage: rejectedInfo?.pageIndex ?? widget.initialPage,
+        rejectionReason: bbm.allRejectionReasons,
       );
+      provider.setAndProcessVerificationResult(result);
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+              builder: (context) => BbmProgressScreen(bbmId: widget.bbmId)),
+          (route) => false);
     } else {
-      Navigator.of(context).pop(
-        BbmVerificationResult(
+      // Jika semua disetujui
+      if (bbm.isFullyCompleted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.clearPendingBbmForVerification();
+        Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            (route) => false);
+      } else {
+        final result = BbmVerificationResult(
           status: BbmFlowStatus.approved,
           updatedBbm: bbm,
           targetPage: widget.initialPage + 1,
-        ),
-      );
+        );
+        provider.setAndProcessVerificationResult(result);
+        Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+                builder: (context) => BbmProgressScreen(bbmId: widget.bbmId)),
+            (route) => false);
+      }
     }
   }
 
@@ -173,7 +195,8 @@ class _BbmWaitingVerificationScreenState
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SvgPicture.asset('assets/MERALLIN_LOGO_WAITING.svg', height: 70),
+                SvgPicture.asset('assets/MERALLIN_LOGO_WAITING.svg',
+                    height: 70),
                 const SizedBox(height: 32),
                 const CircularProgressIndicator(),
                 const SizedBox(height: 32),
