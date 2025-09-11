@@ -46,6 +46,7 @@ class ProfileService {
     required String email,
     required String address,
     required String phone,
+    required String nik,
     File? profilePhoto,
   }) async {
     final url = Uri.parse('$_baseUrl/user/profile');
@@ -59,6 +60,7 @@ class ProfileService {
       request.fields['email'] = email;
       request.fields['alamat'] = address;
       request.fields['no_telepon'] = phone;
+      request.fields['nik'] = nik;
 
       if (profilePhoto != null) {
         final mimeTypeData = lookupMimeType(profilePhoto.path)?.split('/');

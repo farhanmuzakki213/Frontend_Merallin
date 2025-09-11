@@ -28,6 +28,9 @@ class User {
   // ID KARYAWAN
   final String? idCardUrl;
 
+  @HiveField(7) // <-- NIK
+  final String nik;
+
   const User({
     required this.id,
     required this.name,
@@ -37,6 +40,7 @@ class User {
     required this.roles,
     required this.profilePhotoUrl,
     this.idCardUrl, // <-- Tambahkan constructor ID KARYAWAN
+    required this.nik, // <-- Tambahkan constructor NIK KARYAWAN
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -59,6 +63,7 @@ class User {
         profilePhotoUrl: json['profile_photo_url'] ?? '',
         roles: roleNames,
         idCardUrl: json['id_card_url'],
+        nik: json['nik'] ?? '',
       );
     } catch (e) {
       debugPrint('Error parsing User from JSON: $e');
@@ -76,6 +81,7 @@ class User {
       'roles': roles,
       'profile_photo_url': profilePhotoUrl,
       'id_card_url': idCardUrl,
+      'nik': nik,
     };
   }
 }

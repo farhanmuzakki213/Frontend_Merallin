@@ -19,6 +19,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
+  late TextEditingController _nikController;
 
   File? _imageFile; // State untuk menyimpan file gambar yang dipilih
   bool _isLoading = false; // State untuk mengelola status loading
@@ -32,6 +33,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _emailController = TextEditingController(text: user?.email ?? '');
     _phoneController = TextEditingController(text: user?.phoneNumber ?? '');
     _addressController = TextEditingController(text: user?.address ?? '');
+    _nikController = TextEditingController(text: user?.nik ?? '');
   }
 
   @override
@@ -40,6 +42,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _nikController.dispose();
     super.dispose();
   }
 
@@ -69,6 +72,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
+        nik: _nikController.text.trim(),
         profilePhoto: _imageFile,
       );
 
@@ -129,6 +133,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Nama tidak boleh kosong';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+              _buildTextField(
+                controller: _nikController,
+                labelText: 'NIK',
+                icon: Icons.credit_card_outlined,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'NIK tidak boleh kosong';
+                  }
+                  if (value.length != 16) {
+                    return 'NIK harus 16 digit';
                   }
                   return null;
                 },

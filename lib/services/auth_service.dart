@@ -59,6 +59,7 @@ class AuthService {
     required String passwordConfirmation,
     required String phone, // Tambahkan ini
     required String address, // Tambahkan ini
+    required String nik, // Tambahkan ini
   }) async {
     final url = Uri.parse('$_baseUrl/register');
     try {
@@ -72,6 +73,7 @@ class AuthService {
           'password_confirmation': passwordConfirmation,
           'no_telepon': phone, // Sesuaikan dengan nama field di API
           'alamat': address,
+          'nik': nik, // Tambahkan NIK
         }),
       );
 
