@@ -23,12 +23,10 @@ class _MyTripScreenState extends State<MyTripScreen> {
     });
   }
 
-  // <-- Muat ulang data sekarang hanya memanggil provider -->
   Future<void> _reloadData() async {
     final authProvider = context.read<AuthProvider>();
     if (authProvider.token != null) {
-      // Panggil method fetch dari TripProvider
-       await context.read<TripProvider>().fetchTrips(
+      await context.read<TripProvider>().fetchTrips(
             context: context,
             token: authProvider.token!,
           );
@@ -47,16 +45,21 @@ class _MyTripScreenState extends State<MyTripScreen> {
     final success = await tripProvider.acceptTrip(authProvider.token!, tripId);
 
     if (mounted && success) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
           content: Text('Tugas berhasil dimulai!'),
-          backgroundColor: Colors.green,),);
+          backgroundColor: Colors.green,
+        ),
+      );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
           content: Text(tripProvider.errorMessage ?? 'Gagal memulai tugas'),
-          backgroundColor: Colors.red,),);
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
-
 
   void _showStartTripConfirmation(Trip trip) {
     showDialog(
@@ -132,7 +135,6 @@ class _MyTripScreenState extends State<MyTripScreen> {
   }
 
   Widget _buildTripList(TripProvider tripProvider) {
-    // <-- Ambil data langsung dari getter provider -->
     final activeTrips = tripProvider.activeTrips;
     final availableTrips = tripProvider.availableTrips;
 

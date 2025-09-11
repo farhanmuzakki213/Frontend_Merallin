@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:frontend_merallin/home_screen.dart';
+import 'package:frontend_merallin/laporan_perjalanan_screen.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
@@ -119,25 +121,39 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
     if (hasRejection) {
       // Jika ada, kembali untuk revisi.
       final rejectedDoc = trip.firstRejectedDocumentInfo;
-      Navigator.of(context).pop(
-        VerificationResult(
-          status: TripStatus.rejected,
-          rejectionReason: trip.allRejectionReasons ?? "Satu atau lebih dokumen ditolak.",
-          targetPage: rejectedDoc?.pageIndex ?? widget.initialPage,
-          updatedTrip: trip,
-        ),
+      final result = VerificationResult(
+        status: TripStatus.rejected,
+        rejectionReason: trip.allRejectionReasons ?? "Satu atau lebih dokumen ditolak.",
+        targetPage: rejectedDoc?.pageIndex ?? widget.initialPage,
+        updatedTrip: trip,
+      );
+      tripProvider.setAndProcessVerificationResult(result);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => LaporanDriverScreen(tripId: widget.tripId)),
+        (route) => false,
       );
     } else {
-      // 4. Jika tidak ada yang PENDING dan tidak ada yang REJECTED, berarti semua APPROVED.
-      // Lanjutkan ke halaman berikutnya.
-      final newPage = _determinePageAfterApproval(trip);
-      Navigator.of(context).pop(
-        VerificationResult(
+      if (trip.isFullyCompleted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.clearPendingTripForVerification();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          (route) => false,
+        );
+      } else {
+        // Jika tahap selesai, buat result dan simpan ke provider
+        final result = VerificationResult(
           status: TripStatus.approved,
-          targetPage: newPage,
+          targetPage: _determinePageAfterApproval(trip),
           updatedTrip: trip,
-        ),
-      );
+        );
+        tripProvider.setAndProcessVerificationResult(result);
+        
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => LaporanDriverScreen(tripId: widget.tripId)),
+          (route) => false,
+        );
+      }
     }
   }
 

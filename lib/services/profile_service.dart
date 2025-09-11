@@ -14,15 +14,13 @@ class ProfileService {
   Future<User> getProfile({required String token}) async {
     final url = Uri.parse('$_baseUrl/user/profile');
     try {
-      // ===== PERUBAHAN DI SINI: get diubah menjadi post =====
-      final response = await http.post(
+      final response = await http.get(
         url,
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
-      // ===== AKHIR PERUBAHAN =====
 
       final decoded = jsonDecode(response.body);
 

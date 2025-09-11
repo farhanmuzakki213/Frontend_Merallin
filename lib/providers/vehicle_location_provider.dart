@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Import Provider
+import 'package:frontend_merallin/vehicle_location_waiting_screen.dart';
+import 'package:provider/provider.dart';
 import '../models/vehicle_location_model.dart';
 import '../models/vehicle_model.dart';
-import '../services/trip_service.dart'; // For ApiException
+import '../services/trip_service.dart';
 import '../services/vehicle_location_service.dart';
 import '../services/vehicle_service.dart';
-import 'auth_provider.dart'; // Import AuthProvider
+import 'auth_provider.dart';
 
 class VehicleLocationProvider with ChangeNotifier {
   final VehicleLocationService _locationService = VehicleLocationService();
@@ -21,6 +22,8 @@ class VehicleLocationProvider with ChangeNotifier {
   List<Vehicle> get vehicles => _vehicles;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  VehicleLocationVerificationResult? _lastVerificationResult;
 
   Future<void> fetchHistory({
     required BuildContext context,
@@ -42,6 +45,21 @@ class VehicleLocationProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void setAndProcessVerificationResult(
+      VehicleLocationVerificationResult result) {
+    _lastVerificationResult = result;
+    final index =
+        _history.indexWhere((h) => h.id == result.updatedLocation.id);
+    if (index != -1) {
+      _history[index] = result.updatedLocation;
+    }
+    notifyListeners();
+  }
+
+  void clearLastVerificationResult() {
+    _lastVerificationResult = null;
   }
 
   Future<void> fetchVehicles({

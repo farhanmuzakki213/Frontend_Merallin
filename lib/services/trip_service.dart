@@ -6,7 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart';
 import '../models/trip_model.dart';
-import 'dart:async'; // Import for TimeoutException
+import 'dart:async';
 
 class ApiException implements Exception {
   final String message;
@@ -30,7 +30,6 @@ class ApiException implements Exception {
 
 class TripService {
   final String _baseUrl = dotenv.env['API_BASE_URL'] ?? '';
-// PERUBAHAN UNTUK BISA DIPAKAI DI BBM
   void handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
     Map<String, dynamic>? errorBody;
@@ -108,6 +107,17 @@ class TripService {
     }
   }
 
+  Future<Trip?> getActiveTrip(String token) async {
+    try {
+      final List<Trip> allTrips = await getTrips(token);
+      return allTrips.firstWhere((trip) =>
+          trip.derivedStatus != TripDerivedStatus.selesai &&
+          trip.derivedStatus != TripDerivedStatus.tersedia);
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<Trip> getTripDetails(String token, int tripId) async {
     if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
     final url = Uri.parse('$_baseUrl/trips/$tripId');
@@ -137,7 +147,7 @@ class TripService {
   Future<Trip> updateStartTrip({
     required String token,
     required int tripId,
-    required int vehicleId, // Diubah dari licensePlate
+    required int vehicleId,
     required String startKm,
     File? startKmPhoto,
   }) async {
@@ -146,7 +156,7 @@ class TripService {
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
 
-    request.fields['vehicle_id'] = vehicleId.toString(); // Kirim ID
+    request.fields['vehicle_id'] = vehicleId.toString();
     request.fields['start_km'] = startKm;
 
     if (startKmPhoto != null) {
@@ -200,7 +210,6 @@ class TripService {
   Future<Trip> updateProsesMuat({
     required String token,
     required int tripId,
-    // Tipe data diubah dari List<File> menjadi Map<String, List<File>>
     required Map<String, List<File>> photosByWarehouse,
   }) async {
     final url = Uri.parse('$_baseUrl/driver/trips/$tripId/update-proses-muat');
@@ -208,12 +217,10 @@ class TripService {
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
 
-    // Loop melalui setiap entri gudang di dalam map
     for (var entry in photosByWarehouse.entries) {
       final warehouseName = entry.key;
       final files = entry.value;
       for (var file in files) {
-        // Membuat key dinamis: muat_photo[NAMA GUDANG][]
         request.files.add(await http.MultipartFile.fromPath(
             'muat_photo[$warehouseName][]', file.path,
             filename: basename(file.path)));
@@ -296,7 +303,6 @@ class TripService {
   Future<Trip> updateProsesBongkar({
     required String token,
     required int tripId,
-    // Tipe data diubah dari List<File> menjadi Map<String, List<File>>
     required Map<String, List<File>> photosByWarehouse,
   }) async {
     final url =
@@ -305,12 +311,10 @@ class TripService {
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json';
 
-    // Loop melalui setiap entri gudang di dalam map
     for (var entry in photosByWarehouse.entries) {
       final warehouseName = entry.key;
       final files = entry.value;
       for (var file in files) {
-        // Membuat key dinamis: bongkar_photo[NAMA GUDANG][]
         request.files.add(await http.MultipartFile.fromPath(
             'bongkar_photo[$warehouseName][]', file.path,
             filename: basename(file.path)));

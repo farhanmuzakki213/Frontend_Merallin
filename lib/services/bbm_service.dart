@@ -74,6 +74,15 @@ class BbmService {
     return data.map((json) => BbmKendaraan.fromJson(json)).toList();
   }
 
+  Future<BbmKendaraan?> getActiveBbmRequest(String token) async {
+    try {
+      final allRequests = await getBbmRequests(token);
+      return allRequests.firstWhere((req) => req.derivedStatus != BbmStatus.selesai);
+    } catch (e) {
+      return null; // Tidak ada yang aktif
+    }
+  }
+
   // Mengambil detail satu entri BBM
   Future<BbmKendaraan> getBbmDetails(String token, int bbmId) async {
     final url = Uri.parse('$_baseUrl/driver/bbm_kendaraan/$bbmId');

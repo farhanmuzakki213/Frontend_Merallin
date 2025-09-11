@@ -3,10 +3,11 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:frontend_merallin/models/trip_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart';
 import '../models/vehicle_location_model.dart';
-import 'trip_service.dart'; // Re-use ApiException for consistency
+import 'trip_service.dart';
 
 class VehicleLocationService {
   final String _baseUrl = dotenv.env['API_BASE_URL'] ?? '';
@@ -21,6 +22,15 @@ class VehicleLocationService {
     _helperService.handleResponse(response);
     final List<dynamic> data = json.decode(response.body);
     return data.map((json) => VehicleLocation.fromJson(json)).toList();
+  }
+
+  Future<VehicleLocation?> getActiveLocation(String token) async {
+    try {
+      final allLocations = await getHistory(token);
+      return allLocations.firstWhere((loc) => loc.derivedStatus != TripDerivedStatus.selesai);
+    } catch(e) {
+      return null;
+    }
   }
 
   Future<VehicleLocation> getDetails(String token, int locationId) async {
