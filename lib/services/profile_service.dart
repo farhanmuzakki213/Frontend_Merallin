@@ -12,10 +12,10 @@ class ProfileService {
   final String _baseUrl = dotenv.env['API_BASE_URL'] ?? '';
 
   Future<User> getProfile({required String token}) async {
-    final url = Uri.parse('$_baseUrl/user/profile');
+    final url = Uri.parse('$_baseUrl/user');
     try {
       // ===== PERUBAHAN DI SINI: get diubah menjadi post =====
-      final response = await http.post(
+      final response = await http.get(
         url,
         headers: {
           'Accept': 'application/json',

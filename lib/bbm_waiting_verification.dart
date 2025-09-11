@@ -44,7 +44,7 @@ class BbmWaitingVerificationScreen extends StatefulWidget {
 }
 
 class _BbmWaitingVerificationScreenState
-    extends State<BbmWaitingVerificationScreen> {
+    extends State<BbmWaitingVerificationScreen> with WidgetsBindingObserver {
   Timer? _pollingTimer;
   Timer? _timeoutTimer;
   bool _showTimeoutMessage = false;
@@ -53,17 +53,26 @@ class _BbmWaitingVerificationScreenState
   void initState() {
     super.initState();
     _startTimeoutTimer();
-    // Beri jeda singkat sebelum memulai polling agar UI sempat build
+    WidgetsBinding.instance.addObserver(this);
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) _startPolling();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint("Aplikasi kembali aktif, memeriksa status verifikasi BBM...");
+      _checkBbmStatus();
+    }
   }
 
   void _startPolling() {
     _pollingTimer?.cancel();
     _checkBbmStatus(isFirstCheck: true);
     _pollingTimer =
-        Timer.periodic(const Duration(seconds: 5), (_) => _checkBbmStatus());
+        Timer.periodic(const Duration(minutes: 1), (_) => _checkBbmStatus());
   }
 
   void _startTimeoutTimer() {
@@ -98,8 +107,16 @@ class _BbmWaitingVerificationScreenState
   Future<void> _checkBbmStatus({bool isFirstCheck = false}) async {
     if (!mounted) return;
 
+    final authProvider = context.read<AuthProvider>();
     final provider = context.read<BbmProvider>();
-    final token = context.read<AuthProvider>().token!;
+
+    final isSessionValid = await authProvider.checkActiveSession();
+    if (!isSessionValid) {
+      _stopAllTimers();
+      return;
+    }
+
+    final token = authProvider.token!;
     BbmKendaraan? bbm;
 
     try {

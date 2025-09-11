@@ -155,6 +155,27 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> checkActiveSession() async {
+    if (token == null || _authStatus != AuthStatus.authenticated) {
+      return false;
+    }
+
+    try {
+      await _profileService.getProfile(token: token!);
+      return true;
+    } catch (e) {
+      final errorString = e.toString();
+      if (errorString.contains('Unauthenticated.')) {
+        debugPrint(
+            "Sesi tidak valid terdeteksi oleh checkActiveSession! Memanggil handleInvalidSession...");
+        handleInvalidSession();
+      } else {
+        debugPrint("Error saat checkActiveSession: $errorString");
+      }
+      return false;
+    }
+  }
+
   Future<void> syncUserProfile() async {
     if (token == null || _authStatus != AuthStatus.authenticated) {
       return;
@@ -179,7 +200,7 @@ class AuthProvider extends ChangeNotifier {
 
       final errorString = e.toString();
       debugPrint("2. API PROFIL GAGAL! Eror: $errorString");
-      if (errorString.contains('Unauthenticated')) {
+      if (errorString.contains('Unauthenticated.')) {
         debugPrint(
             "3. SESI TIDAK VALID TERDETEKSI! Memanggil handleInvalidSession...");
         await handleInvalidSession();
