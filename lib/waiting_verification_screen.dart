@@ -45,7 +45,7 @@ class WaitingVerificationScreen extends StatefulWidget {
   State<WaitingVerificationScreen> createState() => WaitingVerificationScreenState();
 }
 
-class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
+class WaitingVerificationScreenState extends State<WaitingVerificationScreen> with WidgetsBindingObserver {
   Timer? _pollingTimer;
   Timer? _timeoutTimer;
   bool _showTimeoutMessage = false;
@@ -56,6 +56,19 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
     super.initState();
     _startPolling();
     _startTimeoutTimer();
+    WidgetsBinding.instance.addObserver(this);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _startPolling();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint("Aplikasi kembali aktif, memeriksa status verifikasi Trip...");
+      _checkTripStatus();
+    }
   }
 
   void _startTimeoutTimer() {
@@ -72,7 +85,7 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
   void _startPolling() {
     Future.microtask(() => _checkTripStatus(isFirstCheck: true));
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       // <-- PERUBAHAN 2: Tambahkan setState untuk update counter -->
       if (mounted) {
         setState(() {

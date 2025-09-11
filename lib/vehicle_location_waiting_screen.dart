@@ -47,7 +47,7 @@ class WaitingVehicleLocationVerificationScreen extends StatefulWidget {
   State<WaitingVehicleLocationVerificationScreen> createState() => _WaitingVehicleLocationVerificationScreenState();
 }
 
-class _WaitingVehicleLocationVerificationScreenState extends State<WaitingVehicleLocationVerificationScreen> {
+class _WaitingVehicleLocationVerificationScreenState extends State<WaitingVehicleLocationVerificationScreen> with WidgetsBindingObserver {
   Timer? _pollingTimer;
   Timer? _timeoutTimer;
   bool _showTimeoutMessage = false;
@@ -58,6 +58,19 @@ class _WaitingVehicleLocationVerificationScreenState extends State<WaitingVehicl
     super.initState();
     _startPolling();
     _startTimeoutTimer();
+    WidgetsBinding.instance.addObserver(this);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _startPolling();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint("Aplikasi kembali aktif, memeriksa status verifikasi VehicleLocation...");
+      _checkLocationStatus();
+    }
   }
 
   void _startTimeoutTimer() {
@@ -73,7 +86,7 @@ class _WaitingVehicleLocationVerificationScreenState extends State<WaitingVehicl
   void _startPolling() {
     Future.microtask(() => _checkLocationStatus(isFirstCheck: true));
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
         setState(() {
           _pollingCount++;
