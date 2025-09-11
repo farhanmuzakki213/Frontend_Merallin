@@ -74,7 +74,7 @@ class _BbmWaitingVerificationScreenState
     _pollingTimer?.cancel();
     _checkBbmStatus(isFirstCheck: true);
     _pollingTimer =
-        Timer.periodic(const Duration(minutes: 1), (_) => _checkBbmStatus());
+        Timer.periodic(const Duration(seconds: 5), (_) => _checkBbmStatus());
   }
 
   void _startTimeoutTimer() {

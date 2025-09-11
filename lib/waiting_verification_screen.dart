@@ -85,7 +85,7 @@ class WaitingVerificationScreenState extends State<WaitingVerificationScreen> wi
   void _startPolling() {
     Future.microtask(() => _checkTripStatus(isFirstCheck: true));
 
-    _pollingTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       // <-- PERUBAHAN 2: Tambahkan setState untuk update counter -->
       if (mounted) {
         setState(() {

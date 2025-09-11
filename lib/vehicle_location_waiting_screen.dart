@@ -74,7 +74,7 @@ class _WaitingVehicleLocationVerificationScreenState extends State<WaitingVehicl
   }
 
   void _startTimeoutTimer() {
-    _timeoutTimer = Timer(const Duration(minutes: 1), () {
+    _timeoutTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
         setState(() {
           _showTimeoutMessage = true;
