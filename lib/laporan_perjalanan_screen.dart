@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/home_screen.dart';
+import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/waiting_verification_screen.dart';
+import 'package:frontend_merallin/widgets/in_app_widgets.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../models/vehicle_model.dart';
@@ -62,7 +64,18 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Panggil pengecekan status absensi setiap kali layar ini dibuka
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.token != null) {
+        context.read<AttendanceProvider>().checkTodayAttendanceStatus(
+              context: context,
+              token: authProvider.token!,
+            );
+      }
     _fetchTripDetailsAndProceed();
+  }
+  );
   }
 
   Future<void> _fetchTripDetailsAndProceed({bool forceShowForm = false}) async {
@@ -425,6 +438,11 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
               Container(
                   color: Colors.black.withOpacity(0.5),
                   child: const Center(child: CircularProgressIndicator())),
+            if (!_isLoading && _error == null && _currentTrip != null)
+              DraggableSpeedDial(
+                currentVehicle: _currentTrip!.vehicle,
+                showBbmOption: true, // true untuk trip & trip geser
+              ),
           ],
         ),
       ),
@@ -449,6 +467,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
         _currentTrip!.derivedStatus == TripDerivedStatus.revisiGambar;
     return Column(
       children: [
+        const AttendanceNotificationBanner(),
         _buildCustomAppBar(isRevision: isRevision),
         Padding(
             padding:
@@ -483,7 +502,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87)),
-          const SizedBox(width: 48),
+          // const SizedBox(width: 48),
         ],
       ),
     );

@@ -3,6 +3,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/home_screen.dart';
+import 'package:frontend_merallin/providers/attendance_provider.dart';
+import 'package:frontend_merallin/widgets/in_app_widgets.dart';
 import 'package:provider/provider.dart';
 import 'bbm_waiting_verification.dart';
 import 'models/bbm_model.dart';
@@ -51,6 +53,13 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.token != null) {
+        context.read<AttendanceProvider>().checkTodayAttendanceStatus(
+              context: context,
+              token: authProvider.token!,
+            );
+      }
       _fetchDetailsAndProceed();
     });
   }
@@ -353,6 +362,11 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
                 color: Colors.black.withOpacity(0.5),
                 child: const Center(child: CircularProgressIndicator()),
               ),
+            if (!_isLoading && _error == null && _currentBbm != null)
+              DraggableSpeedDial(
+                currentVehicle: _currentBbm!.vehicle,
+                showBbmOption: false, // true untuk trip & trip geser
+              ),
           ],
         ),
       ),
@@ -367,6 +381,7 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
 
     return Column(
       children: [
+        const AttendanceNotificationBanner(),
         _buildCustomAppBar(isRevision: isRevision),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
@@ -405,7 +420,7 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
               color: Colors.black87,
             ),
           ),
-          const SizedBox(width: 48),
+          // const SizedBox(width: 48),
         ],
       ),
     );
