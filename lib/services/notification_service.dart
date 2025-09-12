@@ -10,12 +10,9 @@ class NotificationService {
 
   // Fungsi untuk inisialisasi
   static Future<void> initialize() async {
-    // Pengaturan untuk Android
-    // 'ic_notification' adalah nama file ikon yang Anda siapkan di Langkah 2
     const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@drawable/ic_notification');
+        AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // Pengaturan untuk iOS (tidak memerlukan ikon khusus di sini)
     const DarwinInitializationSettings iosSettings = DarwinInitializationSettings();
 
     const InitializationSettings settings = InitializationSettings(
@@ -23,13 +20,10 @@ class NotificationService {
       iOS: iosSettings,
     );
 
-    // Inisialisasi plugin dengan pengaturan di atas
     await _notificationsPlugin.initialize(
       settings,
-      // Aksi yang dijalankan saat notifikasi ditekan
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
         if (response.payload != null && response.payload!.isNotEmpty) {
-          // Buka file menggunakan path yang dikirim melalui payload
           await OpenFilex.open(response.payload!);
         }
       },

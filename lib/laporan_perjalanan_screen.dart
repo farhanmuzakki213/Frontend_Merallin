@@ -139,13 +139,13 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
       case 2:
         return !_isStringNullOrEmpty(trip.kmMuatPhotoPath);
       case 3:
-        return trip.muatPhotoPath.isNotEmpty;
+        return trip.muatPhotoPath.keys.length >= (trip.jumlahGudangMuat ?? 1);
       case 4:
         return trip.deliveryLetterPath['initial_letters']?.isNotEmpty ?? false;
       case 6:
         return !_isStringNullOrEmpty(trip.endKmPhotoPath);
       case 7:
-        return trip.bongkarPhotoPath.isNotEmpty;
+        return trip.bongkarPhotoPath.keys.length >= (trip.jumlahGudangBongkar ?? 1);
       case 8:
         return trip.deliveryLetterPath['final_letters']?.isNotEmpty ?? false;
       default:
