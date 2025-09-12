@@ -133,7 +133,7 @@ class Lembur {
   final String selesaiJamLembur; // Format "HH:mm:ss"
   final StatusPersetujuan statusLembur;
   final StatusPersetujuan persetujuanDireksi;
-  final StatusPersetujuan persetujuanManajer;
+  // final StatusPersetujuan persetujuanManajer;
   final String? alasanPenolakan;
   final String? fileFinalUrl;
   final DateTime? createdAt;
@@ -156,7 +156,7 @@ class Lembur {
     required this.selesaiJamLembur,
     required this.statusLembur,
     required this.persetujuanDireksi,
-    required this.persetujuanManajer,
+    // required this.persetujuanManajer,
     this.alasanPenolakan,
     this.fileFinalUrl,
     this.createdAt,
@@ -199,8 +199,8 @@ class Lembur {
         persetujuanDireksi: StatusPersetujuanExtension.fromString(
             json['persetujuan_direksi'] ?? 'Menunggu Persetujuan'),
             
-        persetujuanManajer: StatusPersetujuanExtension.fromString(
-            json['persetujuan_manajer'] ?? 'Menunggu Persetujuan'),
+        // persetujuanManajer: StatusPersetujuanExtension.fromString(
+        //     json['persetujuan_manajer'] ?? 'Menunggu Persetujuan'),
 
         alasanPenolakan: json['alasan_penolakan'] ?? json['alasan'],
         fileFinalUrl: json['file_final_url'] ?? json['file_url'],
@@ -223,7 +223,7 @@ class Lembur {
   Lembur copyWith({
     StatusPersetujuan? statusLembur,
     StatusPersetujuan? persetujuanDireksi,
-    StatusPersetujuan? persetujuanManajer,
+    // StatusPersetujuan? persetujuanManajer,
     String? alasanPenolakan,
     String? fileFinalUrl,
     DateTime? jamMulaiAktual,
@@ -246,7 +246,7 @@ class Lembur {
       // Gunakan nilai baru jika ada, jika tidak, pakai nilai lama (this)
       statusLembur: statusLembur ?? this.statusLembur,
       persetujuanDireksi: persetujuanDireksi ?? this.persetujuanDireksi,
-      persetujuanManajer: persetujuanManajer ?? this.persetujuanManajer,
+      // persetujuanManajer: persetujuanManajer ?? this.persetujuanManajer,
       alasanPenolakan: alasanPenolakan ?? this.alasanPenolakan,
       fileFinalUrl: fileFinalUrl ?? this.fileFinalUrl,
       jamMulaiAktual: jamMulaiAktual ?? this.jamMulaiAktual,

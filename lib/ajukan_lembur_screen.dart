@@ -132,6 +132,18 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
     final navigator = Navigator.of(context);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final lemburProvider = Provider.of<LemburProvider>(context, listen: false);
+    // ===== PENAMBAHAN: Validasi Kuota Mingguan =====
+    if (lemburProvider.totalOvertimeHoursThisWeek >= 10) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Anda telah mencapai batas maksimal 10 jam lembur minggu ini.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      // Hentikan proses jika kuota terlampaui
+      setState(() { _isLoading = false; });
+      return;
+    }
 
     try {
       await lemburProvider.submitOvertime(
