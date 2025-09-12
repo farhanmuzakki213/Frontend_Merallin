@@ -3,6 +3,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/home_screen.dart';
+import 'package:frontend_merallin/laporan_perjalanan_screen.dart';
+import 'package:frontend_merallin/vehicle_location_progress_screen.dart';
 import 'package:provider/provider.dart';
 import 'bbm_waiting_verification.dart';
 import 'models/bbm_model.dart';
@@ -83,9 +85,9 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
           backgroundColor: Colors.green,
         ));
         Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
         return; // Hentikan eksekusi lebih lanjut
       }
 
@@ -179,16 +181,16 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
           backgroundColor: Colors.green,
         ));
         if (result.updatedBbm.isFullyCompleted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Pengisian BBM telah selesai sepenuhnya!'),
-            backgroundColor: Colors.blue));
-        
-        Navigator.push(
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Pengisian BBM telah selesai sepenuhnya!'),
+              backgroundColor: Colors.blue));
+
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const HomeScreen()),
           );
-        return;
-      }
+          return;
+        }
         setState(() {
           _currentBbm = result.updatedBbm;
           _currentPage = _determineInitialPage(result.updatedBbm);

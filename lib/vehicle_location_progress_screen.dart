@@ -519,7 +519,7 @@ class _StartLocationPageState extends State<_StartLocationPage> {
       }
     } else {
       if ((widget.location.standbyPhotoStatus.isRejected &&
-              _standbyImageFile == null) &&
+              _standbyImageFile == null) ||
           (widget.location.startKmPhotoStatus.isRejected &&
               _startKmImageFile == null)) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

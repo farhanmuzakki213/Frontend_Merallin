@@ -74,7 +74,7 @@ class _WaitingVehicleLocationVerificationScreenState extends State<WaitingVehicl
   }
 
   void _startTimeoutTimer() {
-    _timeoutTimer = Timer(const Duration(seconds: 5), () {
+    _timeoutTimer = Timer(const Duration(minutes: 1), () {
       if (mounted) {
         setState(() {
           _showTimeoutMessage = true;
@@ -86,7 +86,7 @@ class _WaitingVehicleLocationVerificationScreenState extends State<WaitingVehicl
   void _startPolling() {
     Future.microtask(() => _checkLocationStatus(isFirstCheck: true));
 
-    _pollingTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (mounted) {
         setState(() {
           _pollingCount++;
