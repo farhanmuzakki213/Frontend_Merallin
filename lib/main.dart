@@ -193,16 +193,16 @@ class _AuthGateState extends State<AuthGate> {
           case AuthStatus.updating:
           case AuthStatus.authenticated:
             final user = authProvider.user;
+            if (authProvider.pendingBbmId != null) {
+                return BbmProgressScreen(
+                  bbmId: authProvider.pendingBbmId!,
+                  resumeVerification: true,
+                );
+              }
             if (user != null && user.roles.contains('driver')) {
               if (authProvider.pendingTripId != null) {
                 return LaporanDriverScreen(
                   tripId: authProvider.pendingTripId!,
-                  resumeVerification: true,
-                );
-              }
-              if (authProvider.pendingBbmId != null) {
-                return BbmProgressScreen(
-                  bbmId: authProvider.pendingBbmId!,
                   resumeVerification: true,
                 );
               }

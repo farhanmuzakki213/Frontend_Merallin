@@ -119,7 +119,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   Future<void> _checkPendingTasks() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    if (authProvider.pendingTripId != null) {
+
+    if (authProvider.pendingBbmId != null) {
+      final bbmId = authProvider.pendingBbmId!;
+      final result = await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) =>
+            BbmProgressScreen(bbmId: bbmId, resumeVerification: true),
+      ));
+      if (result == true) {
+        await authProvider.clearPendingBbmForVerification();
+      }
+    } else if (authProvider.pendingTripId != null) {
       final tripId = authProvider.pendingTripId!;
       final result = await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => LaporanDriverScreen(
@@ -130,15 +140,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
       if (result == true) {
         await authProvider.clearPendingTripForVerification();
-      }
-    } else if (authProvider.pendingBbmId != null) {
-      final bbmId = authProvider.pendingBbmId!;
-      final result = await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) =>
-            BbmProgressScreen(bbmId: bbmId, resumeVerification: true),
-      ));
-      if (result == true) {
-        await authProvider.clearPendingBbmForVerification();
       }
     } else if (authProvider.pendingVehicleLocationId != null) {
       final locationId = authProvider.pendingVehicleLocationId!;
