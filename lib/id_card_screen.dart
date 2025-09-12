@@ -99,7 +99,7 @@ class _IdCardScreenState extends State<IdCardScreen> {
       } else {
         final String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
         if (selectedDirectory != null) {
-          savedPath = await _downloadService.saveToCustomDirectory(directoryPath: selectedDirectory, filename: fileName, fileBytes: fileBytes);
+          savedPath = await _downloadService.saveToCustomDirectory(filename: fileName, fileBytes: fileBytes);
         } else {
           throw Exception('Pemilihan folder dibatalkan.');
         }

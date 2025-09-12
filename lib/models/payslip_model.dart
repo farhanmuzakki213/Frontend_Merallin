@@ -28,8 +28,3 @@ class PayslipSummary {
     );
   }
 }
-
-// Class PayslipDetail tidak lagi digunakan, bisa dihapus jika mau
-class PayslipDetail {
-  // ...
-}

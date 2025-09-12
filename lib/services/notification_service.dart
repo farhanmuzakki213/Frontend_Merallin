@@ -13,7 +13,7 @@ class NotificationService {
     // Pengaturan untuk Android
     // 'ic_notification' adalah nama file ikon yang Anda siapkan di Langkah 2
     const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('ic_notification');
+        AndroidInitializationSettings('@drawable/ic_notification');
 
     // Pengaturan untuk iOS (tidak memerlukan ikon khusus di sini)
     const DarwinInitializationSettings iosSettings = DarwinInitializationSettings();

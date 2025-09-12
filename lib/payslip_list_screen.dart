@@ -110,7 +110,6 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
         final String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
         if (selectedDirectory != null) {
           savedPath = await _downloadService.saveToCustomDirectory(
-            directoryPath: selectedDirectory,
             filename: fileName,
             fileBytes: fileBytes,
           );
