@@ -45,6 +45,27 @@ class LemburProvider with ChangeNotifier {
   String? _actionMessage;
   String? get actionMessage => _actionMessage;
 
+  // ===== PENAMBAHAN: Getter untuk menghitung kuota mingguan =====
+  double get totalOvertimeHoursThisWeek {
+    final now = DateTime.now();
+    // Tentukan hari pertama minggu ini (Senin)
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeekDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+
+    double totalSeconds = 0;
+
+    for (final lembur in _overtimeHistory) {
+      // Hanya hitung lembur yang sudah selesai dan berada di minggu ini
+      if (lembur.jamMulaiAktual != null && 
+          lembur.jamSelesaiAktual != null &&
+          lembur.tanggalLembur.isAfter(startOfWeekDate.subtract(const Duration(days: 1)))) {
+        totalSeconds += lembur.jamSelesaiAktual!.difference(lembur.jamMulaiAktual!).inSeconds;
+      }
+    }
+    // Konversi detik ke jam
+    return totalSeconds / 3600;
+  }
+
   void _updateLemburState(Lembur updatedLembur) {
     _selectedLembur = updatedLembur;
     

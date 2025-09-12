@@ -1,6 +1,7 @@
 // login_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/register_screen.dart';
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
@@ -66,10 +67,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Image.asset(
-                    'assets/logo_meralin_besar.jpeg',
-                    height: 100,
-                  ),
+                  SvgPicture.asset(
+                  'assets/MERALLIN_LOGO_WAITING.svg',
+                  height: 80,
+                ),
                   // OPTIMISASI: Widget dibuat const
                   const SizedBox(height: 32.0),
                   const Text(

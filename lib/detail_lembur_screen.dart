@@ -350,13 +350,33 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     // Switch case sekarang akan menampilkan widget yang benar
     switch (uiStatus) {
       case 'Disetujui':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Tombol untuk memulai lembur (clock-in)
-            _buildClockInWidget(lembur.uuid!),
-          ],
-        ); 
+        final now = DateTime.now();
+        // Gabungkan tanggal dan jam rencana dari data lembur
+        final scheduledStart = DateTime(
+          lembur.tanggalLembur.year,
+          lembur.tanggalLembur.month,
+          lembur.tanggalLembur.day,
+          int.parse(lembur.mulaiJamLembur.split(':')[0]),
+          int.parse(lembur.mulaiJamLembur.split(':')[1]),
+        );
+
+        // Cek apakah waktu sekarang sudah melewati jadwal mulai
+        if (now.isBefore(scheduledStart)) {
+          // Jika belum, tampilkan placeholder
+          return _buildInfoCard(
+            icon: Icons.hourglass_top_rounded,
+            text: 'Anda bisa memulai lembur pada pukul ${DateFormat('HH:mm').format(scheduledStart)}.',
+            color: Colors.blue,
+          );
+        } else {
+          // Jika sudah, tampilkan tombol clock-in
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildClockInWidget(lembur.uuid!),
+            ],
+          );
+        }
       case 'Berlangsung':
         return _buildInProgressWidget(lembur.uuid!);
       case 'Selesai':
