@@ -63,11 +63,13 @@ class AttendanceNotificationBanner extends StatelessWidget {
 class DraggableSpeedDial extends StatefulWidget {
   final bool showBbmOption;
   final Vehicle? currentVehicle;
+  final VoidCallback? onBbmPressed;
 
   const DraggableSpeedDial({
     super.key,
     this.showBbmOption = true,
     this.currentVehicle,
+    this.onBbmPressed,
   });
 
   @override
@@ -213,7 +215,7 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
               _buildSpeedDialChild(
                 context: context,
                 isLeftHalf: isLeftHalf,
-                onTap: () => _handleBbm(context),
+                onTap: widget.onBbmPressed ?? () => _handleBbm(context),
                 label: 'Isi BBM',
                 icon: Icons.local_gas_station,
                 backgroundColor: Colors.green,
