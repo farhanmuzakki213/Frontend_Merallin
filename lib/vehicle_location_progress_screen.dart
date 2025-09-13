@@ -6,13 +6,17 @@ import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/models/trip_model.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/providers/bbm_provider.dart';
 import 'package:frontend_merallin/providers/vehicle_location_provider.dart';
 import 'package:frontend_merallin/models/vehicle_location_model.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:frontend_merallin/widgets/in_app_widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../services/trip_service.dart' show ApiException;
 import '../utils/image_helper.dart';
+import 'bbm_progress_screen.dart';
+import 'models/bbm_model.dart';
 import 'vehicle_location_waiting_screen.dart';
 
 // Helper function
@@ -314,6 +318,58 @@ class _VehicleLocationProgressScreenState
     }
   }
 
+  Future<void> _handleBbmTap() async {
+    // Tahap di mana driver sedang diam di lokasi awal (0) atau akhir (2)
+    final restrictedPages = [0, 2];
+
+    if (restrictedPages.contains(_currentPage)) {
+      // Tampilkan pesan peringatan jika di halaman yang dibatasi
+      showInfoSnackBar(context, 'Tidak bisa meminta BBM saat sedang tidak dalam perjalanan.');
+      return;
+    }
+
+    // Logika ini untuk melanjutkan fungsionalitas normal di halaman yang diizinkan (tahap 1)
+    final bbmProvider = context.read<BbmProvider>();
+    final authProvider = context.read<AuthProvider>();
+
+    final bool hasOngoing = bbmProvider.bbmRequests
+        .any((bbm) => bbm.derivedStatus != BbmStatus.selesai);
+    if (hasOngoing) {
+      showInfoSnackBar(context,
+          'Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan.');
+      return;
+    }
+
+    if (_currentLocation?.vehicle == null) {
+      showErrorSnackBar(context,
+          'Data kendaraan tidak ditemukan untuk membuat permintaan BBM.');
+      return;
+    }
+
+    showInfoSnackBar(context,
+        'Membuat permintaan BBM untuk ${_currentLocation!.vehicle!.licensePlate}...');
+    final newRequest = await bbmProvider.createBbmRequest(
+        context: context,
+        token: authProvider.token!,
+        vehicleId: _currentLocation!.vehicle!.id);
+
+    if (!context.mounted || newRequest == null) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BbmProgressScreen(bbmId: newRequest.id),
+      ),
+    );
+
+    if (context.mounted) {
+      await bbmProvider.fetchBbmRequests(
+        context: context,
+        token: authProvider.token!,
+      );
+    }
+  }
+
   Future<VehicleLocation?> _callSimpleAPI(
       Future<VehicleLocation?> Function() apiCall) async {
     try {
@@ -378,7 +434,8 @@ class _VehicleLocationProgressScreenState
                   if (!_isLoading && _error == null && _currentLocation != null)
               DraggableSpeedDial(
                 currentVehicle: _currentLocation!.vehicle,
-                showBbmOption: true, // true untuk trip & trip geser
+                showBbmOption: true,
+                onBbmPressed: _handleBbmTap,
               ),
           ],
         ),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/providers/bbm_provider.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:frontend_merallin/waiting_verification_screen.dart';
 import 'package:frontend_merallin/widgets/in_app_widgets.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +14,9 @@ import '../providers/trip_provider.dart';
 import '../services/trip_service.dart' show ApiException;
 import '../utils/image_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'bbm_progress_screen.dart';
+import 'models/bbm_model.dart';
 
 bool _isStringNullOrEmpty(String? str) {
   return str == null || str.isEmpty;
@@ -219,7 +224,11 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
         }
 
         setState(() {
-          _currentTrip = result.updatedTrip;
+          Trip finalTrip = result.updatedTrip;
+          if (finalTrip.vehicle == null && _currentTrip?.vehicle != null) {
+            finalTrip = finalTrip.copyWith(vehicle: _currentTrip!.vehicle);
+          }
+          _currentTrip = finalTrip;
           _currentPage = _determineInitialPage(result.updatedTrip);
           if (_pageController!.hasClients) {
             _pageController?.animateToPage(_currentPage,
@@ -346,7 +355,12 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
         return;
       }
 
-      setState(() => _currentTrip = submittedTrip);
+      Trip finalTrip = submittedTrip;
+      if (finalTrip.vehicle == null && _currentTrip?.vehicle != null) {
+        finalTrip = finalTrip.copyWith(vehicle: _currentTrip!.vehicle);
+      }
+      
+      setState(() => _currentTrip = finalTrip);
 
       bool needsVerification = [0, 2, 3, 4, 6, 7, 8].contains(_currentPage);
 
@@ -371,6 +385,60 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
       if (mounted) {
         setState(() => _isSendingData = false);
       }
+    }
+  }
+
+  Future<void> _handleBbmTap() async {
+    // Tahap di mana driver sedang diam di lokasi (upload foto)
+    // Indeks: 2, 3, 4, 6, 7, 8
+    final restrictedPages = [2, 4, 6, 8];
+
+    if (restrictedPages.contains(_currentPage)) {
+      // Tampilkan pesan peringatan jika di halaman yang dibatasi
+      showInfoSnackBar(context, 'Tidak bisa meminta BBM saat sedang tidak dalam perjalanan.');
+      return;
+    }
+
+    // Logika ini disalin dari _handleBbm di in_app_widgets.dart
+    // untuk melanjutkan fungsionalitas normal di halaman yang diizinkan.
+    final bbmProvider = context.read<BbmProvider>();
+    final authProvider = context.read<AuthProvider>();
+
+    final bool hasOngoing = bbmProvider.bbmRequests
+        .any((bbm) => bbm.derivedStatus != BbmStatus.selesai);
+    if (hasOngoing) {
+      showInfoSnackBar(context,
+          'Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan.');
+      return;
+    }
+
+    if (_currentTrip?.vehicle == null) {
+      showErrorSnackBar(context,
+          'Data kendaraan tidak ditemukan untuk membuat permintaan BBM.');
+      return;
+    }
+
+    showInfoSnackBar(context,
+        'Membuat permintaan BBM untuk ${_currentTrip!.vehicle!.licensePlate}...');
+    final newRequest = await bbmProvider.createBbmRequest(
+        context: context,
+        token: authProvider.token!,
+        vehicleId: _currentTrip!.vehicle!.id);
+
+    if (!context.mounted || newRequest == null) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BbmProgressScreen(bbmId: newRequest.id),
+      ),
+    );
+
+    if (context.mounted) {
+      await bbmProvider.fetchBbmRequests(
+        context: context,
+        token: authProvider.token!,
+      );
     }
   }
 
@@ -441,7 +509,8 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
             if (!_isLoading && _error == null && _currentTrip != null)
               DraggableSpeedDial(
                 currentVehicle: _currentTrip!.vehicle,
-                showBbmOption: true, // true untuk trip & trip geser
+                showBbmOption: true,
+                onBbmPressed: _handleBbmTap,
               ),
           ],
         ),

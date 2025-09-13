@@ -500,7 +500,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: GridView.count(
-        crossAxisCount: 2,
+        crossAxisCount: 3,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 16,
@@ -540,16 +540,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             },
           ),
           AnimatedMenuItem(
-            icon: Icons.local_gas_station_outlined,
-            label: 'Isi BBM',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const BbmListScreen()),
-              );
-            },
-          ),
-          AnimatedMenuItem(
             icon: Icons.alt_route,
             label: 'Trip Geser',
             onTap: () {
@@ -560,6 +550,53 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               );
             },
           ),
+          AnimatedMenuItem(
+            icon: Icons.badge_outlined,
+            label: 'ID Karyawan',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const IdCardScreen()),
+              );
+            },
+          ),
+          AnimatedMenuItem(
+              icon: Icons.note_alt_outlined,
+              label: 'Izin',
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const LeaveRequestScreen()),
+                );
+                if (mounted) {
+                  Provider.of<DashboardProvider>(context, listen: false)
+                      .fetchDashboardData(context: context);
+                }
+              }),
+          AnimatedMenuItem(
+            icon: Icons.receipt_long_outlined,
+            label: 'Slip Gaji',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const PayslipListScreen()),
+              );
+            },
+          ),
+          
+          AnimatedMenuItem(
+            icon: Icons.local_gas_station_outlined,
+            label: 'Isi BBM',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BbmListScreen()),
+              );
+            },
+          ),
+          
         ],
       ),
     );
