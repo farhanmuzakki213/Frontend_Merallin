@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/history_provider.dart';
 import 'package:frontend_merallin/models/attendance_history_model.dart';
+import 'package:frontend_merallin/utils/address_helper.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -266,7 +267,7 @@ class _DateCard extends StatelessWidget {
   }
 }
 
-class _HistoryDetailCard extends StatelessWidget {
+class _HistoryDetailCard extends StatefulWidget {
   final String title;
   final String time;
   final String status;
@@ -281,21 +282,43 @@ class _HistoryDetailCard extends StatelessWidget {
     required this.longitude,
   });
 
-  Future<void> _launchMap() async {
-    final Uri googleMapsUrl =
-        Uri.parse('https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
+  @override
+  State<_HistoryDetailCard> createState() => _HistoryDetailCardState();
+}
 
-    if (await canLaunchUrl(googleMapsUrl)) {
-      await launchUrl(googleMapsUrl);
-    } else {
-      debugPrint('Tidak bisa membuka peta untuk $latitude,$longitude');
+class _HistoryDetailCardState extends State<_HistoryDetailCard> {
+  String? _address;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAddress();
+  }
+
+  Future<void> _fetchAddress() async {
+    final address = await AddressHelper.getAddressFromCoordinates(widget.latitude, widget.longitude);
+    if (mounted) {
+      setState(() {
+        _address = address;
+      });
     }
   }
+
+  // Future<void> _launchMap() async {
+  //   final Uri googleMapsUrl =
+  //       Uri.parse('https://www.google.com/maps/search/?api=1&query=${widget.latitude},${widget.longitude}');
+
+  //   if (await canLaunchUrl(googleMapsUrl)) {
+  //     await launchUrl(googleMapsUrl);
+  //   } else {
+  //     debugPrint('Tidak bisa membuka peta untuk ${widget.latitude},${widget.longitude}');
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
     final statusColor =
-        status == 'Terlambat' ? Colors.red.shade700 : Colors.green.shade700;
+        widget.status == 'Terlambat' ? Colors.red.shade700 : Colors.green.shade700;
 
     return Card(
       elevation: 3,
@@ -307,35 +330,35 @@ class _HistoryDetailCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
+              widget.title,
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue.shade900,),
             ),
             const Divider(height: 20),
-            _buildInfoRow(Icons.access_time_filled, 'Jam', time),
+            _buildInfoRow(Icons.access_time_filled, 'Jam', widget.time),
             const SizedBox(height: 12),
-            _buildInfoRow(Icons.check_circle, 'Status', status,
+            _buildInfoRow(Icons.check_circle, 'Status', widget.status,
                 valueColor: statusColor,),
             const SizedBox(height: 12),
-            _buildInfoRow(Icons.map_outlined, 'Koordinat',
-                '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                onPressed: _launchMap,
-                icon: const Icon(Icons.map, color: Colors.white, size: 18),
-                label: const Text('Lihat di Peta',
-                    style: TextStyle(color: Colors.white),),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade700,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),),
-                ),
-              ),
-            ),
+            _buildInfoRow(Icons.map_outlined, 'Lokasi',
+                _address ?? 'Memuat alamat...'),
+            // const SizedBox(height: 16),
+            // Align(
+            //   alignment: Alignment.centerRight,
+            //   child: ElevatedButton.icon(
+            //     onPressed: _launchMap,
+            //     icon: const Icon(Icons.map, color: Colors.white, size: 18),
+            //     label: const Text('Lihat di Peta',
+            //         style: TextStyle(color: Colors.white),),
+            //     style: ElevatedButton.styleFrom(
+            //       backgroundColor: Colors.blue.shade700,
+            //       shape: RoundedRectangleBorder(
+            //           borderRadius: BorderRadius.circular(8),),
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),

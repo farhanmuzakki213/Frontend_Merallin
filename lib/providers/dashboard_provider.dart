@@ -50,7 +50,8 @@ class DashboardProvider with ChangeNotifier {
       final now = DateTime.now();
       _hadirCount = (attendances as List).where((att) {
         final attendanceDate = att.createdAt as DateTime;
-        return attendanceDate.month == now.month &&
+        return att.tipeAbsensi == 'datang' &&
+            attendanceDate.month == now.month &&
             attendanceDate.year == now.year;
       }).length;
       

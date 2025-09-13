@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:frontend_merallin/id_card_screen.dart';
 import 'package:frontend_merallin/bbm_list_screen.dart';
 import 'package:frontend_merallin/bbm_progress_screen.dart';
@@ -604,15 +605,31 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
   Widget _buildHeader(String userName) {
     final user = context.watch<AuthProvider>().user;
+    final String? photoPath = user?.profilePhotoUrl;
+    final String baseUrl =
+        dotenv.env['API_BASE_URL']?.replaceAll('/api', '') ?? '';
+    
+    final String? finalPhotoUrl = (photoPath != null && photoPath.isNotEmpty)
+        ? (photoPath.startsWith('http') ? photoPath : '$baseUrl$photoPath')
+        : null;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: Row(
         children: [
           CircleAvatar(
             radius: 25,
-            backgroundImage: NetworkImage(
-                user?.profilePhotoUrl ?? 'https://i.pravatar.cc/150?img=56'),
-            onBackgroundImageError: (exception, stackTrace) {},
+            backgroundColor: Colors.blue[100], // Warna fallback jika tidak ada gambar
+            // vvv GUNAKAN finalPhotoUrl DI SINI vvv
+            backgroundImage: finalPhotoUrl != null
+                ? NetworkImage(finalPhotoUrl)
+                : null,
+            // Jika tidak ada foto, tampilkan ikon
+            child: finalPhotoUrl == null
+                ? const Icon(Icons.person, size: 25, color: Colors.white)
+                : null,
+            onBackgroundImageError: (exception, stackTrace) {
+              // Handle error, mungkin dengan menampilkan inisial
+            },
           ),
           const SizedBox(width: 12),
           Column(
