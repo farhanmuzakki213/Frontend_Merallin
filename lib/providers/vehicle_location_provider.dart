@@ -62,12 +62,12 @@ class VehicleLocationProvider with ChangeNotifier {
     _lastVerificationResult = null;
   }
 
-  Future<void> fetchVehicles({
+  Future<void> fetchAvailableVehicles({
     required BuildContext context,
     required String token,
   }) async {
     try {
-      _vehicles = await _vehicleService.getVehicles(token);
+      _vehicles = await _vehicleService.getAvailableVehicles(token);
       notifyListeners();
     } on ApiException catch (e) {
       final errorString = e.toString();

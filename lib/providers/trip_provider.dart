@@ -86,10 +86,10 @@ class TripProvider with ChangeNotifier {
     _lastVerificationResult = null;
   }
 
-  Future<void> fetchVehicles({required BuildContext context, required String token}) async {
+  Future<void> fetchAvailableVehicles({required BuildContext context, required String token}) async {
     try {
       debugPrint('[TripProvider] Memulai fetchVehicles...');
-      _vehicles = await _vehicleService.getVehicles(token);
+      _vehicles = await _vehicleService.getAvailableVehicles(token);
       debugPrint('[TripProvider] Berhasil. Ditemukan ${_vehicles.length} kendaraan.');
       notifyListeners();
     } catch (e) {

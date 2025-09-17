@@ -51,7 +51,7 @@ class BbmProvider with ChangeNotifier {
     notifyListeners();
     try {
       final bbmFuture = _bbmService.getBbmRequests(token);
-      final vehicleFuture = _vehicleService.getVehicles(token);
+      final vehicleFuture = _vehicleService.getAvailableVehicles(token);
 
       final results = await Future.wait([bbmFuture, vehicleFuture]);
       _bbmRequests = results[0] as List<BbmKendaraan>;

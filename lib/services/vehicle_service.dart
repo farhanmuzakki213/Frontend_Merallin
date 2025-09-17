@@ -33,4 +33,27 @@ class VehicleService {
       throw ApiException('Terjadi kesalahan: ${e.toString()}');
     }
   }
+
+  Future<List<Vehicle>> getAvailableVehicles(String token) async {
+    if (_baseUrl.isEmpty) throw ApiException('API URL tidak dikonfigurasi.');
+    final url = Uri.parse('$_baseUrl/driver/vehicles/available-vehicles');
+
+    try {
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      if (response.statusCode == 200) {
+        // Endpoint ini mengembalikan array JSON langsung, jadi kita bisa decode langsung.
+        final List<dynamic> responseBody = json.decode(response.body);
+        return responseBody.map((json) => Vehicle.fromJson(json)).toList();
+      } else {
+        final errorBody = json.decode(response.body);
+        throw ApiException(errorBody['message'] ?? 'Gagal memuat kendaraan yang tersedia.');
+      }
+    } catch (e) {
+      throw ApiException('Terjadi kesalahan saat mengambil kendaraan tersedia: ${e.toString()}');
+    }
+  }
 }

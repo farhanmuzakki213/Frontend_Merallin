@@ -169,11 +169,15 @@ class BbmKendaraan {
       if (relativePath.startsWith('/')) return '$sanitizedBaseUrl$relativePath';
       return '$sanitizedBaseUrl/$relativePath';
     }
+    int safeParseInt(dynamic value) {
+      if (value == null) return 0;
+      return int.tryParse(value.toString()) ?? 0;
+    }
 
     return BbmKendaraan(
-      id: json['id'],
-      userId: json['user_id'],
-      vehicleId: json['vehicle_id'],
+      id: safeParseInt(json['id']),
+      userId: safeParseInt(json['user_id']),
+      vehicleId: safeParseInt(json['vehicle_id']),
       statusBbmKendaraan: json['status_bbm_kendaraan'] ?? 'proses',
       statusPengisian: json['status_pengisian'],
       startKmPhotoStatus: BbmPhotoVerificationStatus.fromJson(json, 'start_km_photo'),

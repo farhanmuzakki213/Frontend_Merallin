@@ -100,7 +100,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
 
       final results = await Future.wait([
         tripProvider.getTripDetails(token, widget.tripId),
-        tripProvider.fetchVehicles(context: context, token: token),
+        tripProvider.fetchAvailableVehicles(context: context, token: token),
       ]);
 
       final trip = results[0] as Trip?;

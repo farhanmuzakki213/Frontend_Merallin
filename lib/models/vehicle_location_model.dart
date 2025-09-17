@@ -153,11 +153,16 @@ class VehicleLocation {
         return tz.TZDateTime.from(utcDate, wib);
     }
 
+    int safeParseInt(dynamic value) {
+      if (value == null) return 0;
+      return int.tryParse(value.toString()) ?? 0;
+    }
+
     return VehicleLocation(
-      id: json['id'],
-      userId: json['user_id'],
-      vehicleId: json['vehicle_id'],
-      tripId: json['trip_id'],
+      id: safeParseInt(json['id']),
+      userId: safeParseInt(json['user_id']),
+      vehicleId: safeParseInt(json['vehicle_id']),
+      tripId: safeParseInt(json['trip_id']),
       keterangan: json['keterangan'],
       startLocation: json['start_location']?.toString(),
       standbyPhotoPath: json['standby_photo_path'],

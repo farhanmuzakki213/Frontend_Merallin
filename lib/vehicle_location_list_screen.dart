@@ -49,8 +49,7 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
-      // ===== PERUBAHAN DI SINI =====
-      await locationProvider.fetchVehicles(
+      await locationProvider.fetchAvailableVehicles(
         context: context,
         token: authProvider.token!,
       );
