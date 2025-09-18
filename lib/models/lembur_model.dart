@@ -122,9 +122,9 @@ extension StatusPersetujuanExtension on StatusPersetujuan {
 }
 
 class Lembur {
-  final String id;
+  final int id;
   final String? uuid;
-  final String userId;
+  final int userId;
   final JenisHariLembur jenisHari;
   final DepartmentLembur department;
   final DateTime tanggalLembur;
@@ -161,7 +161,6 @@ class Lembur {
     this.fileFinalUrl,
     this.createdAt,
     this.updatedAt,
-
     this.jamMulaiAktual,
     this.jamSelesaiAktual,
     this.fotoMulaiPath,
@@ -171,42 +170,52 @@ class Lembur {
   factory Lembur.fromJson(Map<String, dynamic> json) {
     try {
       // Helper untuk parsing tanggal yang WAJIB ADA (tidak boleh null)
+      int safeParseInt(dynamic value) {
+        if (value == null) return 0;
+        return int.tryParse(value.toString()) ?? 0;
+      }
+
       DateTime _parseDate(String? dateString) {
-        if (dateString == null) return DateTime.now(); // Fallback ke tanggal sekarang
+        if (dateString == null)
+          return DateTime.now(); // Fallback ke tanggal sekarang
         return DateTime.parse(dateString);
       }
+
       DateTime? _parseNullableDate(String? dateString) {
         return dateString != null ? DateTime.parse(dateString) : null;
       }
 
       return Lembur(
-        id: json['id']?.toString() ?? '',
+        id: safeParseInt(json['id']),
         uuid: json['uuid']?.toString(),
-        userId: json['user_id']?.toString() ?? '',
+        userId: safeParseInt(json['user_id']),
         jenisHari:
             JenisHariLemburExtension.fromString(json['jenis_hari'] ?? 'Kerja'),
         department:
             DepartmentLemburExtension.fromString(json['department'] ?? 'Admin'),
         tanggalLembur: _parseDate(json['tanggal_lembur']),
-        
+
         keteranganLembur: json['keterangan_lembur'] ?? '',
         mulaiJamLembur: json['mulai_jam_lembur'] ?? '00:00:00',
         selesaiJamLembur: json['selesai_jam_lembur'] ?? '00:00:00',
-        
+
         statusLembur: StatusPersetujuanExtension.fromString(
-            json['status_final'] ?? json['status_lembur'] ?? 'Menunggu Persetujuan'),
+            json['status_final'] ??
+                json['status_lembur'] ??
+                'Menunggu Persetujuan'),
 
         persetujuanDireksi: StatusPersetujuanExtension.fromString(
             json['persetujuan_direksi'] ?? 'Menunggu Persetujuan'),
-            
+
         // persetujuanManajer: StatusPersetujuanExtension.fromString(
         //     json['persetujuan_manajer'] ?? 'Menunggu Persetujuan'),
 
         alasanPenolakan: json['alasan_penolakan'] ?? json['alasan'],
         fileFinalUrl: json['file_final_url'] ?? json['file_url'],
-        
-        createdAt: _parseNullableDate(json['created_at'] ?? json['diajukan_pada']),
-            
+
+        createdAt:
+            _parseNullableDate(json['created_at'] ?? json['diajukan_pada']),
+
         updatedAt: _parseNullableDate(json['updated_at']),
 
         jamMulaiAktual: _parseNullableDate(json['jam_mulai_aktual']),

@@ -14,17 +14,17 @@ class PayslipSummary {
   });
 
   factory PayslipSummary.fromJson(Map<String, dynamic> json) {
-    // ===== BAGIAN INI DIPERBAIKI =====
-    // Kita gunakan TZDateTime.parse untuk memastikan tanggal dibaca
-    // sesuai dengan zona waktu lokal (WIB) yang sudah diatur di main.dart.
-    final DateTime parsedPeriod =
-        tz.TZDateTime.parse(tz.local, json['period']);
-    // ================================
+    final DateTime parsedPeriod = tz.TZDateTime.parse(tz.local, json['period']);
+
+    int safeParseInt(dynamic value) {
+      if (value == null) return 0;
+      return int.tryParse(value.toString()) ?? 0;
+    }
 
     return PayslipSummary(
-      id: json['id'],
+      id: safeParseInt(json['id']),
       fileUrl: json['file_url'],
-      period: parsedPeriod, // Gunakan hasil parse yang sudah benar
+      period: parsedPeriod,
     );
   }
 }

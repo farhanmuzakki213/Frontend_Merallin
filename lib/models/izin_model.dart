@@ -33,8 +33,8 @@ extension LeaveTypeExtension on LeaveType {
 }
 
 class Izin {
-  final String id;
-  final String userId;
+  final int id;
+  final int userId;
   final LeaveType jenisIzin; // Menggunakan Enum
   final DateTime tanggalMulai;
   final DateTime tanggalSelesai;
@@ -52,10 +52,14 @@ class Izin {
   });
 
   factory Izin.fromJson(Map<String, dynamic> json) {
+    int safeParseInt(dynamic value) {
+      if (value == null) return 0;
+      return int.tryParse(value.toString()) ?? 0;
+    }
     try {
       return Izin(
-        id: json['id']?.toString() ?? '',
-        userId: json['user_id']?.toString() ?? '',
+        id: safeParseInt(json['id']),
+        userId: safeParseInt(json['user_id']),
         // Mengubah String dari JSON menjadi Enum
         jenisIzin: LeaveTypeExtension.fromString(json['jenis_izin']),
         tanggalMulai: DateTime.parse(json['tanggal_mulai']),

@@ -32,8 +32,13 @@ class AttendanceHistory {
     final String baseUrl = dotenv.env['API_BASE_URL']?.replaceAll('/api', '') ?? '';
     final String fullPhotoUrl = baseUrl + (json['photoUrl'] ?? '');
 
+    int safeParseInt(dynamic value) {
+      if (value == null) return 0;
+      return int.tryParse(value.toString()) ?? 0;
+    }
+
     return AttendanceHistory(
-      id: json['id'],
+      id: safeParseInt(json['id']),
       namaUser: json['namaUser'],
       photoUrl: fullPhotoUrl,
       latitude: _safeParseDouble(json['latitude']),
