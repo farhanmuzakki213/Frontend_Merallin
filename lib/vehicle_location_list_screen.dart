@@ -5,7 +5,7 @@ import 'package:frontend_merallin/models/trip_model.dart';
 import 'package:frontend_merallin/models/vehicle_location_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/vehicle_location_provider.dart';
-import 'package:frontend_merallin/models/vehicle_model.dart'; 
+import 'package:frontend_merallin/models/vehicle_model.dart';
 import 'package:frontend_merallin/vehicle_location_progress_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -43,18 +43,17 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
     final locationProvider = context.read<VehicleLocationProvider>();
     final authProvider = context.read<AuthProvider>();
 
-    if (locationProvider.vehicles.isEmpty) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-      await locationProvider.fetchAvailableVehicles(
-        context: context,
-        token: authProvider.token!,
-      );
-      if (mounted) Navigator.of(context).pop();
-    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    await locationProvider.fetchAvailableVehicles(
+      context: context,
+      token: authProvider.token!,
+    );
+    if (mounted) Navigator.of(context).pop();
 
     if (!mounted) return;
 
@@ -70,8 +69,10 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.add_road_rounded,
-                  color: Theme.of(context).primaryColor,),
+              Icon(
+                Icons.add_road_rounded,
+                color: Theme.of(context).primaryColor,
+              ),
               const SizedBox(width: 10),
               const Text('Mulai Trip Geser Baru'),
             ],
@@ -171,7 +172,8 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => VehicleLocationProgressScreen(
-                            locationId: newLocation.id,),
+                          locationId: newLocation.id,
+                        ),
                       ),
                     );
                     if (result == true) {
@@ -200,7 +202,7 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Tugas Trip Geser'),
-           leading: IconButton(
+          leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context, _dataWasChanged),
           ),
@@ -233,7 +235,8 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
                           textAlign: TextAlign.center),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                          onPressed: _reloadData, child: const Text('Coba Lagi'))
+                          onPressed: _reloadData,
+                          child: const Text('Coba Lagi'))
                     ],
                   ),
                 ),
@@ -241,7 +244,8 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
             }
 
             return RefreshIndicator(
-                onRefresh: _reloadData, child: _buildLocationList(locationProvider));
+                onRefresh: _reloadData,
+                child: _buildLocationList(locationProvider));
           },
         ),
       ),
@@ -262,7 +266,8 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 80.0), // Padding for FAB
+      padding:
+          const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 80.0), // Padding for FAB
       children: [
         const Text('Tugas Aktif',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -313,7 +318,9 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
                   builder: (context) =>
                       VehicleLocationProgressScreen(locationId: location.id)));
           if (result == true) {
-             setState(() { _dataWasChanged = true; });
+            setState(() {
+              _dataWasChanged = true;
+            });
             _reloadData();
           }
         },
@@ -334,12 +341,13 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
               ]),
               const SizedBox(height: 4),
               Row(children: [
-                 const Icon(Icons.calendar_today, color: Colors.grey, size: 20),
+                const Icon(Icons.calendar_today, color: Colors.grey, size: 20),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Dibuat pada: ${DateFormat('d MMM yyyy, HH:mm').format(location.createdAt)}'))
+                Expanded(
+                    child: Text(
+                        'Dibuat pada: ${DateFormat('d MMM yyyy, HH:mm').format(location.createdAt)}'))
               ]),
               const SizedBox(height: 16),
-
               if (location.derivedStatus == TripDerivedStatus.revisiGambar &&
                   location.allRejectionReasons != null) ...[
                 Container(
@@ -353,7 +361,8 @@ class _VehicleLocationListScreenState extends State<VehicleLocationListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Icon(Icons.info_outline, color: Colors.red.shade700, size: 18),
+                        Icon(Icons.info_outline,
+                            color: Colors.red.shade700, size: 18),
                         const SizedBox(width: 8),
                         Text('Catatan Revisi dari Admin:',
                             style: TextStyle(
