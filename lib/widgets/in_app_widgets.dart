@@ -36,8 +36,7 @@ class AttendanceNotificationBanner extends StatelessWidget {
           ? Container(
               key: const ValueKey('notification-banner'),
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               color: Colors.amber.shade700,
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -120,7 +119,7 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
         .any((bbm) => bbm.derivedStatus != BbmStatus.selesai);
     if (hasOngoing) {
       showInfoSnackBar(context,
-          'Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan123.');
+          'Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan.');
       return;
     }
 
@@ -132,25 +131,42 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
 
     showInfoSnackBar(context,
         'Membuat permintaan BBM untuk ${widget.currentVehicle!.licensePlate}...');
-    final newRequest = await bbmProvider.createBbmRequest(
-        context: context,
-        token: authProvider.token!,
-        vehicleId: widget.currentVehicle!.id);
+    try {
+      final newRequest = await bbmProvider.createBbmRequest(
+          context: context,
+          token: authProvider.token!,
+          vehicleId: widget.currentVehicle!.id);
 
-    if (!context.mounted || newRequest == null) return;
+      // Tambahkan pengecekan jika null dan berikan feedback
+      if (newRequest == null) {
+        if (context.mounted) {
+          showErrorSnackBar(
+              context, 'Gagal membuat permintaan BBM. Respon tidak valid.');
+        }
+        return;
+      }
 
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BbmProgressScreen(bbmId: newRequest.id),
-      ),
-    );
+      if (!context.mounted) return;
 
-    if (context.mounted) {
-      await bbmProvider.fetchBbmRequests(
-        context: context,
-        token: authProvider.token!,
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BbmProgressScreen(bbmId: newRequest.id),
+        ),
       );
+
+      if (context.mounted) {
+        await bbmProvider.fetchBbmRequests(
+          context: context,
+          token: authProvider.token!,
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error saat membuat permintaan BBM: $e');
+      debugPrint('Stack trace: $stackTrace');
+      if (context.mounted) {
+        showErrorSnackBar(context, 'Terjadi kesalahan: $e');
+      }
     }
   }
 
@@ -160,7 +176,8 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
     final safeAreaPadding = MediaQuery.of(context).padding;
 
     // Tentukan apakah FAB berada di sisi kiri atau kanan layar
-    final bool isLeftHalf = _position.dx < (screenSize.width / 2 - _fabSize.width / 2);
+    final bool isLeftHalf =
+        _position.dx < (screenSize.width / 2 - _fabSize.width / 2);
 
     return Positioned(
       left: _position.dx,
@@ -188,15 +205,15 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
           overlayOpacity: 0.5,
           spacing: 10,
           spaceBetweenChildren: 8,
-          
+
           // Nama properti untuk kecepatan animasi mungkin 'animatedIconTheme' atau serupa,
           // atau bisa dihilangkan jika tidak terlalu penting.
           // Untuk amannya, kita hilangkan dulu.
-          
+
           direction: _position.dy < screenSize.height / 2
               ? SpeedDialDirection.down
               : SpeedDialDirection.up,
-              
+
           // ===== PERBAIKAN UTAMA DI SINI =====
           // Daripada menggunakan properti yang tidak ada, kita bungkus labelnya
           // dengan widget di dalam `SpeedDialChild` itu sendiri.
@@ -236,7 +253,8 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
     // Tentukan widget label dengan gaya dan posisi
     final labelWidget = Container(
       padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
-      margin: const EdgeInsets.only(right: 18), // Memberi jarak dari tombol utama
+      margin:
+          const EdgeInsets.only(right: 18), // Memberi jarak dari tombol utama
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.7),
         borderRadius: BorderRadius.circular(5),
@@ -263,16 +281,16 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
       backgroundColor: backgroundColor,
       foregroundColor: Colors.white,
       onTap: onTap,
-      
+
       // Properti 'labelWidget' biasanya tersedia
       labelWidget: labelWidget,
 
       // Atur 'label' menjadi string kosong agar tidak tumpang tindih
-      label: '', 
-      
+      label: '',
+
       // Atur 'labelStyle' menjadi null
       labelStyle: null,
-      
+
       // 'labelBackgroundColor' juga tidak diperlukan lagi
       labelBackgroundColor: null,
     );

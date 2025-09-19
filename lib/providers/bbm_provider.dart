@@ -91,7 +91,7 @@ class BbmProvider with ChangeNotifier {
         return null;
       }
       _errorMessage = errorString;
-      return null;
+      rethrow;
       // ===== AKHIR PERBAIKAN =====
     } finally {
       _isCreating = false;
