@@ -63,13 +63,11 @@ class AttendanceNotificationBanner extends StatelessWidget {
 class DraggableSpeedDial extends StatefulWidget {
   final bool showBbmOption;
   final Vehicle? currentVehicle;
-  final VoidCallback? onBbmPressed;
 
   const DraggableSpeedDial({
     super.key,
     this.showBbmOption = true,
     this.currentVehicle,
-    this.onBbmPressed,
   });
 
   @override
@@ -122,7 +120,7 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
         .any((bbm) => bbm.derivedStatus != BbmStatus.selesai);
     if (hasOngoing) {
       showInfoSnackBar(context,
-          'Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan.');
+          'Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan123.');
       return;
     }
 
@@ -215,7 +213,7 @@ class _DraggableSpeedDialState extends State<DraggableSpeedDial> {
               _buildSpeedDialChild(
                 context: context,
                 isLeftHalf: isLeftHalf,
-                onTap: widget.onBbmPressed ?? () => _handleBbm(context),
+                onTap: () => _handleBbm(context),
                 label: 'Isi BBM',
                 icon: Icons.local_gas_station,
                 backgroundColor: Colors.green,

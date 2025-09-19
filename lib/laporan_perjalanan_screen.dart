@@ -388,60 +388,6 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
     }
   }
 
-  Future<void> _handleBbmTap() async {
-    // Tahap di mana driver sedang diam di lokasi (upload foto)
-    // Indeks: 2, 3, 4, 6, 7, 8
-    final restrictedPages = [2, 4, 6, 8];
-
-    if (restrictedPages.contains(_currentPage)) {
-      // Tampilkan pesan peringatan jika di halaman yang dibatasi
-      showInfoSnackBar(context, 'Tidak bisa meminta BBM saat sedang tidak dalam perjalanan.');
-      return;
-    }
-
-    // Logika ini disalin dari _handleBbm di in_app_widgets.dart
-    // untuk melanjutkan fungsionalitas normal di halaman yang diizinkan.
-    final bbmProvider = context.read<BbmProvider>();
-    final authProvider = context.read<AuthProvider>();
-
-    final bool hasOngoing = bbmProvider.bbmRequests
-        .any((bbm) => bbm.derivedStatus != BbmStatus.selesai);
-    if (hasOngoing) {
-      showInfoSnackBar(context,
-          'Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan.');
-      return;
-    }
-
-    if (_currentTrip?.vehicle == null) {
-      showErrorSnackBar(context,
-          'Data kendaraan tidak ditemukan untuk membuat permintaan BBM.');
-      return;
-    }
-
-    showInfoSnackBar(context,
-        'Membuat permintaan BBM untuk ${_currentTrip!.vehicle!.licensePlate}...');
-    final newRequest = await bbmProvider.createBbmRequest(
-        context: context,
-        token: authProvider.token!,
-        vehicleId: _currentTrip!.vehicle!.id);
-
-    if (!context.mounted || newRequest == null) return;
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BbmProgressScreen(bbmId: newRequest.id),
-      ),
-    );
-
-    if (context.mounted) {
-      await bbmProvider.fetchBbmRequests(
-        context: context,
-        token: authProvider.token!,
-      );
-    }
-  }
-
   Future<Trip?> _callSimpleAPI(Future<Trip?> Function() apiCall) async {
     try {
       final updatedTrip = await apiCall();
@@ -509,8 +455,7 @@ class _LaporanDriverScreenState extends State<LaporanDriverScreen> {
             if (!_isLoading && _error == null && _currentTrip != null)
               DraggableSpeedDial(
                 currentVehicle: _currentTrip!.vehicle,
-                showBbmOption: true,
-                onBbmPressed: _handleBbmTap,
+                showBbmOption: ![2, 4, 6, 8].contains(_currentPage),
               ),
           ],
         ),
