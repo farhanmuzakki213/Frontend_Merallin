@@ -129,17 +129,22 @@ class TripProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> acceptTrip(String token, int tripId) async {
+  Future<Trip?> acceptTrip(String token, int tripId) async {
     try {
-      await _tripService.acceptTrip(token, tripId);
-      // Untuk fetchTrips, Anda perlu context. Ini menjadi sedikit rumit.
-      // Solusi sederhana adalah tidak memanggil fetchTrips di sini, dan membiarkan UI yang memanggilnya kembali.
-      // await fetchTrips(token); <-- Hapus atau refactor
-      return true;
+      final updatedTrip = await _tripService.acceptTrip(token, tripId);
+
+      final index = _allTrips.indexWhere((trip) => trip.id == tripId);
+      if (index != -1) {
+        _allTrips[index] = updatedTrip;
+      }
+      
+      notifyListeners();
+
+      return updatedTrip;
     } catch (e) {
       _errorMessage = 'Gagal memulai tugas: ${e.toString()}';
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

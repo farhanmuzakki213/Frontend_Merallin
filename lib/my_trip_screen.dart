@@ -33,25 +33,37 @@ class _MyTripScreenState extends State<MyTripScreen> {
     }
   }
 
-  Future<void> _handleStartTrip(int tripId) async {
+  Future<void> _handleStartTrip(Trip trip) async {
     final authProvider = context.read<AuthProvider>();
     final tripProvider = context.read<TripProvider>();
 
     if (authProvider.token == null) return;
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Memulai tugas...')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Memulai tugas...')),
+    );
+    final acceptedTrip = await tripProvider.acceptTrip(authProvider.token!, trip.id);
+    
+    if (!mounted) return;
 
-    final success = await tripProvider.acceptTrip(authProvider.token!, tripId);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-    if (mounted && success) {
+    if (acceptedTrip != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Tugas berhasil dimulai!'),
+          content: Text('Tugas berhasil dimulai! Mengarahkan ke laporan...'),
           backgroundColor: Colors.green,
         ),
       );
-    } else if (mounted) {
+      
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LaporanDriverScreen(tripId: acceptedTrip.id),
+        ),
+      );
+
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tripProvider.errorMessage ?? 'Gagal memulai tugas'),
@@ -77,7 +89,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
               child: const Text('Ya, Mulai Tugas'),
               onPressed: () {
                 Navigator.of(context).pop();
-                _handleStartTrip(trip.id);
+                _handleStartTrip(trip);
               },
             ),
           ],

@@ -160,6 +160,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final attendanceProvider =
         Provider.of<AttendanceProvider>(context, listen: false);
+    final dashboardProvider =
+        Provider.of<DashboardProvider>(context, listen: false);
 
     if (authProvider.token == null) {
       showErrorSnackBar(context, "Sesi tidak valid, silakan login ulang.");
@@ -197,31 +199,35 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
 
     try {
-      await attendanceProvider.performClockInWithLocation(
-          context: context,
-          image: imageResult.file,
-          token: authProvider.token!,
-          position: imageResult.position!);
+    await attendanceProvider.performClockInWithLocation(
+        context: context,
+        image: imageResult.file,
+        token: authProvider.token!,
+        position: imageResult.position!);
 
-      if (!mounted) return;
+  } catch (e) {
+    debugPrint("Terjadi error tak terduga: $e");
+  } finally {
+    
+    if (mounted) {
       final status = attendanceProvider.status;
-      final message = attendanceProvider.message ?? "Terjadi kesalahan";
+      final message = attendanceProvider.message;
+
+      if (status == AttendanceProcessStatus.success) {
+        await dashboardProvider.fetchDashboardData(context: context);
+      }
 
       Navigator.of(context).pop();
 
       if (status == AttendanceProcessStatus.success) {
-        showInfoSnackBar(context, message);
+        showInfoSnackBar(context, message ?? 'Absen berhasil direkam!');
       } else if (status == AttendanceProcessStatus.error) {
-        if (attendanceProvider.message != null) {
-          showErrorSnackBar(context, message);
-        }
+        showErrorSnackBar(context, message ?? 'Terjadi kesalahan saat absen.');
       }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showErrorSnackBar(context, e.toString().replaceFirst('Exception: ', ''));
+      attendanceProvider.resetStatus();
     }
   }
+}
 
   Future<void> _startStampedClockOut(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -258,31 +264,30 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
 
     try {
-      await attendanceProvider.performClockOut(
-        context: context,
-        image: imageResult.file,
-        token: authProvider.token!,
-      );
-
-      if (!mounted) return;
-      final status = attendanceProvider.status;
-      final message = attendanceProvider.message ?? "Terjadi kesalahan";
-
+    await attendanceProvider.performClockOut(
+      context: context,
+      image: imageResult.file,
+      token: authProvider.token!,
+    );
+  } catch (e) {
+    debugPrint("Terjadi error tak terduga saat clock-out: $e");
+  } finally {
+    if (mounted) {
       Navigator.of(context).pop();
+
+      final status = attendanceProvider.status;
+      final message = attendanceProvider.message;
 
       if (status == AttendanceProcessStatus.success) {
-        showInfoSnackBar(context, message);
+        showInfoSnackBar(context, message ?? 'Absen pulang berhasil!');
       } else if (status == AttendanceProcessStatus.error) {
-        if (attendanceProvider.message != null) {
-          showErrorSnackBar(context, message);
-        }
+        showErrorSnackBar(context, message ?? 'Gagal absen pulang.');
       }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showErrorSnackBar(context, e.toString().replaceFirst('Exception: ', ''));
+
+      attendanceProvider.resetStatus();
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

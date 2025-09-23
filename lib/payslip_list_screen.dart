@@ -25,10 +25,13 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ===== PERUBAHAN DI SINI =====
-      Provider.of<PayslipProvider>(context, listen: false)
-          .fetchPayslipSummaries(context: context);
+      _loadInitialData();
     });
+  }
+
+  Future<void> _loadInitialData() async {
+    await Provider.of<PayslipProvider>(context, listen: false)
+        .fetchPayslipSummaries(context: context);
   }
 
   Future<void> _handleDownload(PayslipSummary summary, int index) async {
@@ -146,6 +149,13 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadInitialData,
+            tooltip: 'Muat Ulang',
+          ),
+        ],
       ),
       backgroundColor: Colors.grey[100],
       body: Consumer<PayslipProvider>(
@@ -154,36 +164,39 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
           if (provider.errorMessage != null) return Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('Gagal memuat data: ${provider.errorMessage}', textAlign: TextAlign.center)));
           if (provider.summaries.isEmpty) return const Center(child: Text('Belum ada riwayat slip gaji.', style: TextStyle(color: Colors.grey)));
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            itemCount: provider.summaries.length,
-            itemBuilder: (context, index) {
-              final summary = provider.summaries[index];
-              final monthName = DateFormat('MMMM yyyy', 'id_ID').format(summary.period);
-              final isCurrentlyProcessing = _processingIndex == index;
-              final bool hasBeenDownloaded = provider.downloadedSlipIds.contains(summary.id);
+          return RefreshIndicator(
+            onRefresh: _loadInitialData,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              itemCount: provider.summaries.length,
+              itemBuilder: (context, index) {
+                final summary = provider.summaries[index];
+                final monthName = DateFormat('MMMM yyyy', 'id_ID').format(summary.period);
+                final isCurrentlyProcessing = _processingIndex == index;
+                final bool hasBeenDownloaded = provider.downloadedSlipIds.contains(summary.id);
 
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                  leading: CircleAvatar(
-                      backgroundColor: hasBeenDownloaded ? Colors.green : Colors.blue,
-                      foregroundColor: Colors.white,
-                      child: Icon(hasBeenDownloaded ? Icons.check_circle_outline : Icons.picture_as_pdf_outlined)),
-                  title: Text(monthName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(hasBeenDownloaded ? 'Sudah di-download. Ketuk untuk opsi simpan.' : 'Ketuk untuk menyimpan')),
-                  trailing: isCurrentlyProcessing
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
-                      : const Icon(Icons.download_for_offline_outlined, color: Colors.grey),
-                  onTap: () => _handleDownload(summary, index),
-                ),
-              );
-            },
+                return Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                    leading: CircleAvatar(
+                        backgroundColor: hasBeenDownloaded ? Colors.green : Colors.blue,
+                        foregroundColor: Colors.white,
+                        child: Icon(hasBeenDownloaded ? Icons.check_circle_outline : Icons.picture_as_pdf_outlined)),
+                    title: Text(monthName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(hasBeenDownloaded ? 'Sudah di-download. Ketuk untuk opsi simpan.' : 'Ketuk untuk menyimpan')),
+                    trailing: isCurrentlyProcessing
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+                        : const Icon(Icons.download_for_offline_outlined, color: Colors.grey),
+                    onTap: () => _handleDownload(summary, index),
+                  ),
+                );
+              },
+            ),
           );
         },
       ),

@@ -25,10 +25,13 @@ class _IdCardScreenState extends State<IdCardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ===== PERUBAHAN DI SINI =====
-      Provider.of<IdCardProvider>(context, listen: false)
-          .fetchIdCard(context: context);
+      _loadInitialData();
     });
+  }
+
+  Future<void> _loadInitialData() async {
+    await Provider.of<IdCardProvider>(context, listen: false)
+        .fetchIdCard(context: context);
   }
   
   Future<void> _handleDownload(String? tempPdfPath) async {
@@ -132,6 +135,11 @@ class _IdCardScreenState extends State<IdCardScreen> {
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadInitialData,
+            tooltip: 'Muat Ulang',
+          ),
           if (idCardProvider.status == IdCardStatus.success && idCardProvider.pdfPath != null)
             IconButton(
               icon: _isSaving
@@ -142,22 +150,65 @@ class _IdCardScreenState extends State<IdCardScreen> {
             ),
         ],
       ),
-      body: Builder(
-        builder: (context) {
-          switch (idCardProvider.status) {
-            case IdCardStatus.loading:
-              return const Center(child: CircularProgressIndicator());
-            case IdCardStatus.error:
-              return Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(idCardProvider.errorMessage ?? 'Terjadi kesalahan.', textAlign: TextAlign.center)));
-            case IdCardStatus.success:
-              if (idCardProvider.pdfPath != null) {
-                return PDFView(filePath: idCardProvider.pdfPath!);
-              }
-              return const Center(child: Text('Gagal memuat file PDF.'));
-            default:
-              return const Center(child: Text('Memuat ID Card...'));
-          }
-        },
+      body: RefreshIndicator(
+        onRefresh: _loadInitialData,
+        child: Builder(
+          builder: (context) {
+            switch (idCardProvider.status) {
+              case IdCardStatus.loading:
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                    );
+                  }
+                );
+              case IdCardStatus.error:
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(idCardProvider.errorMessage ?? 'Terjadi kesalahan.', textAlign: TextAlign.center))),
+                      ),
+                    );
+                  }
+                );
+              case IdCardStatus.success:
+                if (idCardProvider.pdfPath != null) {
+                  return PDFView(filePath: idCardProvider.pdfPath!);
+                }
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: const Center(child: Text('Gagal memuat file PDF.')),
+                      ),
+                    );
+                  }
+                );
+              default:
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: const Center(child: Text('Memuat ID Card...')),
+                      ),
+                    );
+                  }
+                );
+            }
+          },
+        ),
       ),
     );
   }
