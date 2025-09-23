@@ -129,7 +129,10 @@ class TripProvider with ChangeNotifier {
     }
   }
 
-  Future<Trip?> acceptTrip(String token, int tripId) async {
+  Future<Trip?> acceptTrip({
+    required BuildContext context, 
+    required String token, 
+    required int tripId}) async {
     try {
       final updatedTrip = await _tripService.acceptTrip(token, tripId);
 
@@ -142,7 +145,14 @@ class TripProvider with ChangeNotifier {
 
       return updatedTrip;
     } catch (e) {
-      _errorMessage = 'Gagal memulai tugas: ${e.toString()}';
+      final errorString = e.toString();
+      _errorMessage = 'Gagal memulai tugas: $errorString'; // Tetap set error message
+
+      if (errorString.contains('Unauthenticated')) {
+        // Jika error karena sesi tidak valid, panggil AuthProvider untuk logout
+        // Gunakan context yang sudah kita tambahkan sebagai parameter
+        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+      }
       notifyListeners();
       return null;
     }

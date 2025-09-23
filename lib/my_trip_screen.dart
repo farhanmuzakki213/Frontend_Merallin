@@ -42,7 +42,11 @@ class _MyTripScreenState extends State<MyTripScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Memulai tugas...')),
     );
-    final acceptedTrip = await tripProvider.acceptTrip(authProvider.token!, trip.id);
+    final acceptedTrip = await tripProvider.acceptTrip(
+      context: context, // Kirim context
+      token: authProvider.token!,
+      tripId: trip.id,
+    );
     
     if (!mounted) return;
 
@@ -64,12 +68,15 @@ class _MyTripScreenState extends State<MyTripScreen> {
       );
 
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tripProvider.errorMessage ?? 'Gagal memulai tugas'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      final currentErrorMessage = tripProvider.errorMessage;
+      if (currentErrorMessage != null && !currentErrorMessage.contains('Unauthenticated')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(currentErrorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
