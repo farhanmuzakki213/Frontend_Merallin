@@ -225,6 +225,8 @@ class LemburProvider with ChangeNotifier {
       final mergedData = existingData.copyWith(
         jamSelesaiAktual: partialUpdate.jamSelesaiAktual,
         fotoSelesaiPath: partialUpdate.fotoSelesaiPath,
+        totalJam: partialUpdate.totalJam,
+        gajiLembur: partialUpdate.gajiLembur,
       );
       
       // 4. Perbarui state dengan data yang sudah digabung
@@ -235,7 +237,7 @@ class LemburProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _actionMessage = e.toString();
+      _actionMessage = e.toString().replaceFirst('Exception: ', '');
       _isActionLoading = false;
       notifyListeners();
       return false;

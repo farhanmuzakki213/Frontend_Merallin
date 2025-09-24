@@ -296,6 +296,10 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
                         if (lembur.statusLembur == StatusPersetujuan.ditolak &&
                             lembur.alasanPenolakan != null)
                           _buildInfoRow(Icons.comment_bank_outlined, 'Alasan Penolakan', lembur.alasanPenolakan!),
+
+                        if (lembur.jamSelesaiAktual != null)
+                          _buildCompletionDetails(lembur),
+
                         if (lembur.statusLembur == StatusPersetujuan.diterima && lembur.fileFinalUrl != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 16.0),
@@ -328,11 +332,37 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     );
   }
 
-  // Widget _buildActionSection sekarang menerima status UI
+  Widget _buildCompletionDetails(Lembur lembur) {
+    // Format Waktu Aktual
+    final formatJamAktual = (DateTime? time) => time != null ? DateFormat('HH:mm:ss').format(time) : '-';
+    final jamMulaiAktual = formatJamAktual(lembur.jamMulaiAktual);
+    final jamSelesaiAktual = formatJamAktual(lembur.jamSelesaiAktual);
+
+    // Format Rupiah
+    final formatRupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 30),
+        _buildInfoRow(Icons.more_time_rounded, 'Waktu Aktual', '$jamMulaiAktual - $jamSelesaiAktual'),
+        if (lembur.totalJam != null)
+          _buildInfoRow(
+            Icons.summarize_outlined, 
+            'Total Durasi Aktual',
+            '${lembur.totalJam!.toStringAsFixed(2)} Jam'
+          ),
+        if (lembur.gajiLembur != null)
+          _buildInfoRow(
+            Icons.paid_outlined,
+            'Upah Lembur',
+            formatRupiah.format(lembur.gajiLembur)
+          ),
+      ],
+    );
+  }
+
   Widget _buildActionSection(Lembur lembur) {
-    // =================================================================
-    // ===== PERUBAHAN UTAMA DI SINI: Logika penentuan status =====
-    // =================================================================
     String uiStatus;
     // Cek status persetujuan dulu
     if (lembur.statusLembur != StatusPersetujuan.diterima) {

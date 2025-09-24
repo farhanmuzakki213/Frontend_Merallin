@@ -124,6 +124,28 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
       return;
     }
 
+    if (_startTime != null && _endTime != null) {
+      final now = DateTime.now();
+      var startDateTime = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+      var endDateTime = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+
+      if (endDateTime.isBefore(startDateTime)) {
+        endDateTime = endDateTime.add(const Duration(days: 1));
+      }
+
+      final difference = endDateTime.difference(startDateTime);
+      
+      // Cek apakah durasi kurang dari 60 menit (1 jam)
+      if (difference.inMinutes < 60) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Durasi lembur minimal adalah 1 jam.'),
+              backgroundColor: Colors.orange),
+        );
+        return; // Hentikan proses submit jika durasi kurang
+      }
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -133,10 +155,10 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final lemburProvider = Provider.of<LemburProvider>(context, listen: false);
     // ===== PENAMBAHAN: Validasi Kuota Mingguan =====
-    if (lemburProvider.totalOvertimeHoursThisWeek >= 10) {
+    if (lemburProvider.totalOvertimeHoursThisWeek >= 20) {
       scaffoldMessenger.showSnackBar(
         const SnackBar(
-          content: Text('Anda telah mencapai batas maksimal 10 jam lembur minggu ini.'),
+          content: Text('Anda telah mencapai batas maksimal 20 jam lembur minggu ini.'),
           backgroundColor: Colors.red,
         ),
       );

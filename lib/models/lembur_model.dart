@@ -144,6 +144,9 @@ class Lembur {
   final String? fotoMulaiPath;
   final String? fotoSelesaiPath;
 
+  final double? totalJam;
+  final double? gajiLembur;
+
   const Lembur({
     required this.id,
     this.uuid,
@@ -165,6 +168,9 @@ class Lembur {
     this.jamSelesaiAktual,
     this.fotoMulaiPath,
     this.fotoSelesaiPath,
+
+    this.totalJam,
+    this.gajiLembur,
   });
 
   factory Lembur.fromJson(Map<String, dynamic> json) {
@@ -184,6 +190,8 @@ class Lembur {
       DateTime? _parseNullableDate(String? dateString) {
         return dateString != null ? DateTime.parse(dateString) : null;
       }
+
+      double? _safeParseDouble(dynamic value) => value == null ? null : double.tryParse(value.toString());
 
       return Lembur(
         id: safeParseInt(json['id']),
@@ -222,6 +230,9 @@ class Lembur {
         jamSelesaiAktual: _parseNullableDate(json['jam_selesai_aktual']),
         fotoMulaiPath: json['foto_mulai_path'],
         fotoSelesaiPath: json['foto_selesai_path'],
+
+        totalJam: _safeParseDouble(json['total_jam']),
+        gajiLembur: _safeParseDouble(json['gaji_lembur']),
       );
     } catch (e) {
       debugPrint('Error parsing Lembur from JSON: $e');
@@ -239,6 +250,9 @@ class Lembur {
     DateTime? jamSelesaiAktual,
     String? fotoMulaiPath,
     String? fotoSelesaiPath,
+
+    double? totalJam,
+    double? gajiLembur,
   }) {
     return Lembur(
       id: id,
@@ -262,6 +276,9 @@ class Lembur {
       jamSelesaiAktual: jamSelesaiAktual ?? this.jamSelesaiAktual,
       fotoMulaiPath: fotoMulaiPath ?? this.fotoMulaiPath,
       fotoSelesaiPath: fotoSelesaiPath ?? this.fotoSelesaiPath,
+
+      totalJam: totalJam ?? this.totalJam,
+      gajiLembur: gajiLembur ?? this.gajiLembur,
     );
   }
 }
