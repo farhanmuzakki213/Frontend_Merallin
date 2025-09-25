@@ -333,25 +333,31 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
   }
 
   Widget _buildCompletionDetails(Lembur lembur) {
-    // Format Waktu Aktual
-    final formatJamAktual = (DateTime? time) => time != null ? DateFormat('HH:mm:ss').format(time) : '-';
-    final jamMulaiAktual = formatJamAktual(lembur.jamMulaiAktual);
-    final jamSelesaiAktual = formatJamAktual(lembur.jamSelesaiAktual);
-
-    // Format Rupiah
+    final formatJam = (DateTime? time) => time != null ? DateFormat('HH:mm:ss').format(time) : '-';
     final formatRupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    // Bangun waktu selesai rencana dari data lembur untuk perbandingan
+    final jamSelesaiRencana = DateTime(
+      lembur.tanggalLembur.year,
+      lembur.tanggalLembur.month,
+      lembur.tanggalLembur.day,
+      int.parse(lembur.selesaiJamLembur.split(':')[0]),
+      int.parse(lembur.selesaiJamLembur.split(':')[1]),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 30),
-        _buildInfoRow(Icons.more_time_rounded, 'Waktu Aktual', '$jamMulaiAktual - $jamSelesaiAktual'),
-        if (lembur.totalJam != null)
-          _buildInfoRow(
-            Icons.summarize_outlined, 
-            'Total Durasi Aktual',
-            '${lembur.totalJam!.toStringAsFixed(2)} Jam'
-          ),
+        _buildInfoRow(Icons.timer_outlined, 'Waktu Mulai Aktual', formatJam(lembur.jamMulaiAktual)),
+        _buildInfoRow(Icons.schedule, 'Waktu Selesai (Rencana)', formatJam(jamSelesaiRencana)),
+        _buildInfoRow(Icons.timer_off_outlined, 'Waktu Selesai (Aktual)', formatJam(lembur.jamSelesaiAktual)),
+        const SizedBox(height: 10),
+        _buildInfoRow(
+          Icons.summarize_outlined,
+          'Total Durasi Dihitung',
+          '${lembur.totalJam?.toStringAsFixed(2) ?? '0'} Jam'
+        ),
         if (lembur.gajiLembur != null)
           _buildInfoRow(
             Icons.paid_outlined,
