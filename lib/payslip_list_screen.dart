@@ -7,6 +7,7 @@ import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/payslip_provider.dart';
 import 'package:frontend_merallin/services/download_service.dart';
 import 'package:frontend_merallin/services/notification_service.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -91,14 +92,14 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
     final token = authProvider.token;
 
     if (token == null) {
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Sesi tidak valid.')));
+      showErrorSnackBar(context, 'Sesi tidak valid.');
       setState(() => _processingIndex = null);
       return;
     }
 
     try {
       final fileName = 'slip-gaji-${DateFormat('MMMM-yyyy', 'id_ID').format(summary.period)}';
-      scaffoldMessenger.showSnackBar(SnackBar(content: Text('Mengunduh $fileName...')));
+      showInfoSnackBar(context, 'Mengunduh $fileName...');
 
       final fileBytes = await _downloadService.fetchFileBytes(url: summary.fileUrl, token: token);
       if (!mounted) return;
@@ -124,7 +125,7 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
       context.read<PayslipProvider>().addDownloadedSlipId(summary.id);
       
       scaffoldMessenger.removeCurrentSnackBar();
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('DOWNLOAD BERHASIL.')));
+      showSuccessSnackBar(context, 'DOWNLOAD BERHASIL.');
 
       await NotificationService.showDownloadCompleteNotification(
         filePath: savedPath,
@@ -134,7 +135,7 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
     } catch (e) {
       if(mounted) {
         scaffoldMessenger.removeCurrentSnackBar();
-        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Gagal: ${e.toString().replaceFirst('Exception: ', '')}')));
+        showErrorSnackBar(context, 'Gagal: ${e.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
       if(mounted) setState(() => _processingIndex = null);

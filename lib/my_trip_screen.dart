@@ -1,6 +1,7 @@
 // lib/my_trip_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../providers/trip_provider.dart';
@@ -39,9 +40,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
 
     if (authProvider.token == null) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Memulai tugas...')),
-    );
+    showInfoSnackBar(context, 'Memulai tugas...');
     final acceptedTrip = await tripProvider.acceptTrip(
       context: context, // Kirim context
       token: authProvider.token!,
@@ -53,12 +52,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     if (acceptedTrip != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tugas berhasil dimulai! Mengarahkan ke laporan...'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      showInfoSnackBar(context, 'Tugas berhasil dimulai! Mengarahkan ke laporan...');
       
       await Navigator.push(
         context,
@@ -70,12 +64,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
     } else {
       final currentErrorMessage = tripProvider.errorMessage;
       if (currentErrorMessage != null && !currentErrorMessage.contains('Unauthenticated')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(currentErrorMessage),
-            backgroundColor: Colors.red,
-          ),
-        );
+          showErrorSnackBar(context, currentErrorMessage);
       }
     }
   }
@@ -229,10 +218,8 @@ class _MyTripScreenState extends State<MyTripScreen> {
             final tripProvider = context.read<TripProvider>();
             bool hasActiveTrip = tripProvider.activeTrips.isNotEmpty;
             if (hasActiveTrip) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text(
-                      'Anda sudah memiliki tugas aktif. Selesaikan terlebih dahulu.'),
-                  backgroundColor: Colors.orange));
+              showWarningSnackBar(context, 
+                      'Anda sudah memiliki tugas aktif. Selesaikan terlebih dahulu.');
             } else {
               _showStartTripConfirmation(trip);
             }

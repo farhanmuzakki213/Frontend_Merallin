@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/lembur_provider.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -144,12 +145,7 @@ class _LemburScreenState extends State<LemburScreen> {
         onPressed: () {
           // Jika ada lembur yang sedang berlangsung
           if (hasOngoingLembur) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Anda tidak bisa mengajukan lembur baru saat sesi lain sedang berlangsung.'),
-                backgroundColor: Colors.orange,
-              ),
-            );
+            showErrorSnackBar(context, 'Anda tidak bisa mengajukan lembur baru saat sesi lain sedang berlangsung.');
           } else {
             // Jika tidak ada, navigasi ke halaman pengajuan
             Navigator.push(

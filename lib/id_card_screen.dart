@@ -10,6 +10,8 @@ import 'package:frontend_merallin/services/download_service.dart';
 import 'package:frontend_merallin/services/notification_service.dart';
 import 'package:provider/provider.dart';
 
+import 'utils/snackbar_helper.dart';
+
 class IdCardScreen extends StatefulWidget {
   const IdCardScreen({super.key});
 
@@ -91,7 +93,7 @@ class _IdCardScreenState extends State<IdCardScreen> {
     final fileName = 'ID-Card-$userName';
 
     try {
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Mempersiapkan file...')));
+      showInfoSnackBar(context, 'Mempersiapkan file...');
       
       final fileBytes = await File(tempPdfPath).readAsBytes();
       if (!mounted) return;
@@ -111,14 +113,14 @@ class _IdCardScreenState extends State<IdCardScreen> {
       context.read<IdCardProvider>().setAsDownloaded();
       
       scaffoldMessenger.removeCurrentSnackBar();
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('DOWNLOAD BERHASIL.')));
+      showSuccessSnackBar(context, 'DOWNLOAD BERHASIL.');
 
       await NotificationService.showDownloadCompleteNotification(filePath: savedPath, fileName: '$fileName.pdf');
 
     } catch (e) {
       if(mounted) {
         scaffoldMessenger.removeCurrentSnackBar();
-        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Gagal: ${e.toString().replaceFirst('Exception: ', '')}')));
+        showErrorSnackBar(context, 'Gagal: ${e.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
       if(mounted) setState(() => _isSaving = false);

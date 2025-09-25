@@ -7,6 +7,7 @@ import 'package:frontend_merallin/models/izin_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/leave_provider.dart';
 import 'package:frontend_merallin/utils/image_helper.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -142,18 +143,13 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
   }
 
   Future<void> _submitLeaveNotification() async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     if (!_formKey.currentState!.validate()) return;
     if (_startDate == null || _endDate == null) {
-      scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Tanggal mulai dan selesai wajib diisi.'),
-          backgroundColor: Colors.red,),);
+      showErrorSnackBar(context, 'Tanggal mulai dan selesai wajib diisi.');
       return;
     }
     if (_pickedFile == null) {
-      scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Bukti izin wajib diunggah.'),
-          backgroundColor: Colors.red,),);
+      showWarningSnackBar(context, 'Bukti izin wajib diunggah.');
       return;
     }
 
@@ -161,9 +157,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     if (authProvider.token == null) {
-      scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Sesi Anda berakhir, silakan login ulang.'),
-          backgroundColor: Colors.red,),);
+      showErrorSnackBar(context, 'Sesi Anda berakhir, silakan login ulang.');
       return;
     }
 
@@ -180,15 +174,10 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     if (!mounted) return;
 
     if (leaveProvider.submissionStatus == DataStatus.success) {
-      scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Pemberitahuan izin berhasil dikirim.'),
-          backgroundColor: Colors.green,),);
+      showSuccessSnackBar(context, 'Pemberitahuan izin berhasil dikirim.');
       widget.onSuccess();
     } else {
-      scaffoldMessenger.showSnackBar(SnackBar(
-          content:
-              Text(leaveProvider.submissionMessage ?? 'Terjadi kesalahan.'),
-          backgroundColor: Colors.red,),);
+      showErrorSnackBar(context, leaveProvider.submissionMessage ?? 'Terjadi kesalahan.');
     }
   }
 

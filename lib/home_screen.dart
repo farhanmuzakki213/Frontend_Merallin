@@ -168,16 +168,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       return;
     }
 
-    final imageResult = await ImageHelper.takePhotoWithLocation(context);
-
-    if (imageResult == null || !mounted) return;
-
-    if (imageResult.position == null) {
-      showErrorSnackBar(
-          context, "Gagal mendapatkan data lokasi. Mohon coba lagi.");
-      return;
-    }
-
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -199,50 +189,55 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
 
     try {
-    await attendanceProvider.performClockInWithLocation(
-        context: context,
-        image: imageResult.file,
-        token: authProvider.token!,
-        position: imageResult.position!);
+      final imageResult = await ImageHelper.takePhotoWithLocation(context);
 
-  } catch (e) {
-    debugPrint("Terjadi error tak terduga: $e");
-  } finally {
-    
-    if (mounted) {
-      final status = attendanceProvider.status;
-      final message = attendanceProvider.message;
+      if (imageResult == null || !mounted) return;
 
-      if (status == AttendanceProcessStatus.success) {
-        await dashboardProvider.fetchDashboardData(context: context);
+      if (imageResult.position == null) {
+        showErrorSnackBar(context, "Gagal mendapatkan data lokasi. Mohon coba lagi.");
+        return;
+      }
+      
+      await attendanceProvider.performClockInWithLocation(
+          context: context,
+          image: imageResult.file,
+          token: authProvider.token!,
+          position: imageResult.position!);
+
+      if (mounted) {
+        final status = attendanceProvider.status;
+        final message = attendanceProvider.message;
+
+        if (status == AttendanceProcessStatus.success) {
+          await dashboardProvider.fetchDashboardData(context: context);
+          showSuccessSnackBar(context, message ?? 'Absen berhasil direkam!');
+        } else if (status == AttendanceProcessStatus.error) {
+          showErrorSnackBar(context, message ?? 'Terjadi kesalahan saat absen.');
+        }
+        attendanceProvider.resetStatus();
       }
 
-      Navigator.of(context).pop();
-
-      if (status == AttendanceProcessStatus.success) {
-        showInfoSnackBar(context, message ?? 'Absen berhasil direkam!');
-      } else if (status == AttendanceProcessStatus.error) {
-        showErrorSnackBar(context, message ?? 'Terjadi kesalahan saat absen.');
+    } catch (e) {
+      debugPrint("Terjadi error tak terduga saat clock-in: $e");
+      if(mounted) {
+        showErrorSnackBar(context, "Terjadi kesalahan: ${e.toString()}");
       }
-      attendanceProvider.resetStatus();
+    } finally {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
-}
 
   Future<void> _startStampedClockOut(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final attendanceProvider =
-        Provider.of<AttendanceProvider>(context, listen: false);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
 
     if (authProvider.token == null) {
       showErrorSnackBar(context, "Sesi tidak valid, silakan login ulang.");
       return;
     }
 
-    final imageResult = await ImageHelper.takePhotoWithLocation(context);
-
-    if (imageResult == null || !mounted) return;
-
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -264,30 +259,39 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
 
     try {
-    await attendanceProvider.performClockOut(
-      context: context,
-      image: imageResult.file,
-      token: authProvider.token!,
-    );
-  } catch (e) {
-    debugPrint("Terjadi error tak terduga saat clock-out: $e");
-  } finally {
-    if (mounted) {
-      Navigator.of(context).pop();
+      final imageResult = await ImageHelper.takePhotoWithLocation(context);
 
-      final status = attendanceProvider.status;
-      final message = attendanceProvider.message;
+      if (imageResult == null || !mounted) return;
 
-      if (status == AttendanceProcessStatus.success) {
-        showInfoSnackBar(context, message ?? 'Absen pulang berhasil!');
-      } else if (status == AttendanceProcessStatus.error) {
-        showErrorSnackBar(context, message ?? 'Gagal absen pulang.');
+      await attendanceProvider.performClockOut(
+        context: context,
+        image: imageResult.file,
+        token: authProvider.token!,
+      );
+
+      if (mounted) {
+        final status = attendanceProvider.status;
+        final message = attendanceProvider.message;
+
+        if (status == AttendanceProcessStatus.success) {
+          showSuccessSnackBar(context, message ?? 'Absen pulang berhasil!');
+        } else if (status == AttendanceProcessStatus.error) {
+          showErrorSnackBar(context, message ?? 'Gagal absen pulang.');
+        }
+        attendanceProvider.resetStatus();
       }
 
-      attendanceProvider.resetStatus();
+    } catch (e) {
+      debugPrint("Terjadi error tak terduga saat clock-out: $e");
+      if (mounted) {
+        showErrorSnackBar(context, "Terjadi kesalahan: ${e.toString()}");
+      }
+    } finally {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {

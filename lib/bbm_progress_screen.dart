@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/home_screen.dart';
 import 'package:frontend_merallin/providers/attendance_provider.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:frontend_merallin/widgets/in_app_widgets.dart';
 import 'package:provider/provider.dart';
 import 'bbm_waiting_verification.dart';
@@ -87,10 +88,7 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
       }
 
       if (bbm.isFullyCompleted || bbm.statusBbmKendaraan == 'selesai') {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Tugas ini sudah selesai.'),
-          backgroundColor: Colors.green,
-        ));
+        showSuccessSnackBar(context, 'Tugas ini sudah selesai.');
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -175,22 +173,13 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
       }
 
       if (result.status == BbmFlowStatus.rejected) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Revisi Diperlukan: ${result.rejectionReason ?? "Dokumen ditolak."}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ));
+        showErrorSnackBar(context,
+              'Revisi Diperlukan: ${result.rejectionReason ?? "Dokumen ditolak."}');
         _fetchDetailsAndProceed(forceShowForm: true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Verifikasi berhasil!'),
-          backgroundColor: Colors.green,
-        ));
+        showSuccessSnackBar(context,'Verifikasi berhasil!');
         if (result.updatedBbm.isFullyCompleted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Pengisian BBM telah selesai sepenuhnya!'),
-              backgroundColor: Colors.blue));
+          showInfoSnackBar(context, 'Pengisian BBM telah selesai sepenuhnya!');
 
           Navigator.push(
             context,
@@ -285,10 +274,7 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Gagal: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ));
+        showErrorSnackBar(context, 'Gagal: ${e.toString()}');
       }
     } finally {
       if (mounted) setState(() => _isSendingData = false);
@@ -300,29 +286,19 @@ class _BbmProgressScreenState extends State<BbmProgressScreen> {
     try {
       final updatedBbm = await apiCall();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Status berhasil diperbarui!'),
-          backgroundColor: Colors.green,
-        ));
+        showSuccessSnackBar(context, 'Status berhasil diperbarui!');
       }
       return updatedBbm;
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-        );
+        showErrorSnackBar(context, e.toString());
       }
       return null;
     }
   }
 
   void _showCannotExitMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Anda harus menyelesaikan pengisian BBM untuk keluar.'),
-        backgroundColor: Colors.orange,
-      ),
-    );
+    showWarningSnackBar(context, 'Anda harus menyelesaikan pengisian BBM untuk keluar.');
   }
 
   @override
@@ -526,15 +502,9 @@ class _PageKmStartStateState extends State<_PageKmStartState> {
   Future<BbmKendaraan?> validateAndSubmit() async {
     if (_kmPhoto == null) {
       if (widget.bbm.startKmPhotoStatus.isRejected) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Foto yang ditolak wajib diunggah ulang.'),
-          backgroundColor: Colors.red,
-        ));
+        showErrorSnackBar(context, 'Foto yang ditolak wajib diunggah ulang.');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Foto KM Awal wajib diisi.'),
-          backgroundColor: Colors.red,
-        ));
+        showErrorSnackBar(context, 'Foto KM Awal wajib diisi.');
       }
       return null;
     }
@@ -611,26 +581,17 @@ class _PageKmEndState extends State<_PageKmEnd> {
     final bool isNotaRequired = !widget.bbm.notaPengisianPhotoStatus.isApproved;
 
     if (isKmRequired && _kmPhoto == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Foto KM Akhir wajib diisi.'),
-        backgroundColor: Colors.red,
-      ));
+      showErrorSnackBar(context, 'Foto KM Akhir wajib diisi.');
       return null;
     }
     if (isNotaRequired && _notaPhoto == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Foto Nota Pengisian wajib diisi.'),
-        backgroundColor: Colors.red,
-      ));
+      showErrorSnackBar(context, 'Foto Nota Pengisian wajib diisi.');
       return null;
     }
 
     // Jika tidak ada foto baru yang perlu diupload (karena tidak direject)
     if (_kmPhoto == null && _notaPhoto == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Silakan unggah setidaknya satu foto revisi.'),
-        backgroundColor: Colors.orange,
-      ));
+      showWarningSnackBar(context, 'Silakan unggah setidaknya satu foto revisi.');
       return null;
     }
 
@@ -761,9 +722,7 @@ class _PhotoSectionState extends State<_PhotoSection> {
 
   Future<void> _takePicture() async {
     if (widget.isApproved) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Dokumen ini sudah disetujui.'),
-          backgroundColor: Colors.green));
+      showSuccessSnackBar(context, 'Dokumen ini sudah disetujui.');
       return;
     }
     final newImage = await ImageHelper.takePhoto(context);

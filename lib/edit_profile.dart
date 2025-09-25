@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -83,21 +84,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profil berhasil diperbarui!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        showSuccessSnackBar(context, 'Profil berhasil diperbarui!');
         Navigator.of(context).pop();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(authProvider.errorMessage ?? 'Gagal memperbarui profil'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        showErrorSnackBar(context, authProvider.errorMessage ?? 'Gagal memperbarui profil');
       }
     }
   }

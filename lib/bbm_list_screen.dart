@@ -6,6 +6,7 @@ import 'package:frontend_merallin/models/bbm_model.dart';
 import 'package:frontend_merallin/models/vehicle_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/bbm_provider.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -40,10 +41,7 @@ class _BbmListScreenState extends State<BbmListScreen> {
     
     final bool hasOngoing = bbmProvider.bbmRequests.any((bbm) => bbm.derivedStatus != BbmStatus.selesai);
     if (hasOngoing) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan.'),
-        backgroundColor: Colors.orange,
-      ));
+      showErrorSnackBar(context,'Tidak bisa membuat permintaan baru. Masih ada proses BBM yang sedang berjalan.');
       return;
     }
     
@@ -126,10 +124,7 @@ class _BbmListScreenState extends State<BbmListScreen> {
         _reloadData();
       }
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(bbmProvider.errorMessage ?? 'Gagal membuat permintaan BBM.'),
-        backgroundColor: Colors.red,
-      ));
+      showErrorSnackBar(context, bbmProvider.errorMessage ?? 'Gagal membuat permintaan BBM.');
     }
   }
 
