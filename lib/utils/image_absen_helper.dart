@@ -1,16 +1,21 @@
 // lib/utils/image_helper.dart
 
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' as io;
+import 'package:http/http.dart' as http;
+import 'package:frontend_merallin/camera_screen.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path/path.dart' as p;
+import 'package:permission_handler/permission_handler.dart';
 
 /// Data class to hold the stamped image file and its location data.
 class GeotaggedImageResult {
@@ -25,36 +30,55 @@ class ImageHelper {
   static Future<GeotaggedImageResult?> _processAndStampImage(
     BuildContext context,
     Uint8List imageBytes, {
-    bool getLocation = true, // Parameter untuk kontrol pengambilan lokasi
+    bool getLocation = true,
   }) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     Position? position;
 
     try {
       if (getLocation) {
-        // 1. Dapatkan Lokasi & Alamat
-        try {
-          position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-              timeLimit: const Duration(seconds: 10));
-        } catch (e) {
-          debugPrint("Gagal mendapatkan lokasi: $e");
-          // Tidak melempar error, lanjutkan dengan posisi null
+        var status = await Permission.location.status;
+        if (status.isDenied) {
+          status = await Permission.location.request();
+        }
+
+        // 2. Jika Izin Diberikan, Baru Ambil Lokasi
+        if (status.isGranted) {
+          try {
+            position = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.high,
+                timeLimit: const Duration(seconds: 10));
+          } catch (e) {
+            debugPrint("Gagal mendapatkan lokasi: $e");
+            // Tidak melempar error, lanjutkan dengan posisi null
+          }
+        } else {
+          debugPrint("Izin lokasi ditolak oleh pengguna.");
         }
       }
 
       String addressText = "Alamat tidak ditemukan";
       if (position != null) {
         try {
-          List<Placemark> placemarks = await placemarkFromCoordinates(
-              position.latitude, position.longitude);
-          if (placemarks.isNotEmpty) {
-            final p = placemarks.first;
-            addressText =
-                "${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea}";
+          // Panggil API web untuk mendapatkan alamat dari koordinat
+          final lat = position.latitude;
+          final lon = position.longitude;
+          final url = Uri.parse(
+              'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon');
+
+          final response =
+              await http.get(url, headers: {'User-Agent': 'MerallinApp/1.0'});
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            // Ambil nama alamat lengkap dari respons API
+            addressText = data['display_name'] ?? 'Alamat tidak dapat diurai';
+          } else {
+            addressText = 'Gagal memuat alamat';
           }
         } catch (e) {
-          debugPrint("Gagal mendapatkan alamat: $e");
+          debugPrint("Gagal mendapatkan alamat via API: $e");
+          // Biarkan addressText tetap default jika ada error
         }
       }
 
@@ -70,8 +94,8 @@ class ImageHelper {
       // 3. Gambar Foto Asli
       paintImage(
           canvas: canvas,
-          rect:
-              Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+          rect: Rect.fromLTWH(
+              0, 0, image.width.toDouble(), image.height.toDouble()),
           image: image,
           fit: BoxFit.cover);
 
@@ -81,26 +105,31 @@ class ImageHelper {
       final tanggal = DateFormat('dd/MM/yyyy').format(now);
       final hari = DateFormat('EEEE', 'id_ID').format(now);
 
-      const double margin = 40.0;
+      // Tentukan ukuran font relatif terhadap lebar gambar agar lebih responsif
+      final double baseFontSize = image.width / 25.0;
+
+      const double margin = 20.0; // Margin dari tepi
       const shadow = [
-        Shadow(color: Colors.black87, offset: Offset(2, 2), blurRadius: 4.0)
+        Shadow(color: Colors.black87, offset: Offset(1, 1), blurRadius: 3.0)
       ];
-      const timeStyle = TextStyle(
+
+      // Definisikan style font dengan ukuran yang lebih proporsional
+      final timeStyle = TextStyle(
           fontFamily: 'Arial',
           fontWeight: FontWeight.bold,
-          fontSize: 150,
+          fontSize: baseFontSize * 1.5, // Jam sedikit lebih besar
           color: Colors.white,
           shadows: shadow);
-      const dateStyle = TextStyle(
-          fontFamily: 'Arial',
-          fontWeight: FontWeight.bold,
-          fontSize: 100,
-          color: Colors.white,
-          shadows: shadow);
-      const addressStyle = TextStyle(
+      final dateStyle = TextStyle(
           fontFamily: 'Arial',
           fontWeight: FontWeight.normal,
-          fontSize: 80,
+          fontSize: baseFontSize * 0.9, // Tanggal & Hari lebih kecil
+          color: Colors.white,
+          shadows: shadow);
+      final addressStyle = TextStyle(
+          fontFamily: 'Arial',
+          fontWeight: FontWeight.normal,
+          fontSize: baseFontSize * 0.8, // Alamat paling kecil
           color: Colors.white,
           shadows: shadow);
 
@@ -115,43 +144,62 @@ class ImageHelper {
       final jamPainter = createTextPainter(jam, timeStyle);
       final tanggalPainter = createTextPainter(tanggal, dateStyle);
       final hariPainter = createTextPainter(hari, dateStyle);
-      final addressPainter = createTextPainter(addressText, addressStyle);
+      TextPainter? addressPainter;
+      if (position != null) {
+        addressPainter = createTextPainter(addressText, addressStyle);
+      }
 
-      // 5. Gambar Teks di Canvas
-      final double addressY = image.height - margin - addressPainter.height;
-      final double hariY = addressY - 10 - hariPainter.height;
-      final double tanggalY = hariY - 10 - tanggalPainter.height;
-      final double jamY = tanggalY - 15 - jamPainter.height;
+      // 5. Gambar Teks di Canvas (Tata Letak Baru di Pojok Kiri Bawah)
+      double nextY = image.height.toDouble() - margin; // Mulai dari bawah
 
-      jamPainter.paint(canvas, Offset(margin, jamY));
-      tanggalPainter.paint(canvas, Offset(margin, tanggalY));
-      hariPainter.paint(canvas, Offset(margin, hariY));
-      addressPainter.paint(canvas, Offset(margin, addressY));
+      // Gambar Alamat (paling bawah)
+      if (addressPainter != null) {
+        nextY -= addressPainter.height;
+        addressPainter.paint(canvas, Offset(margin, nextY));
+      }
+
+      // Gambar Hari
+      nextY -= (hariPainter.height + 5); // Beri sedikit spasi
+      hariPainter.paint(canvas, Offset(margin, nextY));
+
+      // Gambar Tanggal
+      nextY -= (tanggalPainter.height + 5);
+      tanggalPainter.paint(canvas, Offset(margin, nextY));
+
+      // Gambar Jam (paling atas di antara teks lainnya)
+      nextY -= (jamPainter.height + 10); // Beri spasi lebih besar
+      jamPainter.paint(canvas, Offset(margin, nextY));
 
       // 6. Simpan Hasil ke File Baru
       final picture = recorder.endRecording();
       final finalImage = await picture.toImage(image.width, image.height);
-      final pngBytes =
+      final byteData =
           await finalImage.toByteData(format: ui.ImageByteFormat.png);
 
-      if (pngBytes == null) throw Exception("Gagal mengonversi gambar ke PNG");
+      if (byteData == null) throw Exception("Gagal mengonversi gambar ke PNG");
 
-      final jpegBytes = await FlutterImageCompress.compressWithList(
-        pngBytes.buffer.asUint8List(),
-        minWidth: 1080,
-        minHeight: 1920,
-        quality: 85,
-        format: CompressFormat.jpeg,
-      );
+      Uint8List finalBytes = byteData.buffer.asUint8List();
+
+      if (!kIsWeb &&
+          !Platform.isWindows &&
+          !Platform.isLinux &&
+          !Platform.isMacOS) {
+        finalBytes = await FlutterImageCompress.compressWithList(
+          finalBytes,
+          minWidth: 1080,
+          minHeight: 1920,
+          quality: 85,
+          format: CompressFormat.jpeg,
+        );
+      }
 
       final dir = await getTemporaryDirectory();
-      final targetPath =
-          p.join(dir.path, "stamped_${DateTime.now().millisecondsSinceEpoch}.jpg");
+      final targetPath = p.join(
+          dir.path, "stamped_${DateTime.now().millisecondsSinceEpoch}.jpg");
       final outputFile = File(targetPath);
-      await outputFile.writeAsBytes(jpegBytes);
+      await outputFile.writeAsBytes(finalBytes);
 
       return GeotaggedImageResult(file: outputFile, position: position);
-
     } catch (e) {
       debugPrint("Error saat memproses foto: $e");
       if (context.mounted) {
@@ -183,7 +231,8 @@ class ImageHelper {
     if (compressedBytes == null) return null;
 
     // Panggil _processAndStampImage tanpa mengharapkan lokasi kembali
-    final result = await _processAndStampImage(context, compressedBytes, getLocation: false);
+    final result = await _processAndStampImage(context, compressedBytes,
+        getLocation: false);
     return result?.file;
   }
 
@@ -191,24 +240,47 @@ class ImageHelper {
   /// Mengembalikan [GeotaggedImageResult] yang berisi file dan data lokasi.
   static Future<GeotaggedImageResult?> takePhotoWithLocation(
       BuildContext context) async {
-    final picker = ImagePicker();
-    final pickedFile =
-        await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    XFile? pickedFile;
+
+    bool shouldGetLocation = !kIsWeb;
+
+    if (!kIsWeb &&
+        (io.Platform.isWindows || io.Platform.isLinux || io.Platform.isMacOS)) {
+      // Gunakan package camera untuk desktop
+      pickedFile = await Navigator.push<XFile>(
+        context,
+        MaterialPageRoute(builder: (context) => const CameraScreen()),
+      );
+    } else {
+      final picker = ImagePicker();
+      pickedFile =
+          await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    }
     if (pickedFile == null || !context.mounted) return null;
+    Uint8List imageBytes = await pickedFile.readAsBytes();
 
-    var compressedBytes = await FlutterImageCompress.compressWithFile(
-      pickedFile.path,
-      minWidth: 1080,
-      minHeight: 1920,
-      quality: 80,
-    );
-
-    if (compressedBytes == null) return null;
+    if (!kIsWeb &&
+        !io.Platform.isWindows &&
+        !io.Platform.isLinux &&
+        !io.Platform.isMacOS) {
+      try {
+        final compressedBytes = await FlutterImageCompress.compressWithList(
+          imageBytes,
+          minWidth: 1080,
+          minHeight: 1920,
+          quality: 80,
+        );
+        imageBytes = compressedBytes;
+      } catch (e) {
+        debugPrint("Gagal melakukan kompresi: $e");
+        // Lanjutkan dengan gambar asli jika kompresi gagal
+      }
+    }
 
     // Panggil _processAndStampImage dan harapkan lokasi kembali
-    return await _processAndStampImage(context, compressedBytes, getLocation: true);
+    return await _processAndStampImage(context, imageBytes,
+        getLocation: shouldGetLocation);
   }
-
 
   /// [TIDAK BERUBAH] Memilih banyak gambar dari galeri dan menambahkan timestamp ke semuanya.
   static Future<List<File>> pickMultipleImages(BuildContext context) async {
@@ -246,7 +318,9 @@ class ImageHelper {
           quality: 80,
         );
         if (compressedBytes != null) {
-          final processedResult = await _processAndStampImage(context, compressedBytes, getLocation: false);
+          final processedResult = await _processAndStampImage(
+              context, compressedBytes,
+              getLocation: false);
           if (processedResult != null) {
             processedFiles.add(processedResult.file);
           }

@@ -64,7 +64,6 @@ class AttendanceProvider extends ChangeNotifier {
         _message = errorString;
       }
     } finally {
-      _status = AttendanceProcessStatus.idle;
       notifyListeners();
     }
   }
@@ -92,7 +91,6 @@ class AttendanceProvider extends ChangeNotifier {
         _message = errorString;
       }
     } finally {
-      _status = AttendanceProcessStatus.idle;
       notifyListeners();
     }
   }
@@ -118,7 +116,6 @@ class AttendanceProvider extends ChangeNotifier {
         _message = errorString;
       }
     } finally {
-      _status = AttendanceProcessStatus.idle;
       notifyListeners();
     }
   }
