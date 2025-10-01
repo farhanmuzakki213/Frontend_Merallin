@@ -115,7 +115,7 @@ class _IdCardScreenState extends State<IdCardScreen> {
       scaffoldMessenger.removeCurrentSnackBar();
       showSuccessSnackBar(context, 'DOWNLOAD BERHASIL.');
 
-      await NotificationService.showDownloadCompleteNotification(filePath: savedPath, fileName: '$fileName.pdf');
+      await NotificationService().showDownloadCompleteNotification(filePath: savedPath, fileName: '$fileName.pdf');
 
     } catch (e) {
       if(mounted) {

@@ -3,11 +3,12 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:frontend_merallin/models/izin_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/leave_provider.dart';
-import 'package:frontend_merallin/utils/image_helper.dart';
 import 'package:frontend_merallin/utils/snackbar_helper.dart';
+import 'utils/image_absen_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -127,13 +128,13 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
       _isLoadingPhoto = true;
     });
 
-    final newPhoto = await ImageHelper.takeGeotaggedPhoto(context);
+    final imageResult = await ImageHelper.takePhotoWithLocation(context);
 
     if (!mounted) return;
 
-    if (newPhoto != null) {
+    if (imageResult != null) {
       setState(() {
-        _pickedFile = newPhoto;
+        _pickedFile = imageResult.file;
       });
     }
 
@@ -441,8 +442,8 @@ class _ExpandableLeaveCard extends StatefulWidget {
 class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
   bool _isExpanded = false;
 
-  void _showNetworkImagePreview(String imageUrl) {
-    if (!mounted || imageUrl.isEmpty) return;
+  void _showNetworkImagePreview(BuildContext context, String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => _NetworkImagePreviewScreen(imageUrl: imageUrl),
@@ -494,6 +495,7 @@ class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
                     ),
                   ),
                   Container(
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: cardColor.withOpacity(0.1),
                       shape: BoxShape.circle,
@@ -501,7 +503,7 @@ class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
                     child: Icon(
                       _isExpanded ? Icons.expand_less : Icons.expand_more,
                       color: cardColor,
-                      size: 30,
+                      size: 28,
                     ),
                   ),
                 ],
@@ -536,62 +538,70 @@ class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
           _buildInfoRow(
             Icons.calendar_today,
             'Tanggal Selesai',
-             DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(widget.izin.tanggalSelesai)
+            DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(widget.izin.tanggalSelesai)
           ),
           const SizedBox(height: 12),
           _buildInfoRow(
             Icons.notes_rounded,
             'Alasan',
             (widget.izin.alasan == null || widget.izin.alasan!.trim().isEmpty)
-        ? 'Tidak ada alasan'
-        : widget.izin.alasan!
+                ? 'Tidak ada alasan'
+                : widget.izin.alasan!
           ),
           const SizedBox(height: 24),
-          if (widget.izin.fullUrlBukti != null && widget.izin.fullUrlBukti!.isNotEmpty)
+          if (widget.izin.fullUrlBukti != null)
             _buildPhotoSection("Bukti Foto", widget.izin.fullUrlBukti!),
         ],
       ),
     );
   }
 
-  Widget _buildPhotoSection(String title, String imageUrl) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle(title, Colors.blue.shade800),
-        GestureDetector(
-          onTap: () => _showNetworkImagePreview(imageUrl),
-          child: Card(
-            clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
-            margin: const EdgeInsets.only(top: 4.0),
-            child: Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              height: 200,
-              width: double.infinity,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return Container(
-                  height: 200,
-                  color: Colors.grey[200],
-                  child: const Center(child: CircularProgressIndicator()),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 200,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.broken_image, color: Colors.grey),
-                );
-              },
-            ),
+
+ Widget _buildPhotoSection(String title, String imageUrl) {
+  final String baseUrl = dotenv.env['API_BASE_URL']?.replaceAll('/api', '') ?? '';
+  final String finalImageUrl = '$baseUrl$imageUrl';
+
+  print('URL Gambar Izin Final: $finalImageUrl');
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _buildSectionTitle(title, Colors.blue.shade800),
+      GestureDetector(
+        onTap: () => _showNetworkImagePreview(context, imageUrl),
+        child: Card(
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.only(top: 4.0),
+          child: Image.network( // <--- PASTIKAN HANYA SEPERTI INI
+            finalImageUrl, // Langsung gunakan URL dari API
+            fit: BoxFit.cover,
+            height: 200,
+            width: double.infinity,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Container(
+                height: 200,
+                color: Colors.grey[200],
+                child: const Center(child: CircularProgressIndicator()),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              // Jika error, kita bisa lihat penyebabnya di sini
+              print('Error memuat gambar: $error'); 
+              return Container(
+                height: 200,
+                color: Colors.grey[200],
+                child: const Icon(Icons.broken_image, color: Colors.grey),
+              );
+            },
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildSectionTitle(String title, Color color) {
     return Padding(
@@ -642,7 +652,6 @@ class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
   }
 }
 
-// --- WIDGET BARU: UNTUK PREVIEW GAMBAR FULLSCREEN ---
 class _NetworkImagePreviewScreen extends StatelessWidget {
   final String imageUrl;
   const _NetworkImagePreviewScreen({required this.imageUrl});
