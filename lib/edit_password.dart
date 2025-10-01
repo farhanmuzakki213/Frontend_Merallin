@@ -1,6 +1,7 @@
 // lib/edit_password.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart'; // <-- JANGAN LUPA IMPORT
 import '../providers/auth_provider.dart'; // <-- JANGAN LUPA IMPORT
 
@@ -42,12 +43,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
     // 2. Cek apakah password baru dan konfirmasi cocok
     if (_newPasswordController.text != _confirmPasswordController.text) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Konfirmasi password baru tidak cocok.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showErrorSnackBar(context, 'Konfirmasi password baru tidak cocok.');
       return;
     }
 
@@ -66,21 +62,11 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
     // 4. Handle hasil dari provider
     if (error == null) {
       // Sukses
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password berhasil diperbarui.'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      showSuccessSnackBar(context, 'Password berhasil diperbarui.');
       Navigator.of(context).pop();
     } else {
       // Gagal
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showErrorSnackBar(context, error);
     }
   }
 

@@ -1,6 +1,7 @@
 // lib/my_trip_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import '../models/trip_model.dart';
 import '../providers/trip_provider.dart';
@@ -33,31 +34,38 @@ class _MyTripScreenState extends State<MyTripScreen> {
     }
   }
 
-  Future<void> _handleStartTrip(int tripId) async {
+  Future<void> _handleStartTrip(Trip trip) async {
     final authProvider = context.read<AuthProvider>();
     final tripProvider = context.read<TripProvider>();
 
     if (authProvider.token == null) return;
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Memulai tugas...')));
+    showInfoSnackBar(context, 'Memulai tugas...');
+    final acceptedTrip = await tripProvider.acceptTrip(
+      context: context, // Kirim context
+      token: authProvider.token!,
+      tripId: trip.id,
+    );
+    
+    if (!mounted) return;
 
-    final success = await tripProvider.acceptTrip(authProvider.token!, tripId);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-    if (mounted && success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tugas berhasil dimulai!'),
-          backgroundColor: Colors.green,
+    if (acceptedTrip != null) {
+      showInfoSnackBar(context, 'Tugas berhasil dimulai! Mengarahkan ke laporan...');
+      
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LaporanDriverScreen(tripId: acceptedTrip.id),
         ),
       );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tripProvider.errorMessage ?? 'Gagal memulai tugas'),
-          backgroundColor: Colors.red,
-        ),
-      );
+
+    } else {
+      final currentErrorMessage = tripProvider.errorMessage;
+      if (currentErrorMessage != null && !currentErrorMessage.contains('Unauthenticated')) {
+          showErrorSnackBar(context, currentErrorMessage);
+      }
     }
   }
 
@@ -77,7 +85,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
               child: const Text('Ya, Mulai Tugas'),
               onPressed: () {
                 Navigator.of(context).pop();
-                _handleStartTrip(trip.id);
+                _handleStartTrip(trip);
               },
             ),
           ],
@@ -210,10 +218,8 @@ class _MyTripScreenState extends State<MyTripScreen> {
             final tripProvider = context.read<TripProvider>();
             bool hasActiveTrip = tripProvider.activeTrips.isNotEmpty;
             if (hasActiveTrip) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text(
-                      'Anda sudah memiliki tugas aktif. Selesaikan terlebih dahulu.'),
-                  backgroundColor: Colors.orange));
+              showWarningSnackBar(context, 
+                      'Anda sudah memiliki tugas aktif. Selesaikan terlebih dahulu.');
             } else {
               _showStartTripConfirmation(trip);
             }

@@ -7,6 +7,7 @@ import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/payslip_provider.dart';
 import 'package:frontend_merallin/services/download_service.dart';
 import 'package:frontend_merallin/services/notification_service.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -25,10 +26,13 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ===== PERUBAHAN DI SINI =====
-      Provider.of<PayslipProvider>(context, listen: false)
-          .fetchPayslipSummaries(context: context);
+      _loadInitialData();
     });
+  }
+
+  Future<void> _loadInitialData() async {
+    await Provider.of<PayslipProvider>(context, listen: false)
+        .fetchPayslipSummaries(context: context);
   }
 
   Future<void> _handleDownload(PayslipSummary summary, int index) async {
@@ -95,17 +99,14 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
     final token = authProvider.token;
 
     if (token == null) {
-      scaffoldMessenger
-          .showSnackBar(const SnackBar(content: Text('Sesi tidak valid.')));
+      showErrorSnackBar(context, 'Sesi tidak valid.');
       setState(() => _processingIndex = null);
       return;
     }
 
     try {
-      final fileName =
-          'slip-gaji-${DateFormat('MMMM-yyyy', 'id_ID').format(summary.period)}';
-      scaffoldMessenger
-          .showSnackBar(SnackBar(content: Text('Mengunduh $fileName...')));
+      final fileName = 'slip-gaji-${DateFormat('MMMM-yyyy', 'id_ID').format(summary.period)}';
+      showInfoSnackBar(context, 'Mengunduh $fileName...');
 
       final fileBytes = await _downloadService.fetchFileBytes(
           url: summary.fileUrl, token: token);
@@ -133,8 +134,7 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
       context.read<PayslipProvider>().addDownloadedSlipId(summary.id);
 
       scaffoldMessenger.removeCurrentSnackBar();
-      scaffoldMessenger
-          .showSnackBar(const SnackBar(content: Text('DOWNLOAD BERHASIL.')));
+      showSuccessSnackBar(context, 'DOWNLOAD BERHASIL.');
 
       await NotificationService().showDownloadCompleteNotification(
         filePath: savedPath,
@@ -143,9 +143,7 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
     } catch (e) {
       if (mounted) {
         scaffoldMessenger.removeCurrentSnackBar();
-        scaffoldMessenger.showSnackBar(SnackBar(
-            content: Text(
-                'Gagal: ${e.toString().replaceFirst('Exception: ', '')}')));
+        showErrorSnackBar(context, 'Gagal: ${e.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
       if (mounted) setState(() => _processingIndex = null);
@@ -160,6 +158,13 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadInitialData,
+            tooltip: 'Muat Ulang',
+          ),
+        ],
       ),
       backgroundColor: Colors.grey[100],
       body: Consumer<PayslipProvider>(
@@ -176,7 +181,6 @@ class _PayslipListScreenState extends State<PayslipListScreen> {
             return const Center(
                 child: Text('Belum ada riwayat slip gaji.',
                     style: TextStyle(color: Colors.grey)));
-
           return ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             itemCount: provider.summaries.length,

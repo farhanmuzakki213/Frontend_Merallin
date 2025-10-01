@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend_merallin/models/lembur_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/lembur_provider.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -116,30 +117,38 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
   // --- PERUBAHAN 3: Implementasi Logika Submit ke Provider ---
   Future<void> _submitForm() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Harap lengkapi semua data yang wajib diisi.'),
-            backgroundColor: Colors.red),
-      );
+      showWarningSnackBar(context, 'Harap lengkapi semua data yang wajib diisi.');
       return;
+    }
+
+    if (_startTime != null && _endTime != null) {
+      final now = DateTime.now();
+      var startDateTime = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+      var endDateTime = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+
+      if (endDateTime.isBefore(startDateTime)) {
+        endDateTime = endDateTime.add(const Duration(days: 1));
+      }
+
+      final difference = endDateTime.difference(startDateTime);
+      
+      // Cek apakah durasi kurang dari 60 menit (1 jam)
+      if (difference.inMinutes < 60) {
+        showWarningSnackBar(context, 'Durasi lembur minimal adalah 1 jam.');
+        return; // Hentikan proses submit jika durasi kurang
+      }
     }
 
     setState(() {
       _isLoading = true;
     });
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final lemburProvider = Provider.of<LemburProvider>(context, listen: false);
     // ===== PENAMBAHAN: Validasi Kuota Mingguan =====
-    if (lemburProvider.totalOvertimeHoursThisWeek >= 10) {
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('Anda telah mencapai batas maksimal 10 jam lembur minggu ini.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (lemburProvider.totalOvertimeHoursThisWeek >= 20) {
+      showWarningSnackBar(context, 'Anda telah mencapai batas maksimal 20 jam lembur minggu ini.');
       // Hentikan proses jika kuota terlampaui
       setState(() { _isLoading = false; });
       return;
@@ -157,26 +166,13 @@ class _AjukanLemburScreenState extends State<AjukanLemburScreen> {
       );
 
       if (lemburProvider.submissionStatus == DataStatus.success) {
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-              content: Text('Pengajuan lembur berhasil dikirim.'),
-              backgroundColor: Colors.green),
-        );
+        showInfoSnackBar(context, 'Pengajuan lembur berhasil dikirim.');
         navigator.pop();
       } else {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-              content:
-                  Text(lemburProvider.submissionMessage ?? 'Terjadi kesalahan'),
-              backgroundColor: Colors.red),
-        );
+        showErrorSnackBar(context, lemburProvider.submissionMessage ?? 'Terjadi kesalahan');
       }
     } catch (e) {
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red),
-      );
+      showErrorSnackBar(context, 'Error: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() {

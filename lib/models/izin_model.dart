@@ -1,6 +1,7 @@
 // lib/models/izin_model.dart
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Enum untuk jenis izin, sekarang berada di dalam file model
 enum LeaveType {
@@ -56,6 +57,28 @@ class Izin {
       if (value == null) return 0;
       return int.tryParse(value.toString()) ?? 0;
     }
+
+    final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
+
+    // 2. Buat fungsi helper untuk membangun URL yang lengkap dan aman.
+    String? buildFullUrl(String? relativePath) {
+      // Jika path null atau kosong, kembalikan null.
+      if (relativePath == null || relativePath.isEmpty) return null;
+      
+      // Jika backend sudah memberikan URL lengkap, langsung gunakan.
+      if (relativePath.startsWith('http')) {
+        return relativePath;
+      }
+      
+      // Pastikan base URL tidak memiliki garis miring di akhir.
+      final String sanitizedBaseUrl = imageBaseUrl.endsWith('/')
+          ? imageBaseUrl.substring(0, imageBaseUrl.length - 1)
+          : imageBaseUrl;
+      
+      // Gabungkan base URL dengan path relatif dari backend.
+      return '$sanitizedBaseUrl$relativePath';
+    }
+    
     try {
       return Izin(
         id: safeParseInt(json['id']),
@@ -65,7 +88,7 @@ class Izin {
         tanggalMulai: DateTime.parse(json['tanggal_mulai']),
         tanggalSelesai: DateTime.parse(json['tanggal_selesai']),
         alasan: json['alasan'],
-        fullUrlBukti: json['full_url_bukti'],
+        fullUrlBukti: buildFullUrl(json['full_url_bukti']),
       );
     } catch (e) {
       debugPrint('Error parsing Izin from JSON: $e');
