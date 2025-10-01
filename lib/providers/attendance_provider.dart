@@ -29,7 +29,7 @@ class AttendanceProvider extends ChangeNotifier {
     _message = null;
     notifyListeners();
   }
-  
+
   Future<void> checkTodayAttendanceStatus({
     required BuildContext context,
     required String token,
@@ -43,7 +43,8 @@ class AttendanceProvider extends ChangeNotifier {
       final errorString = e.toString();
       if (errorString.contains('Unauthenticated')) {
         if (context.mounted) {
-          Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+          Provider.of<AuthProvider>(context, listen: false)
+              .handleInvalidSession();
         }
       } else {
         print("Gagal cek status: $e");
@@ -67,7 +68,8 @@ class AttendanceProvider extends ChangeNotifier {
     } catch (e) {
       final errorString = e.toString();
       if (errorString.contains('Unauthenticated')) {
-        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        Provider.of<AuthProvider>(context, listen: false)
+            .handleInvalidSession();
       } else {
         _status = AttendanceProcessStatus.error;
         _message = errorString;
@@ -95,13 +97,15 @@ class AttendanceProvider extends ChangeNotifier {
     } catch (e) {
       final errorString = e.toString().replaceFirst('Exception: ', '');
       if (errorString.contains('Unauthenticated')) {
-        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        Provider.of<AuthProvider>(context, listen: false)
+            .handleInvalidSession();
       } else {
         _status = AttendanceProcessStatus.error;
         _message = errorString;
       }
     } finally {
       notifyListeners();
+    }
   }
 
   Future<void> performClockOut({
@@ -120,12 +124,14 @@ class AttendanceProvider extends ChangeNotifier {
     } catch (e) {
       final errorString = e.toString();
       if (errorString.contains('Unauthenticated')) {
-        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        Provider.of<AuthProvider>(context, listen: false)
+            .handleInvalidSession();
       } else {
         _status = AttendanceProcessStatus.error;
         _message = errorString;
       }
     } finally {
       notifyListeners();
+    }
   }
 }

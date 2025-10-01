@@ -178,7 +178,8 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
       showSuccessSnackBar(context, 'Pemberitahuan izin berhasil dikirim.');
       widget.onSuccess();
     } else {
-      showErrorSnackBar(context, leaveProvider.submissionMessage ?? 'Terjadi kesalahan.');
+      showErrorSnackBar(
+          context, leaveProvider.submissionMessage ?? 'Terjadi kesalahan.');
     }
   }
 
@@ -487,10 +488,9 @@ class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
                           softWrap: true,
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          dateRange,
-                          style: TextStyle(fontSize: 14, color: Colors.grey[600])
-                        ),
+                        Text(dateRange,
+                            style: TextStyle(
+                                fontSize: 14, color: Colors.grey[600])),
                       ],
                     ),
                   ),
@@ -530,24 +530,23 @@ class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
         children: [
           const Divider(height: 20, thickness: 1.5),
           _buildInfoRow(
-            Icons.calendar_today_outlined,
-            'Tanggal Mulai',
-            DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(widget.izin.tanggalMulai)
-          ),
+              Icons.calendar_today_outlined,
+              'Tanggal Mulai',
+              DateFormat('EEEE, d MMMM yyyy', 'id_ID')
+                  .format(widget.izin.tanggalMulai)),
           const SizedBox(height: 12),
           _buildInfoRow(
-            Icons.calendar_today,
-            'Tanggal Selesai',
-            DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(widget.izin.tanggalSelesai)
-          ),
+              Icons.calendar_today,
+              'Tanggal Selesai',
+              DateFormat('EEEE, d MMMM yyyy', 'id_ID')
+                  .format(widget.izin.tanggalSelesai)),
           const SizedBox(height: 12),
           _buildInfoRow(
-            Icons.notes_rounded,
-            'Alasan',
-            (widget.izin.alasan == null || widget.izin.alasan!.trim().isEmpty)
-                ? 'Tidak ada alasan'
-                : widget.izin.alasan!
-          ),
+              Icons.notes_rounded,
+              'Alasan',
+              (widget.izin.alasan == null || widget.izin.alasan!.trim().isEmpty)
+                  ? 'Tidak ada alasan'
+                  : widget.izin.alasan!),
           const SizedBox(height: 24),
           if (widget.izin.fullUrlBukti != null)
             _buildPhotoSection("Bukti Foto", widget.izin.fullUrlBukti!),
@@ -556,52 +555,53 @@ class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
     );
   }
 
+  Widget _buildPhotoSection(String title, String imageUrl) {
+    // final String baseUrl =
+    //     dotenv.env['API_BASE_URL']?.replaceAll('/api', '') ?? '';
+    // final String finalImageUrl = '$baseUrl$imageUrl';
 
- Widget _buildPhotoSection(String title, String imageUrl) {
-  final String baseUrl = dotenv.env['API_BASE_URL']?.replaceAll('/api', '') ?? '';
-  final String finalImageUrl = '$baseUrl$imageUrl';
+    print('URL Gambar Izin Final: $imageUrl');
 
-  print('URL Gambar Izin Final: $finalImageUrl');
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildSectionTitle(title, Colors.blue.shade800),
-      GestureDetector(
-        onTap: () => _showNetworkImagePreview(context, imageUrl),
-        child: Card(
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.only(top: 4.0),
-          child: Image.network( // <--- PASTIKAN HANYA SEPERTI INI
-            finalImageUrl, // Langsung gunakan URL dari API
-            fit: BoxFit.cover,
-            height: 200,
-            width: double.infinity,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Container(
-                height: 200,
-                color: Colors.grey[200],
-                child: const Center(child: CircularProgressIndicator()),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              // Jika error, kita bisa lihat penyebabnya di sini
-              print('Error memuat gambar: $error'); 
-              return Container(
-                height: 200,
-                color: Colors.grey[200],
-                child: const Icon(Icons.broken_image, color: Colors.grey),
-              );
-            },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(title, Colors.blue.shade800),
+        GestureDetector(
+          onTap: () => _showNetworkImagePreview(context, imageUrl),
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.only(top: 4.0),
+            child: Image.network(
+              // <--- PASTIKAN HANYA SEPERTI INI
+              imageUrl, // Langsung gunakan URL dari API
+              fit: BoxFit.cover,
+              height: 200,
+              width: double.infinity,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(child: CircularProgressIndicator()),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                // Jika error, kita bisa lihat penyebabnya di sini
+                print('Error memuat gambar: $error');
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                );
+              },
+            ),
           ),
         ),
-      ),
-    ],
-  );
-}
+      ],
+    );
+  }
 
   Widget _buildSectionTitle(String title, Color color) {
     return Padding(
