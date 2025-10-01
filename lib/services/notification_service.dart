@@ -4,61 +4,72 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:open_filex/open_filex.dart';
 
 class NotificationService {
-  // Buat instance dari plugin notifikasi
-  static final FlutterLocalNotificationsPlugin _notificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
 
-  // Fungsi untuk inisialisasi
-  static Future<void> initialize() async {
+  // PERUBAHAN: Jadikan plugin nullable dan inisialisasi nanti
+  FlutterLocalNotificationsPlugin? _notificationsPlugin;
+
+  Future<void> initialize() async {
+    // Jika sudah ada instance, berarti sudah diinisialisasi
+    if (_notificationsPlugin != null) return;
+
+    _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-
     const DarwinInitializationSettings iosSettings = DarwinInitializationSettings();
-
     const InitializationSettings settings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
 
-    await _notificationsPlugin.initialize(
+    await _notificationsPlugin!.initialize(
       settings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        if (response.payload != null && response.payload!.isNotEmpty) {
-          await OpenFilex.open(response.payload!);
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        final String? payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          OpenFilex.open(payload);
         }
       },
     );
+    //  debugPrint('NotificationService Initialized');
   }
 
-  // Fungsi untuk menampilkan notifikasi setelah download selesai
-  static Future<void> showDownloadCompleteNotification({
+  Future<void> showDownloadCompleteNotification({
     required String filePath,
     required String fileName,
   }) async {
-    // Detail notifikasi untuk Android
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'download_channel', // ID channel
-      'Downloads', // Nama channel
-      channelDescription: 'Notifikasi untuk download yang telah selesai.',
+    // "Penjaga" utama: Jika plugin belum siap, inisialisasi dulu
+    if (_notificationsPlugin == null) {
+      await initialize();
+    }
+    
+    final androidDetails = AndroidNotificationDetails(
+      'download_channel',
+      'Download Selesai',
+      channelDescription: 'Notifikasi saat file berhasil diunduh.',
       importance: Importance.max,
       priority: Priority.high,
+      styleInformation: BigTextStyleInformation(
+        'File Anda "$fileName" telah berhasil diunduh. Ketuk untuk membuka.',
+      ),
     );
 
-    // Detail notifikasi untuk iOS
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails();
+    final notificationDetails = NotificationDetails(android: androidDetails);
 
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // Tampilkan notifikasi
-    await _notificationsPlugin.show(
-      0, // ID notifikasi
-      'Download Selesai', // Judul notifikasi
-      fileName, // Isi notifikasi
-      notificationDetails,
-      payload: filePath, // Data yang dikirim saat notifikasi ditekan (path file)
-    );
+    try {
+      await _notificationsPlugin!.show(
+        DateTime.now().millisecond,
+        'Download Selesai',
+        'Ketuk untuk membuka "$fileName"',
+        notificationDetails,
+        payload: filePath,
+      );
+    } catch (e) {
+      // Menambahkan log jika terjadi error saat menampilkan notifikasi
+      // debugPrint('Error showing notification: $e');
+    }
   }
 }

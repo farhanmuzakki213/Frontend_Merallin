@@ -1,6 +1,7 @@
 // lib/home_screen.dart
 
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:frontend_merallin/id_card_screen.dart';
@@ -24,6 +25,8 @@ import 'package:frontend_merallin/leave_request_screen.dart';
 import 'package:frontend_merallin/payslip_list_screen.dart';
 import 'driver_history_screen.dart';
 import 'lembur_screen.dart';
+import 'package:frontend_merallin/providers/id_card_provider.dart';
+import 'package:frontend_merallin/services/download_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -97,6 +100,92 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       _loadInitialData();
     });
   }
+
+  Future<void> _handleIdCardDownloadForWindows(BuildContext context) async {
+  showInfoSnackBar(context, 'Mempersiapkan ID Card...');
+  
+  final idCardProvider = Provider.of<IdCardProvider>(context, listen: false);
+  final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+  await idCardProvider.fetchIdCard(context: context);
+
+  if (!mounted) return;
+
+  scaffoldMessenger.removeCurrentSnackBar();
+
+  if (idCardProvider.status == IdCardStatus.success && idCardProvider.pdfPath != null) {
+    // Jika fetch berhasil, tampilkan dialog pilihan
+    await _showSaveOptionsDialog(context, idCardProvider.pdfPath!);
+  } else if (idCardProvider.status == IdCardStatus.error) {
+    showErrorSnackBar(context, idCardProvider.errorMessage ?? 'Gagal mendapatkan data ID Card.');
+  }
+}
+
+// FUNGSI BARU UNTUK MENAMPILKAN DIALOG
+Future<void> _showSaveOptionsDialog(BuildContext context, String tempPdfPath) async {
+  final idCardProvider = context.read<IdCardProvider>();
+  final authProvider = context.read<AuthProvider>();
+  final downloadService = DownloadService();
+  final scaffoldMessenger = ScaffoldMessenger.of(context);
+  
+  // Cek apakah file sudah pernah diunduh
+  if (idCardProvider.hasBeenDownloaded) {
+    final bool? reDownload = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi'),
+        content: const Text('File ini sudah pernah diunduh. Apakah Anda ingin mengunduh ulang?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Batal')),
+          ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Ya, Unduh Lagi')),
+        ],
+      ),
+    );
+    if (reDownload != true) return; // Jika pengguna memilih tidak, hentikan proses
+  }
+
+  // Tampilkan dialog pilihan download
+  await showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Simpan File ID Card'),
+      content: const Text('Pilih cara Anda ingin menyimpan file ini.'),
+      actions: <Widget>[
+        // TextButton(
+        //   child: const Text('Pilih Lokasi...'),
+        //   onPressed: () async {
+        //     Navigator.of(context).pop(); // Tutup dialog
+        //     try {
+        //       final fileBytes = await File(tempPdfPath).readAsBytes();
+        //       final userName = authProvider.user?.name ?? 'user';
+        //       await downloadService.saveToCustomDirectory(filename: 'ID-Card-$userName', fileBytes: fileBytes);
+        //       idCardProvider.setAsDownloaded();
+        //       showInfoSnackBar(context, 'ID Card berhasil disimpan.');
+        //     } catch (e) {
+        //       showErrorSnackBar(context, e.toString().replaceFirst('Exception: ', ''));
+        //     }
+        //   },
+        // ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+          child: const Text('Download Cepat', style: TextStyle(color: Colors.white)),
+          onPressed: () async {
+            Navigator.of(context).pop(); // Tutup dialog
+            try {
+              final fileBytes = await File(tempPdfPath).readAsBytes();
+              final userName = authProvider.user?.name ?? 'user';
+              await downloadService.saveToDownloads(filename: 'ID-Card-$userName', fileBytes: fileBytes);
+              idCardProvider.setAsDownloaded();
+              showInfoSnackBar(context, 'ID Card berhasil disimpan.');
+            } catch (e) {
+              showErrorSnackBar(context, e.toString().replaceFirst('Exception: ', ''));
+            }
+          },
+        ),
+      ],
+    ),
+  );
+}
 
   Future<void> _loadInitialData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -451,10 +540,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             icon: Icons.badge_outlined,
             label: 'ID Karyawan',
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const IdCardScreen()),
-              );
+               if (Platform.isWindows) {
+                _handleIdCardDownloadForWindows(context);
+              } else {
+                // Jika bukan Windows, buka halaman preview seperti biasa
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const IdCardScreen()),
+                );
+              }
             },
           ),
           AnimatedMenuItem(
@@ -555,10 +649,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             icon: Icons.badge_outlined,
             label: 'ID Karyawan',
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const IdCardScreen()),
-              );
+              if (Platform.isWindows) {
+                _handleIdCardDownloadForWindows(context);
+              } else {
+                // Jika bukan Windows, buka halaman preview seperti biasa
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const IdCardScreen()),
+                );
+              }
             },
           ),
           AnimatedMenuItem(

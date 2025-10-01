@@ -2,6 +2,8 @@
 
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:downloads_path_provider_28/downloads_path_provider_28.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -26,39 +28,51 @@ class DownloadService {
   }
 
   // Metode 1: Untuk "Download Cepat" (Simpan ke folder Downloads)
-  Future<String> saveToDownloads({
+   Future<String> saveToDownloads({
     required String filename,
     required Uint8List fileBytes,
   }) async {
-    try {
-      String? downloadsPath;
-      if (Platform.isAndroid) {
-        downloadsPath = (await getExternalStorageDirectory())?.path;
-      } else if (Platform.isIOS) {
-        downloadsPath = (await getApplicationDocumentsDirectory()).path;
+    // --- Logika untuk Desktop (Windows, macOS, Linux) ---
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      final String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Simpan File Anda',
+        fileName: '$filename.pdf', // Nama file default yang akan muncul di dialog
+      );
+
+      if (outputFile != null) {
+        // Jika pengguna memilih lokasi dan menekan Simpan
+        final file = File(outputFile);
+        await file.writeAsBytes(fileBytes);
+        return file.path;
       } else {
-        throw UnsupportedError('Platform tidak didukung untuk "Download Cepat"');
+        // Jika pengguna menekan Batal
+        throw Exception('Penyimpanan file dibatalkan.');
       }
-
-      if (downloadsPath == null) {
-        throw Exception('Direktori Downloads tidak ditemukan.');
+    }
+    // --- Logika untuk Mobile (Android/iOS) ---
+    else {
+      try {
+        final directory = await DownloadsPathProvider.downloadsDirectory;
+        if (directory == null) {
+          throw Exception('Tidak dapat menemukan folder Downloads.');
+        }
+        final savePath = p.join(directory.path, '$filename.pdf');
+        final file = File(savePath);
+        await file.writeAsBytes(fileBytes);
+        return savePath;
+      } catch (e) {
+        throw Exception('Gagal menyimpan file: $e');
       }
-
-      final savePath = p.join(downloadsPath, '$filename.pdf');
-      final file = File(savePath);
-      await file.writeAsBytes(fileBytes);
-      return savePath;
-    } catch (e) {
-      throw Exception('Gagal menyimpan file: $e');
     }
   }
 
-  // Metode 2: Untuk "Pilih Folder"
+  // Fungsi ini sudah benar, tidak perlu diubah.
   Future<String> saveToCustomDirectory({
     required String filename,
     required Uint8List fileBytes,
   }) async {
-    final String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    final String? selectedDirectory =
+        await FilePicker.platform.getDirectoryPath();
     if (selectedDirectory == null) {
       throw Exception('Pemilihan folder dibatalkan.');
     }
@@ -68,6 +82,7 @@ class DownloadService {
     return savePath;
   }
 
+  // Fungsi ini sudah benar, tidak perlu diubah.
   Future<String> saveAndOpenFile({
     required String filename,
     required Uint8List fileBytes,
