@@ -205,9 +205,7 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Layanan lokasi mati. Harap aktifkan GPS Anda.'),
-          backgroundColor: Colors.red));
+      showErrorSnackBar(context, 'Layanan lokasi mati. Harap aktifkan GPS Anda.');
       return null;
     }
     permission = await Geolocator.checkPermission();
@@ -215,17 +213,13 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         if (!mounted) return null;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Izin akses lokasi ditolak.'),
-            backgroundColor: Colors.red));
+        showErrorSnackBar(context, 'Izin akses lokasi ditolak.');
         return null;
       }
     }
     if (permission == LocationPermission.deniedForever) {
       if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Izin lokasi ditolak permanen, tidak dapat meminta izin lagi.'),
-          backgroundColor: Colors.red));
+      showErrorSnackBar(context, 'Izin lokasi ditolak permanen, tidak dapat meminta izin lagi.');
       return null;
     }
     return await Geolocator.getCurrentPosition();
@@ -296,6 +290,10 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
                         if (lembur.statusLembur == StatusPersetujuan.ditolak &&
                             lembur.alasanPenolakan != null)
                           _buildInfoRow(Icons.comment_bank_outlined, 'Alasan Penolakan', lembur.alasanPenolakan!),
+
+                        if (lembur.jamSelesaiAktual != null)
+                          _buildCompletionDetails(lembur),
+
                         if (lembur.statusLembur == StatusPersetujuan.diterima && lembur.fileFinalUrl != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 16.0),
@@ -328,11 +326,43 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     );
   }
 
-  // Widget _buildActionSection sekarang menerima status UI
+  Widget _buildCompletionDetails(Lembur lembur) {
+    final formatJam = (DateTime? time) => time != null ? DateFormat('d MMM yyyy, HH:mm:ss').format(time) : '-';
+    final formatRupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    // Bangun waktu selesai rencana dari data lembur untuk perbandingan
+    final jamSelesaiRencana = DateTime(
+      lembur.tanggalLembur.year,
+      lembur.tanggalLembur.month,
+      lembur.tanggalLembur.day,
+      int.parse(lembur.selesaiJamLembur.split(':')[0]),
+      int.parse(lembur.selesaiJamLembur.split(':')[1]),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 30),
+        _buildInfoRow(Icons.timer_outlined, 'Waktu Mulai Lembur', formatJam(lembur.jamMulaiAktual)),
+        _buildInfoRow(Icons.timer_off_outlined, 'Waktu Selesai (Aktual)', formatJam(lembur.jamSelesaiAktual)),
+        _buildInfoRow(Icons.schedule, 'Waktu Selesai (Rencana)', formatJam(jamSelesaiRencana)),
+        const SizedBox(height: 10),
+        _buildInfoRow(
+          Icons.summarize_outlined,
+          'Total Durasi Dihitung',
+          '${lembur.totalJam?.toStringAsFixed(2) ?? '0'} Jam'
+        ),
+        if (lembur.gajiLembur != null)
+          _buildInfoRow(
+            Icons.paid_outlined,
+            'Upah Lembur',
+            formatRupiah.format(lembur.gajiLembur)
+          ),
+      ],
+    );
+  }
+
   Widget _buildActionSection(Lembur lembur) {
-    // =================================================================
-    // ===== PERUBAHAN UTAMA DI SINI: Logika penentuan status =====
-    // =================================================================
     String uiStatus;
     // Cek status persetujuan dulu
     if (lembur.statusLembur != StatusPersetujuan.diterima) {

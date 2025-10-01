@@ -7,6 +7,7 @@ import 'package:frontend_merallin/models/izin_model.dart';
 import 'package:frontend_merallin/providers/auth_provider.dart';
 import 'package:frontend_merallin/providers/leave_provider.dart';
 import 'package:frontend_merallin/utils/image_helper.dart';
+import 'package:frontend_merallin/utils/snackbar_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -67,14 +68,12 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen>
         controller: _tabController,
         children: [
           LeaveRequestForm(
-            // ===== PERUBAHAN DI SINI =====
-            // Setelah sukses, kembali ke halaman sebelumnya (HomeScreen)
             onSuccess: () {
               if (mounted) {
-                Navigator.of(context).pop();
+                // Navigator.of(context).pop();
+                _tabController.animateTo(1);
               }
             },
-            // ===== AKHIR PERUBAHAN =====
           ),
           const LeaveHistoryList(),
         ],
@@ -144,18 +143,13 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
   }
 
   Future<void> _submitLeaveNotification() async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     if (!_formKey.currentState!.validate()) return;
     if (_startDate == null || _endDate == null) {
-      scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Tanggal mulai dan selesai wajib diisi.'),
-          backgroundColor: Colors.red,),);
+      showErrorSnackBar(context, 'Tanggal mulai dan selesai wajib diisi.');
       return;
     }
     if (_pickedFile == null) {
-      scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Bukti izin wajib diunggah.'),
-          backgroundColor: Colors.red,),);
+      showWarningSnackBar(context, 'Bukti izin wajib diunggah.');
       return;
     }
 
@@ -163,9 +157,7 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     if (authProvider.token == null) {
-      scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Sesi Anda berakhir, silakan login ulang.'),
-          backgroundColor: Colors.red,),);
+      showErrorSnackBar(context, 'Sesi Anda berakhir, silakan login ulang.');
       return;
     }
 
@@ -182,15 +174,10 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
     if (!mounted) return;
 
     if (leaveProvider.submissionStatus == DataStatus.success) {
-      scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Pemberitahuan izin berhasil dikirim.'),
-          backgroundColor: Colors.green,),);
+      showSuccessSnackBar(context, 'Pemberitahuan izin berhasil dikirim.');
       widget.onSuccess();
     } else {
-      scaffoldMessenger.showSnackBar(SnackBar(
-          content:
-              Text(leaveProvider.submissionMessage ?? 'Terjadi kesalahan.'),
-          backgroundColor: Colors.red,),);
+      showErrorSnackBar(context, leaveProvider.submissionMessage ?? 'Terjadi kesalahan.');
     }
   }
 
@@ -396,9 +383,22 @@ class _LeaveRequestFormState extends State<LeaveRequestForm> {
       ]);
 }
 
-// --- BAGIAN RIWAYAT IZIN (WIDGET TERPISAH) ---
 class LeaveHistoryList extends StatelessWidget {
   const LeaveHistoryList({super.key});
+
+  Future<void> _handleRefresh(BuildContext context) async {
+    // Ambil provider yang dibutuhkan (tanpa listen)
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final leaveProvider = Provider.of<LeaveProvider>(context, listen: false);
+
+    if (authProvider.token != null) {
+      await leaveProvider.fetchLeaveHistory(
+        context: context,
+        token: authProvider.token!,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<LeaveProvider>(
@@ -413,29 +413,260 @@ class LeaveHistoryList extends StatelessWidget {
         if (provider.leaveHistory.isEmpty) {
           return const Center(child: Text('Belum ada riwayat izin.'));
         }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: provider.leaveHistory.length,
-          itemBuilder: (context, index) {
-            final Izin item = provider.leaveHistory[index];
-            final dateRange =
-                '${DateFormat('d MMM yyyy', 'id_ID').format(item.tanggalMulai)} - ${DateFormat('d MMM yyyy', 'id_ID').format(item.tanggalSelesai)}';
-            return Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: ListTile(
-                leading: Icon(Icons.history, color: Colors.blue[700]),
-                title: Text(item.jenisIzin.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('Tanggal: $dateRange'),
-                trailing: const SizedBox.shrink(),
-              ),
-            );
-          },
+        return RefreshIndicator(
+          onRefresh: () => _handleRefresh(context),
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: provider.leaveHistory.length,
+            itemBuilder: (context, index) {
+              final Izin item = provider.leaveHistory[index];
+              return _ExpandableLeaveCard(izin: item);
+            },
+          ),
         );
       },
+    );
+  }
+}
+
+class _ExpandableLeaveCard extends StatefulWidget {
+  final Izin izin;
+  const _ExpandableLeaveCard({required this.izin});
+
+  @override
+  State<_ExpandableLeaveCard> createState() => __ExpandableLeaveCardState();
+}
+
+class __ExpandableLeaveCardState extends State<_ExpandableLeaveCard> {
+  bool _isExpanded = false;
+
+  void _showNetworkImagePreview(String imageUrl) {
+    if (!mounted || imageUrl.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _NetworkImagePreviewScreen(imageUrl: imageUrl),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dateRange =
+        '${DateFormat('d MMM yyyy', 'id_ID').format(widget.izin.tanggalMulai)} - ${DateFormat('d MMM yyyy', 'id_ID').format(widget.izin.tanggalSelesai)}';
+    final cardColor = Colors.blue.shade800;
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.izin.jenisIzin.name,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: cardColor,
+                          ),
+                          softWrap: true,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          dateRange,
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600])
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: cardColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: cardColor,
+                      size: 30,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.fastOutSlowIn,
+            child:
+                _isExpanded ? _buildExpandedDetails() : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedDetails() {
+    return Container(
+      color: Colors.grey[50],
+      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 20, thickness: 1.5),
+          _buildInfoRow(
+            Icons.calendar_today_outlined,
+            'Tanggal Mulai',
+            DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(widget.izin.tanggalMulai)
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            Icons.calendar_today,
+            'Tanggal Selesai',
+             DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(widget.izin.tanggalSelesai)
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            Icons.notes_rounded,
+            'Alasan',
+            (widget.izin.alasan == null || widget.izin.alasan!.trim().isEmpty)
+        ? 'Tidak ada alasan'
+        : widget.izin.alasan!
+          ),
+          const SizedBox(height: 24),
+          if (widget.izin.fullUrlBukti != null && widget.izin.fullUrlBukti!.isNotEmpty)
+            _buildPhotoSection("Bukti Foto", widget.izin.fullUrlBukti!),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoSection(String title, String imageUrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(title, Colors.blue.shade800),
+        GestureDetector(
+          onTap: () => _showNetworkImagePreview(imageUrl),
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.only(top: 4.0),
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              height: 200,
+              width: double.infinity,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(child: CircularProgressIndicator()),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14.0),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 17,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.grey.shade600, size: 20),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                  fontSize: 15,
+                ),
+                softWrap: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// --- WIDGET BARU: UNTUK PREVIEW GAMBAR FULLSCREEN ---
+class _NetworkImagePreviewScreen extends StatelessWidget {
+  final String imageUrl;
+  const _NetworkImagePreviewScreen({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          panEnabled: true,
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Image.network(imageUrl),
+        ),
+      ),
     );
   }
 }

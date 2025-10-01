@@ -23,6 +23,12 @@ class AttendanceProvider extends ChangeNotifier {
   bool get hasClockedOut => _hasClockedOut;
 
   // Pola perbaikan diterapkan di semua fungsi yang memanggil API
+
+  void resetStatus() {
+    _status = AttendanceProcessStatus.idle;
+    _message = null;
+    notifyListeners();
+  }
   
   Future<void> checkTodayAttendanceStatus({
     required BuildContext context,
@@ -36,7 +42,9 @@ class AttendanceProvider extends ChangeNotifier {
     } catch (e) {
       final errorString = e.toString();
       if (errorString.contains('Unauthenticated')) {
-        Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        if (context.mounted) {
+          Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
+        }
       } else {
         print("Gagal cek status: $e");
       }
@@ -49,6 +57,7 @@ class AttendanceProvider extends ChangeNotifier {
     required String token,
   }) async {
     _status = AttendanceProcessStatus.processing;
+    _message = null;
     notifyListeners();
     try {
       await _attendanceService.clockIn(image, token);
@@ -76,6 +85,7 @@ class AttendanceProvider extends ChangeNotifier {
     required Position position,
   }) async {
     _status = AttendanceProcessStatus.processing;
+    _message = null;
     notifyListeners();
     try {
       await _attendanceService.clockInWithLocation(
@@ -84,17 +94,15 @@ class AttendanceProvider extends ChangeNotifier {
       _message = 'Absensi Datang berhasil direkam!';
       await checkTodayAttendanceStatus(context: context, token: token);
     } catch (e) {
-      final errorString = e.toString();
+      final errorString = e.toString().replaceFirst('Exception: ', '');
       if (errorString.contains('Unauthenticated')) {
         Provider.of<AuthProvider>(context, listen: false).handleInvalidSession();
       } else {
         _status = AttendanceProcessStatus.error;
         _message = errorString;
       }
-    } finally {
-      _status = AttendanceProcessStatus.idle;
+    } 
       notifyListeners();
-    }
   }
 
   Future<void> performClockOut({
@@ -103,6 +111,7 @@ class AttendanceProvider extends ChangeNotifier {
     required String token,
   }) async {
     _status = AttendanceProcessStatus.processing;
+    _message = null;
     notifyListeners();
     try {
       await _attendanceService.clockOut(image, token);
@@ -117,9 +126,7 @@ class AttendanceProvider extends ChangeNotifier {
         _status = AttendanceProcessStatus.error;
         _message = errorString;
       }
-    } finally {
-      _status = AttendanceProcessStatus.idle;
+    } 
       notifyListeners();
-    }
   }
 }

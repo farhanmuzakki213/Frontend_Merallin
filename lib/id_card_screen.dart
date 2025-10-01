@@ -10,6 +10,8 @@ import 'package:frontend_merallin/services/download_service.dart';
 import 'package:frontend_merallin/services/notification_service.dart';
 import 'package:provider/provider.dart';
 
+import 'utils/snackbar_helper.dart';
+
 class IdCardScreen extends StatefulWidget {
   const IdCardScreen({super.key});
 
@@ -25,10 +27,13 @@ class _IdCardScreenState extends State<IdCardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ===== PERUBAHAN DI SINI =====
-      Provider.of<IdCardProvider>(context, listen: false)
-          .fetchIdCard(context: context);
+      _loadInitialData();
     });
+  }
+
+  Future<void> _loadInitialData() async {
+    await Provider.of<IdCardProvider>(context, listen: false)
+        .fetchIdCard(context: context);
   }
   
   Future<void> _handleDownload(String? tempPdfPath) async {
@@ -88,7 +93,7 @@ class _IdCardScreenState extends State<IdCardScreen> {
     final fileName = 'ID-Card-$userName';
 
     try {
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Mempersiapkan file...')));
+      showInfoSnackBar(context, 'Mempersiapkan file...');
       
       final fileBytes = await File(tempPdfPath).readAsBytes();
       if (!mounted) return;
@@ -108,14 +113,14 @@ class _IdCardScreenState extends State<IdCardScreen> {
       context.read<IdCardProvider>().setAsDownloaded();
       
       scaffoldMessenger.removeCurrentSnackBar();
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('DOWNLOAD BERHASIL.')));
+      showSuccessSnackBar(context, 'DOWNLOAD BERHASIL.');
 
       await NotificationService.showDownloadCompleteNotification(filePath: savedPath, fileName: '$fileName.pdf');
 
     } catch (e) {
       if(mounted) {
         scaffoldMessenger.removeCurrentSnackBar();
-        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Gagal: ${e.toString().replaceFirst('Exception: ', '')}')));
+        showErrorSnackBar(context, 'Gagal: ${e.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
       if(mounted) setState(() => _isSaving = false);
@@ -132,6 +137,11 @@ class _IdCardScreenState extends State<IdCardScreen> {
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadInitialData,
+            tooltip: 'Muat Ulang',
+          ),
           if (idCardProvider.status == IdCardStatus.success && idCardProvider.pdfPath != null)
             IconButton(
               icon: _isSaving
@@ -142,22 +152,65 @@ class _IdCardScreenState extends State<IdCardScreen> {
             ),
         ],
       ),
-      body: Builder(
-        builder: (context) {
-          switch (idCardProvider.status) {
-            case IdCardStatus.loading:
-              return const Center(child: CircularProgressIndicator());
-            case IdCardStatus.error:
-              return Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(idCardProvider.errorMessage ?? 'Terjadi kesalahan.', textAlign: TextAlign.center)));
-            case IdCardStatus.success:
-              if (idCardProvider.pdfPath != null) {
-                return PDFView(filePath: idCardProvider.pdfPath!);
-              }
-              return const Center(child: Text('Gagal memuat file PDF.'));
-            default:
-              return const Center(child: Text('Memuat ID Card...'));
-          }
-        },
+      body: RefreshIndicator(
+        onRefresh: _loadInitialData,
+        child: Builder(
+          builder: (context) {
+            switch (idCardProvider.status) {
+              case IdCardStatus.loading:
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                    );
+                  }
+                );
+              case IdCardStatus.error:
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(idCardProvider.errorMessage ?? 'Terjadi kesalahan.', textAlign: TextAlign.center))),
+                      ),
+                    );
+                  }
+                );
+              case IdCardStatus.success:
+                if (idCardProvider.pdfPath != null) {
+                  return PDFView(filePath: idCardProvider.pdfPath!);
+                }
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: const Center(child: Text('Gagal memuat file PDF.')),
+                      ),
+                    );
+                  }
+                );
+              default:
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: const Center(child: Text('Memuat ID Card...')),
+                      ),
+                    );
+                  }
+                );
+            }
+          },
+        ),
       ),
     );
   }
