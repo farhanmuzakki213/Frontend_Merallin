@@ -3,6 +3,8 @@ import 'package:hive/hive.dart';
 
 part 'user_model.g.dart';
 
+
+// Di-generate dengan Hive untuk penyimpanan lokal (cache).
 @HiveType(typeId: 0)
 class User {
   @HiveField(0)
@@ -28,7 +30,7 @@ class User {
   // ID KARYAWAN
   final String? idCardUrl;
 
-  @HiveField(7) // <-- NIK
+  @HiveField(7)
   final String nik;
 
   const User({
@@ -39,8 +41,8 @@ class User {
     this.phoneNumber,
     required this.roles,
     required this.profilePhotoUrl,
-    this.idCardUrl, // <-- Tambahkan constructor ID KARYAWAN
-    required this.nik, // <-- Tambahkan constructor NIK KARYAWAN
+    this.idCardUrl,
+    required this.nik,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {

@@ -1,5 +1,8 @@
 // lib/models/vehicle_model.dart
 
+/*
+ * Model untuk merepresentasikan data sebuah kendaraan.
+ */
 class Vehicle {
   final int id;
   final String licensePlate;
@@ -22,7 +25,11 @@ class Vehicle {
     );
   }
 
-  // Untuk perbandingan di dropdown
+
+  /*
+   * Override operator '==' untuk membandingkan dua objek Vehicle berdasarkan ID-nya.
+   * Untuk pengecekan kesamaan objek, misalnya dalam Dropdown.
+   */
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

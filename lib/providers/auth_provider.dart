@@ -14,6 +14,8 @@ import '../services/navigation_service.dart';
 import '../services/profile_service.dart';
 import '../main.dart';
 
+
+// Enum untuk status otentikasi.
 enum AuthStatus {
   uninitialized,
   authenticated,

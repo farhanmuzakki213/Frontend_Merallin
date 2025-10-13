@@ -5,6 +5,8 @@ import 'vehicle_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+
+// merepresentasikan status turunan (derived status) dari sebuah perjalanan (Trip).
 enum TripDerivedStatus {
   tersedia,
   proses,
@@ -14,6 +16,10 @@ enum TripDerivedStatus {
   tidakDiketahui
 }
 
+
+/*
+ * Kelas untuk menampung status verifikasi foto, termasuk siapa yang memverifikasi dan kapan.
+ */
 class PhotoVerificationStatus {
   final String? status;
   final int? verifiedBy;
@@ -53,6 +59,11 @@ class DocumentRevisionInfo {
   DocumentRevisionInfo(this.document, this.pageIndex);
 }
 
+
+/*
+ * Model data sebuah perjalanan (Trip).
+ * Berisi semua informasi terkait perjalanan, mulai dari alamat, kendaraan, hingga semua foto dokumentasi.
+ */
 class Trip {
   final int id;
   final int? userId;
@@ -176,6 +187,7 @@ class Trip {
     required this.fullBongkarPhotoUrls,
   });
 
+  // Membuat salinan objek Trip dengan beberapa field yang diperbaharui
   Trip copyWith({
     int? id,
     int? userId,
@@ -306,6 +318,8 @@ class Trip {
     );
   }
 
+
+  // Getter untuk memeriksa apakah semua proses akhir perjalanan telah selesai dan disetujui.
   bool get isFullyCompleted {
     final finalLetters = deliveryLetterPath['final_letters'];
 
@@ -342,10 +356,14 @@ class Trip {
     }
   }
 
+
+  // Fungsi untuk mendapatkan semua status verifikasi dari seluruh dokumen.
   List<PhotoVerificationStatus> getAllVerificationStatuses() {
     return allDocuments.map((doc) => doc.verificationStatus).toList();
   }
 
+
+  // Getter untuk mengumpulkan semua dokumen/foto yang telah diunggah selama perjalanan.
   List<DocumentInfo> get allDocuments {
     return [
       if (startKmPhotoPath != null)
@@ -405,6 +423,11 @@ class Trip {
     ];
   }
 
+
+/*
+ *  Getter untuk menemukan dokumen pertama yang ditolak (rejected).
+ *  Untuk mengarahkan user langsung ke halaman revisi yang sesuai.
+ */
   DocumentRevisionInfo? get firstRejectedDocumentInfo {
     for (final doc in allDocuments) {
       if (doc.verificationStatus.isRejected) {
@@ -445,6 +468,7 @@ class Trip {
     return null;
   }
 
+  // Getter untuk mengumpulkan semua alasan penolakan dari dokumen yang ditolak menjadi satu string yang mudah dibaca
   String? get allRejectionReasons {
     final reasons = allDocuments
         .where((doc) => doc.verificationStatus.isRejected)

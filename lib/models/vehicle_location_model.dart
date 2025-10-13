@@ -6,6 +6,10 @@ import 'trip_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+/*
+ * Model data lokasi kendaraan di luar perjalanan (Trip),
+ * misalnya saat standby atau kembali ke pool.
+ */
 class VehicleLocation {
   final int id;
   final int userId;
@@ -59,10 +63,14 @@ class VehicleLocation {
     this.fullEndKmPhotoUrl,
   });
 
+
+  // getter untuk memeriksa apakah proses laporan lokasi kendaraan sudah selesai dan disetujui.
   bool get isFullyCompleted {
     return endKmPhotoPath != null && endKmPhotoStatus.isApproved;
   }
 
+
+  // Getter untuk menentukan status turunan (derived status) dari laporan lokasi kendaraan.
   TripDerivedStatus get derivedStatus {
     if ([standbyPhotoStatus, startKmPhotoStatus, endKmPhotoStatus]
         .any((s) => s.status?.toLowerCase() == 'rejected')) {
@@ -80,6 +88,8 @@ class VehicleLocation {
     return TripDerivedStatus.proses;
   }
 
+
+  // Getter untuk mengumpulkan semua dokumen/foto yang telah diunggah.
   List<DocumentInfo> get allDocuments {
     return [
       if (standbyPhotoPath != null)
@@ -106,7 +116,7 @@ class VehicleLocation {
     ];
   }
 
-  // <-- PERBAIKAN: Gunakan getter allDocuments
+  // Getter untuk menemukan dokumen pertama yang ditolak (rejected).
   DocumentRevisionInfo? get firstRejectedDocumentInfo {
     for (final doc in allDocuments) {
       if (doc.verificationStatus.isRejected) {

@@ -1,5 +1,9 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+
+/*
+ * Model riwayat absensi.
+ */
 class AttendanceHistory {
   final int id;
   final String namaUser;

@@ -33,6 +33,10 @@ extension LeaveTypeExtension on LeaveType {
   }
 }
 
+
+/*
+ * Model data pengajuan izin.
+ */
 class Izin {
   final int id;
   final int userId;
@@ -60,8 +64,8 @@ class Izin {
 
     final String imageBaseUrl = dotenv.env['API_BASE_IMAGE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '';
 
-    // 2. Buat fungsi helper untuk membangun URL yang lengkap dan aman.
     String? buildFullUrl(String? relativePath) {
+
       // Jika path null atau kosong, kembalikan null.
       if (relativePath == null || relativePath.isEmpty) return null;
       
@@ -105,7 +109,7 @@ class Izin {
       'tanggal_mulai': tanggalMulai.toIso8601String(),
       'tanggal_selesai': tanggalSelesai.toIso8601String(),
       'alasan': alasan,
-      'url_bukti': fullUrlBukti, // Backend akan mengabaikan ini saat create
+      'url_bukti': fullUrlBukti,
     };
   }
 }

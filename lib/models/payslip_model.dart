@@ -1,7 +1,11 @@
 // lib/models/payslip_model.dart
 
-import 'package:timezone/timezone.dart' as tz; // <-- TAMBAHKAN IMPOR INI
+import 'package:timezone/timezone.dart' as tz;
 
+
+/*
+ * Model data slip gaji (Payslip).
+ */
 class PayslipSummary {
   final int id;
   final String fileUrl;

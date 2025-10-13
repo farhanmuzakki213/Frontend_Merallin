@@ -3,6 +3,9 @@ import 'vehicle_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+/*
+ * Kelas untuk menampung status verifikasi foto beserta alasan penolakannya.
+ */
 class BbmPhotoVerificationStatus {
   final String? status;
   final String? rejectionReason;
@@ -17,10 +20,15 @@ class BbmPhotoVerificationStatus {
     );
   }
 
+
+  // getter untuk persetuan dan penolakan
   bool get isApproved => status?.toLowerCase() == 'approved';
   bool get isRejected => status?.toLowerCase() == 'rejected';
 }
 
+/*
+ * class untuk menampung informasi detail dari sebuah dokumen (foto) BBM
+ */
 class BbmDocumentInfo {
   final String type;
   final String name;
@@ -29,6 +37,10 @@ class BbmDocumentInfo {
   BbmDocumentInfo(this.type, this.name, this.verificationStatus, this.urls);
 }
 
+/*
+ * class untuk menampung informasi dokumen yang perlu direvisi,
+ * menggabungkan data dokumen dengan `pageIndex` untuk navigasi di UI.
+ */
 class BbmDocumentRevisionInfo {
   final BbmDocumentInfo document;
   final int pageIndex;
@@ -38,6 +50,9 @@ class BbmDocumentRevisionInfo {
 
 enum BbmStatus { proses, verifikasiGambar, selesai, revisiGambar }
 
+/*
+ * Model utama data pengajuan BBM oleh user untuk sebuah kendaraan.
+ */
 class BbmKendaraan {
   final int id;
   final int userId;
@@ -127,6 +142,10 @@ class BbmKendaraan {
     ];
   }
 
+  /*
+   * Getter untuk menemukan dokumen pertama yang ditolak (rejected).
+   * untuk mengarahkan user langsung ke halaman revisi yang sesuai.
+   */
   BbmDocumentRevisionInfo? get firstRejectedDocumentInfo {
     for (final doc in allDocuments) {
       if (doc.verificationStatus.isRejected) {
@@ -148,6 +167,10 @@ class BbmKendaraan {
     return null;
   }
 
+
+  /*
+   * Getter untuk mengumpulkan semua alasan penolakan dari dokumen yang ditolak menjadi satu string yang terformat.
+   */
   String? get allRejectionReasons {
     final reasons = allDocuments
       .where((doc) => doc.verificationStatus.isRejected)

@@ -625,20 +625,12 @@ class _StartTripPageState extends State<_StartTripPage> {
   @override
   void initState() {
     super.initState();
-    final tripProvider = context.read<TripProvider>();
-
-    if (widget.trip.vehicleId != null && tripProvider.vehicles.isNotEmpty) {
-      try {
-        _selectedVehicle = tripProvider.vehicles
-            .firstWhere((v) => v.id == widget.trip.vehicleId);
-      } catch (e) {
-        _selectedVehicle = null;
-      }
-    }
+    _selectedVehicle = widget.trip.vehicle;
+    
     _startKmController.text = widget.trip.startKm?.toString() ?? '';
   }
 
-  Future<Trip?> validateAndSubmit() async {
+  Future<Trip?> validateAndSubmit() {
     final isRevision =
         widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
     final provider = context.read<TripProvider>();
@@ -648,7 +640,7 @@ class _StartTripPageState extends State<_StartTripPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Kendaraan harus dipilih.'),
           backgroundColor: Colors.red));
-      return null;
+      return Future.value(null);
     }
 
     if (!isRevision) {
@@ -659,7 +651,7 @@ class _StartTripPageState extends State<_StartTripPage> {
               content: Text('Foto KM Awal tidak boleh kosong'),
               backgroundColor: Colors.red));
         }
-        return null;
+        return Future.value(null);
       }
     } else {
       if (widget.trip.startKmPhotoStatus.isRejected &&
@@ -667,7 +659,7 @@ class _StartTripPageState extends State<_StartTripPage> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Silakan unggah ulang foto KM Awal yang ditolak.'),
             backgroundColor: Colors.orange));
-        return null;
+        return Future.value(null);
       }
     }
 
@@ -683,8 +675,15 @@ class _StartTripPageState extends State<_StartTripPage> {
   @override
   Widget build(BuildContext context) {
     final kmStatus = widget.trip.startKmPhotoStatus;
-    final isFormEnabled = !kmStatus.isApproved;
+    final isRevision = widget.trip.derivedStatus == TripDerivedStatus.revisiGambar;
+    final isFormEnabled = !kmStatus.isApproved && !isRevision;
     final vehicles = context.watch<TripProvider>().vehicles;
+    final availableVehicles = context.watch<TripProvider>().vehicles;
+    final dropdownVehicles = List<Vehicle>.from(availableVehicles);
+
+    if (_selectedVehicle != null && !dropdownVehicles.any((v) => v.id == _selectedVehicle!.id)) {
+      dropdownVehicles.insert(0, _selectedVehicle!);
+    }
 
     return Form(
       key: _formKey,
@@ -700,7 +699,7 @@ class _StartTripPageState extends State<_StartTripPage> {
           const SizedBox(height: 24),
           DropdownButtonFormField<Vehicle>(
             value: _selectedVehicle,
-            items: vehicles.map((Vehicle vehicle) {
+            items: dropdownVehicles.map((Vehicle vehicle) {
               return DropdownMenuItem<Vehicle>(
                 value: vehicle,
                 child: Text("${vehicle.licensePlate} (${vehicle.model})"),
@@ -712,8 +711,6 @@ class _StartTripPageState extends State<_StartTripPage> {
                 : null,
             decoration: InputDecoration(
               labelText: 'Pilih Kendaraan',
-              hintText:
-                  !isFormEnabled ? 'Data sudah disetujui' : 'Pilih dari daftar',
               filled: true,
               fillColor: isFormEnabled ? Colors.grey[100] : Colors.grey[200],
               border: OutlineInputBorder(
