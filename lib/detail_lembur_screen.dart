@@ -238,6 +238,8 @@ class _DetailLemburScreenState extends State<DetailLemburScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detail Lembur'),
+        backgroundColor: Colors.blue[700],
+        foregroundColor: Colors.white,
       ),
       // Gunakan Consumer untuk mendengarkan perubahan state detail
       body: Consumer<LemburProvider>(

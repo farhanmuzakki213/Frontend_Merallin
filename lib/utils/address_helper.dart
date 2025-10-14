@@ -2,6 +2,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 
+
+/*
+ * Helper Fubction untuk mengubah latitude dan longitude menjadi alamat lengkap
+ * Menggunakan Reverse Geocoding
+ */
+
 class AddressHelper {
   // Mengurai string aneh seperti '{latitude: -6.123, longitude: 106.456}'
   static Map<String, double>? parseLocationString(String? locationString) {

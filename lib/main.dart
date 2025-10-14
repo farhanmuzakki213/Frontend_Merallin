@@ -133,8 +133,10 @@ class MyApp extends StatelessWidget {
               navigatorKey: NavigationService.navigatorKey,
               title: 'Merallin Group',
               theme: ThemeData(
+                useMaterial3: false,
                 primarySwatch: Colors.blue,
                 fontFamily: 'Poppins',
+                scaffoldBackgroundColor: Colors.white,
               ),
               debugShowCheckedModeBanner: false,
               localizationsDelegates: const [

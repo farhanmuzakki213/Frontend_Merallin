@@ -12,7 +12,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path/path.dart' as p;
 
-/// Data class to hold the stamped image file and its location data.
+
+/*
+ * Helper Function Untuk memanggil Kamera
+ * Menambahkan Timestamp pada hasil foto serta alamat lengkap
+ * Mengkompress hasil foto
+ */
+
+
 class GeotaggedImageResult {
   final File file;
   final Position? position;
@@ -21,7 +28,6 @@ class GeotaggedImageResult {
 }
 
 class ImageHelper {
-  // ================== FUNGSI INTI (PRIVATE) UNTUK MENGGAMBAR TIMESTAMP ==================
   static Future<GeotaggedImageResult?> _processAndStampImage(
     BuildContext context,
     Uint8List imageBytes, {
@@ -39,7 +45,6 @@ class ImageHelper {
               timeLimit: const Duration(seconds: 10));
         } catch (e) {
           debugPrint("Gagal mendapatkan lokasi: $e");
-          // Tidak melempar error, lanjutkan dengan posisi null
         }
       }
 
@@ -163,10 +168,7 @@ class ImageHelper {
     }
   }
 
-  // ================== FUNGSI PUBLIK YANG DIPERBARUI & BARU ==================
-
-  /// [TIDAK BERUBAH] Mengambil satu foto dari kamera dan menambahkan timestamp.
-  /// Hanya mengembalikan File.
+  // Ambil foto & Kompresi gambar
   static Future<File?> takePhoto(BuildContext context) async {
     final picker = ImagePicker();
     final pickedFile =
@@ -187,8 +189,8 @@ class ImageHelper {
     return result?.file;
   }
 
-  /// [BARU] Mengambil foto, memberi timestamp, DAN mengembalikan data lokasi.
-  /// Mengembalikan [GeotaggedImageResult] yang berisi file dan data lokasi.
+
+  // Ambil foto & Pasang Timestamp & Kompresi gambar
   static Future<GeotaggedImageResult?> takePhotoWithLocation(
       BuildContext context) async {
     final picker = ImagePicker();
@@ -210,7 +212,7 @@ class ImageHelper {
   }
 
 
-  /// [TIDAK BERUBAH] Memilih banyak gambar dari galeri dan menambahkan timestamp ke semuanya.
+  /// Untuk Multi Foto
   static Future<List<File>> pickMultipleImages(BuildContext context) async {
     final picker = ImagePicker();
     final pickedFiles = await picker.pickMultiImage(imageQuality: 85);
@@ -259,7 +261,6 @@ class ImageHelper {
     return processedFiles;
   }
 
-  /// [TIDAK BERUBAH] Fungsi lama diganti untuk menggunakan helper baru, agar konsisten
   static Future<File?> takeGeotaggedPhoto(BuildContext context) async {
     return takePhoto(context);
   }

@@ -106,8 +106,8 @@ class _LemburScreenState extends State<LemburScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Riwayat Lembur Saya'),
-        // backgroundColor: Colors.blue,
-        // foregroundColor: Colors.black87,
+        backgroundColor: Colors.blue[700],
+        foregroundColor: Colors.white,
         elevation: 1,
         actions: [
           IconButton(

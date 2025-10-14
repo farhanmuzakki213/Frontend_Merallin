@@ -1,6 +1,13 @@
+/*
+ * Helper Function Untuk Snackbar
+ * Mengambil log error dari backend
+ */
+
+
+
 import 'package:flutter/material.dart';
 
-// Snackbar for general information (Blue)
+// Snackbar untuk pesan Info (Biru)
 void showInfoSnackBar(BuildContext context, String message) {
   if (!context.mounted) return;
 
@@ -29,6 +36,8 @@ void showInfoSnackBar(BuildContext context, String message) {
   );
 }
 
+
+// Snackbar untuk pesan Peringatan (Kuning)
 void showWarningSnackBar(BuildContext context, String message) {
   if (!context.mounted) return;
 
@@ -57,6 +66,8 @@ void showWarningSnackBar(BuildContext context, String message) {
   );
 }
 
+
+// Snackbar untuk pesan Error (Merah)
 void showErrorSnackBar(BuildContext context, String message) {
   if (!context.mounted) return;
 
@@ -85,6 +96,8 @@ void showErrorSnackBar(BuildContext context, String message) {
   );
 }
 
+
+// Snackbar untuk pesan Succes (Hijau)
 void showSuccessSnackBar(BuildContext context, String message) {
   if (!context.mounted) return;
 

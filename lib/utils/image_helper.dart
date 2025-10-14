@@ -10,9 +10,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path/path.dart' as p;
 
+
+
+/*
+ * Helper Function Untuk memanggil Kamera
+ * Menambahkan Timestamp pada hasil foto serta alamat lengkap
+ * Mengkompress hasil foto
+ * Utuk Absen
+ */
+
 class ImageHelper {
-  /// Compresses the given image bytes until the size is below the target size.
-  /// This function will loop and reduce quality until the target is met.
   static Future<Uint8List> _compressImageEfficiently(
     Uint8List imageBytes, {
     int targetSizeInBytes = 3 * 1024, // 3 MB
@@ -46,7 +53,6 @@ class ImageHelper {
     );
     size = result.lengthInBytes;
 
-    // Sesuaikan kualitas secara cerdas, bukan dengan loop ekstrem.
     if (size > targetSizeInBytes) {
       double compressionFactor = targetSizeInBytes / size;
       int newQuality = (quality * compressionFactor).round();

@@ -27,14 +27,10 @@ class HttpInterceptor {
     return response;
   }
   
-  // Tambahkan method lain jika perlu (put, delete, dll.)
 
   void _handleResponse(http.Response response) {
-    // Cek jika status code adalah 401 (Unauthorized)
     if (response.statusCode == 401) {
-      // Panggil fungsi logout di AuthProvider
       _authProvider.handleInvalidSession();
-      // Lemparkan error agar proses selanjutnya di service berhenti
       throw Exception('Sesi tidak valid atau telah berakhir.');
     }
   }
